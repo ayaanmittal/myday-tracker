@@ -1,0 +1,22 @@
+-- Insert office rules
+INSERT INTO public.office_rules (title, description) VALUES
+('Work Hours', 'Official office timing: 10:00 AM to 6:30 PM. All employees must be seated by 10:30 AM. Late arrivals (after 10:45 AM) will be marked as late in MyDay.zoogol.in.'),
+('Daily Check-In (Mandatory)', 'Every employee must log in to MyDay.zoogol.in immediately upon starting the day. This automatically records a timestamp and attendance.'),
+('Daily Check-Out (Mandatory)', 'Before leaving, employees must fill their daily update on MyDay: what was done, progress, and blockers — and click "Log Off". No entry = day incomplete.'),
+('Weekly Check-Ins', 'Every Monday, Wednesday, and Friday we''ll have short team meetings at 10:30 AM to align tasks, share progress, and resolve issues. Attendance is mandatory.'),
+('Monthly Performance Reports', 'A performance summary will be shared at the end of every month, based on MyDay logs, attendance, and task completion. These reports help identify consistency, initiative, and improvement.'),
+('Lunch Break', 'Lunch break is between 1:30 PM – 2:30 PM. Everyone is encouraged to take a proper lunch, but please be back on time. Avoid extending breaks without permission.'),
+('Office Decorum', 'Maintain a calm, professional atmosphere. Light chatter or laughter is fine, but avoid loud noise, gossip, or disruptions — especially when others are focused.'),
+('Uniform & Dress Code', 'The workplace should reflect professionalism. Smart casuals or company attire preferred. Avoid shorts, slippers, or overly casual clothing during work hours.'),
+('Workspace Discipline', 'Keep your desk organized and clean. Files, papers, and materials must be properly stored by end of day. A tidy workspace = clear mindset.'),
+('Phones & Distractions', 'Personal phone use should be minimal during work hours. Avoid long personal calls, scrolling, or loud ringtones. Urgent matters — step outside briefly.'),
+('Breaks & Refreshments', 'Tea/coffee breaks limited to two short breaks (10 min each) outside of lunch hours. Keep pantry areas clean after use.'),
+('Team Meetings', 'Every Monday, Wednesday, Friday — 10:30 AM sharp — conference room meetings for 20–30 minutes. We review previous work, today''s goals, and key updates.'),
+('MyDay Usage', 'All work hours, updates, and logs will be recorded in MyDay.zoogol.in. Data is used for performance tracking and monthly summaries. Missed entries reflect incomplete reporting.'),
+('Task Ownership', 'Each employee is responsible for their own tasks and deadlines. Always communicate delays or blockers early. No last-minute excuses.'),
+('Reporting Structure', 'All updates, progress reports, or new ideas should be shared with your immediate lead or Ayaan (Operations Head). Keep communication transparent.'),
+('Office Conduct', 'Be respectful, punctual, and cooperative. No negative talk, personal conflicts, or disrespectful behavior will be tolerated. Maintain a positive professional attitude.'),
+('Confidentiality', 'Office data, projects, or internal systems are confidential. Do not share screenshots, internal discussions, or files outside the team.'),
+('Performance Evaluation', 'Your overall performance = Attendance + MyDay Consistency + Quality of Updates + Timeliness + Team Behavior. Reports are reviewed monthly and discussed one-on-one.'),
+('Leave Policy', 'Leaves should be informed at least 1 day in advance (except emergencies). Repeated unplanned absences affect performance rating.'),
+('Office Energy', 'Everyone contributes to the vibe of this space. Keep it lively but focused — help each other, share ideas, and keep learning. "Work serious, vibe easy."');
