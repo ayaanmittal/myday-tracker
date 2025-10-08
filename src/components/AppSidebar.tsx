@@ -1,4 +1,4 @@
-import { Home, Calendar, Users, MessageSquare, Settings, LogOut } from 'lucide-react';
+import { Home, Calendar, Users, MessageSquare, Settings, LogOut, UserCog } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import {
   Sidebar,
@@ -13,25 +13,29 @@ import {
 } from '@/components/ui/sidebar';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useMessageNotifications } from '@/hooks/useMessageNotifications';
 import logo from '@/assets/zoogol-logo.png';
+import { Badge } from '@/components/ui/badge';
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const { signOut } = useAuth();
   const { data: role } = useUserRole();
+  const { unreadCount } = useMessageNotifications();
 
   const employeeItems = [
-    { title: 'Today', url: '/today', icon: Home },
-    { title: 'History', url: '/history', icon: Calendar },
-    { title: 'Messages', url: '/messages', icon: MessageSquare },
+    { title: 'Today', url: '/today', icon: Home, badge: 0 },
+    { title: 'History', url: '/history', icon: Calendar, badge: 0 },
+    { title: 'Messages', url: '/messages', icon: MessageSquare, badge: unreadCount },
   ];
 
   const adminItems = [
-    { title: 'Dashboard', url: '/dashboard', icon: Home },
-    { title: 'Employees', url: '/employees', icon: Users },
-    { title: 'Messages', url: '/messages', icon: MessageSquare },
-    { title: 'Settings', url: '/settings', icon: Settings },
+    { title: 'Dashboard', url: '/dashboard', icon: Home, badge: 0 },
+    { title: 'Employees', url: '/employees', icon: Users, badge: 0 },
+    { title: 'Manage Users', url: '/manage-employees', icon: UserCog, badge: 0 },
+    { title: 'Messages', url: '/messages', icon: MessageSquare, badge: unreadCount },
+    { title: 'Settings', url: '/settings', icon: Settings, badge: 0 },
   ];
 
   const items = role === 'admin' ? adminItems : employeeItems;
@@ -65,7 +69,16 @@ export function AppSidebar() {
                       }
                     >
                       <item.icon className="h-5 w-5" />
-                      {!collapsed && <span>{item.title}</span>}
+                      {!collapsed && (
+                        <div className="flex items-center justify-between flex-1">
+                          <span>{item.title}</span>
+                          {item.badge && item.badge > 0 && (
+                            <Badge className="ml-auto bg-destructive text-destructive-foreground">
+                              {item.badge}
+                            </Badge>
+                          )}
+                        </div>
+                      )}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>

@@ -16,6 +16,7 @@ import Dashboard from "./pages/Dashboard";
 import Messages from "./pages/Messages";
 import Employees from "./pages/Employees";
 import Settings from "./pages/Settings";
+import ManageEmployees from "./pages/ManageEmployees";
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/history" element={<History />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/employees" element={<Employees />} />
+            <Route path="/manage-employees" element={<ManageEmployees />} />
             <Route path="/messages" element={<Messages />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
