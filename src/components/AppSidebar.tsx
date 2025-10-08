@@ -44,7 +44,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar className={collapsed ? 'w-16' : 'w-64'} collapsible="icon">
-      <SidebarContent className="bg-card">
+      <SidebarContent className="bg-card text-black">
         <div className={`p-4 border-b ${collapsed ? 'flex justify-center' : ''}`}>
           <img 
             src={logo} 
@@ -54,7 +54,7 @@ export function AppSidebar() {
         </div>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-foreground px-3">{collapsed ? '' : 'Navigation'}</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-black px-3">{collapsed ? '' : 'Navigation'}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (
