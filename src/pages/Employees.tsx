@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Layout } from '@/components/Layout';
-import { Calendar, Clock, MessageSquare, Search, TrendingUp, User } from 'lucide-react';
+import { Calendar, Clock, MessageSquare, Search, TrendingUp, User, AlertTriangle } from 'lucide-react';
 import { DatePicker } from '@/components/DatePicker';
 import {
   Table,
@@ -33,6 +33,18 @@ interface Employee {
   team: string | null;
   is_active: boolean;
   role: string;
+  violation_count?: number;
+}
+
+interface Violation {
+  id: string;
+  rule_id: string;
+  warning_level: number;
+  reason: string | null;
+  flagged_at: string;
+  office_rules: {
+    title: string;
+  };
 }
 
 interface EmployeeHistory {
@@ -55,6 +67,8 @@ export default function Employees() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
   const [employeeHistory, setEmployeeHistory] = useState<EmployeeHistory[]>([]);
+  const [employeeViolations, setEmployeeViolations] = useState<Violation[]>([]);
+  const [showViolations, setShowViolations] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -87,9 +101,20 @@ export default function Employees() {
         .from('user_roles')
         .select('user_id, role');
 
+      // Fetch violation counts for each employee
+      const { data: violationsData } = await supabase
+        .from('rule_violations')
+        .select('user_id');
+
+      const violationCounts = violationsData?.reduce((acc, v) => {
+        acc[v.user_id] = (acc[v.user_id] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
       const employeesWithRoles = profilesData?.map((profile) => ({
         ...profile,
         role: rolesData?.find((r) => r.user_id === profile.id)?.role || 'employee',
+        violation_count: violationCounts?.[profile.id] || 0,
       }));
 
       setEmployees(employeesWithRoles || []);
@@ -144,7 +169,32 @@ export default function Employees() {
 
   const handleViewEmployee = (employee: Employee) => {
     setSelectedEmployee(employee);
+    setShowViolations(false);
     fetchEmployeeHistory(employee.id);
+  };
+
+  const handleViewViolations = async (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setShowViolations(true);
+    
+    try {
+      const { data, error } = await supabase
+        .from('rule_violations')
+        .select('id, rule_id, warning_level, reason, flagged_at, office_rules(title)')
+        .eq('user_id', employee.id)
+        .order('flagged_at', { ascending: false });
+
+      if (error) throw error;
+      setEmployeeViolations(data as Violation[]);
+    } catch (error) {
+      console.error('Error fetching violations:', error);
+    }
+  };
+
+  const getWarningColor = (level: number) => {
+    if (level === 1) return "bg-yellow-500 hover:bg-yellow-600";
+    if (level === 2) return "bg-orange-500 hover:bg-orange-600";
+    return "bg-red-500 hover:bg-red-600";
   };
 
   const filteredEmployees = employees.filter(
@@ -204,6 +254,7 @@ export default function Employees() {
                   <TableHead>Team</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Violations</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -239,6 +290,21 @@ export default function Employees() {
                         {employee.is_active ? 'Active' : 'Inactive'}
                       </Badge>
                     </TableCell>
+                    <TableCell>
+                      {employee.violation_count && employee.violation_count > 0 ? (
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="gap-1"
+                          onClick={() => handleViewViolations(employee)}
+                        >
+                          <AlertTriangle className="h-4 w-4" />
+                          {employee.violation_count} Flag{employee.violation_count !== 1 ? 's' : ''}
+                        </Button>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">None</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right space-x-2">
                       <Button
                         size="sm"
@@ -270,7 +336,7 @@ export default function Employees() {
         </Card>
       </div>
 
-      <Dialog open={!!selectedEmployee} onOpenChange={() => setSelectedEmployee(null)}>
+      <Dialog open={!!selectedEmployee && !showViolations} onOpenChange={() => setSelectedEmployee(null)}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl">
@@ -369,6 +435,68 @@ export default function Employees() {
                       )}
                     </CardContent>
                   )}
+                </Card>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!selectedEmployee && showViolations} onOpenChange={() => setSelectedEmployee(null)}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl flex items-center gap-2">
+              <AlertTriangle className="h-6 w-6 text-destructive" />
+              {selectedEmployee?.name} - Rule Violations
+            </DialogTitle>
+            <DialogDescription>{selectedEmployee?.email}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-4">
+            {employeeViolations.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                No violations found
+              </div>
+            ) : (
+              employeeViolations.map((violation) => (
+                <Card key={violation.id} className="border-destructive">
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base">
+                        {violation.office_rules.title}
+                      </CardTitle>
+                      <Badge className={getWarningColor(violation.warning_level)}>
+                        {violation.warning_level === 1 ? "1st Warning" : 
+                         violation.warning_level === 2 ? "2nd Warning" : "3rd Warning"}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {violation.reason && (
+                      <div>
+                        <p className="text-sm font-semibold mb-1">Reason:</p>
+                        <p className="text-sm text-muted-foreground">{violation.reason}</p>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Calendar className="h-3 w-3" />
+                      <span>
+                        Flagged on {new Date(violation.flagged_at).toLocaleDateString('en-US', {
+                          weekday: 'long',
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                        })}
+                      </span>
+                      <Clock className="h-3 w-3 ml-2" />
+                      <span>
+                        {new Date(violation.flagged_at).toLocaleTimeString('en-US', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </span>
+                    </div>
+                  </CardContent>
                 </Card>
               ))
             )}
