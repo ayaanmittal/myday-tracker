@@ -7,10 +7,12 @@ import { Layout } from '@/components/Layout';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { Users, TrendingUp, Clock, AlertCircle, Calendar, CheckCircle2 } from 'lucide-react';
+import { Users, TrendingUp, Clock, AlertCircle, Calendar, CheckCircle2, User } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 
 interface AdminAnalytics {
   totalEmployees: number;
@@ -49,6 +51,8 @@ export default function AdminReports() {
   const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'quarter'>('month');
+  const [employees, setEmployees] = useState<Array<{ id: string; name: string; email: string }>>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<string>('all');
 
   useEffect(() => {
     if (!user) {
@@ -62,9 +66,24 @@ export default function AdminReports() {
     }
 
     if (role === 'admin') {
+      fetchEmployees();
       fetchAdminAnalytics();
     }
-  }, [user, role, roleLoading, navigate, selectedPeriod]);
+  }, [user, role, roleLoading, navigate, selectedPeriod, selectedEmployee]);
+
+  const fetchEmployees = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, name, email')
+        .order('name');
+
+      if (error) throw error;
+      setEmployees(data || []);
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+    }
+  };
 
   const fetchAdminAnalytics = async () => {
     try {
@@ -86,18 +105,22 @@ export default function AdminReports() {
           startDate = new Date(now.getFullYear(), now.getMonth(), 1);
       }
 
-      // Fetch all profiles
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('*');
+      // Fetch all profiles or single profile based on selection
+      let profilesQuery = supabase.from('profiles').select('*');
+      
+      if (selectedEmployee !== 'all') {
+        profilesQuery = profilesQuery.eq('id', selectedEmployee);
+      }
+
+      const { data: profiles, error: profilesError } = await profilesQuery;
 
       if (profilesError) throw profilesError;
 
       const totalEmployees = profiles?.length || 0;
       const activeEmployees = profiles?.filter(p => p.is_active).length || 0;
 
-      // Fetch all day entries for the period
-      const { data: entries, error: entriesError } = await supabase
+      // Fetch day entries for the period and selected employee
+      let entriesQuery = supabase
         .from('day_entries')
         .select(`
           *,
@@ -109,6 +132,12 @@ export default function AdminReports() {
         `)
         .gte('entry_date', startDate.toISOString().split('T')[0])
         .order('entry_date', { ascending: false });
+
+      if (selectedEmployee !== 'all') {
+        entriesQuery = entriesQuery.eq('user_id', selectedEmployee);
+      }
+
+      const { data: entries, error: entriesError } = await entriesQuery;
 
       if (entriesError) throw entriesError;
 
@@ -267,40 +296,87 @@ export default function AdminReports() {
   return (
     <Layout>
       <div className="p-6 max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Analytics & Reports</h1>
-            <p className="text-muted-foreground">Comprehensive workforce insights and performance metrics</p>
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Analytics & Reports</h1>
+              <p className="text-muted-foreground">Comprehensive workforce insights and performance metrics</p>
+            </div>
+            <div className="flex gap-2">
+              {(['week', 'month', 'quarter'] as const).map((period) => (
+                <button
+                  key={period}
+                  onClick={() => setSelectedPeriod(period)}
+                  className={`px-4 py-2 rounded-md transition-colors ${
+                    selectedPeriod === period
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted hover:bg-muted/80'
+                  }`}
+                >
+                  {period.charAt(0).toUpperCase() + period.slice(1)}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex gap-2">
-            {(['week', 'month', 'quarter'] as const).map((period) => (
-              <button
-                key={period}
-                onClick={() => setSelectedPeriod(period)}
-                className={`px-4 py-2 rounded-md transition-colors ${
-                  selectedPeriod === period
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted hover:bg-muted/80'
-                }`}
-              >
-                {period.charAt(0).toUpperCase() + period.slice(1)}
-              </button>
-            ))}
-          </div>
+
+          {/* Employee Selection */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Select Employee
+              </CardTitle>
+              <CardDescription>View analytics for all employees or a specific individual</CardDescription>
+            </CardHeader>
+            <CardContent className="flex items-center gap-4">
+              <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
+                <SelectTrigger className="w-[300px]">
+                  <SelectValue placeholder="Select an employee" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Employees</SelectItem>
+                  {employees.map((emp) => (
+                    <SelectItem key={emp.id} value={emp.id}>
+                      {emp.name} ({emp.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedEmployee !== 'all' && (
+                <Button 
+                  variant="outline" 
+                  onClick={() => setSelectedEmployee('all')}
+                  size="sm"
+                >
+                  Clear Selection
+                </Button>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Overview Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                {selectedEmployee === 'all' ? 'Total Employees' : 'Selected Employee'}
+              </CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{analytics.totalEmployees}</div>
-              <p className="text-xs text-success mt-1">
-                {analytics.activeEmployees} active
-              </p>
+              {selectedEmployee === 'all' ? (
+                <>
+                  <div className="text-2xl font-bold">{analytics.totalEmployees}</div>
+                  <p className="text-xs text-success mt-1">
+                    {analytics.activeEmployees} active
+                  </p>
+                </>
+              ) : (
+                <div className="text-lg font-medium">
+                  {employees.find(e => e.id === selectedEmployee)?.name}
+                </div>
+              )}
             </CardContent>
           </Card>
 
