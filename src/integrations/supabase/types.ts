@@ -14,16 +14,156 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      day_entries: {
+        Row: {
+          check_in_at: string | null
+          check_out_at: string | null
+          created_at: string
+          device_info: string | null
+          entry_date: string
+          id: string
+          ip_address: string | null
+          status: string
+          total_work_time_minutes: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          check_in_at?: string | null
+          check_out_at?: string | null
+          created_at?: string
+          device_info?: string | null
+          entry_date: string
+          id?: string
+          ip_address?: string | null
+          status?: string
+          total_work_time_minutes?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          check_in_at?: string | null
+          check_out_at?: string | null
+          created_at?: string
+          device_info?: string | null
+          entry_date?: string
+          id?: string
+          ip_address?: string | null
+          status?: string
+          total_work_time_minutes?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      day_updates: {
+        Row: {
+          blockers: string | null
+          created_at: string
+          day_entry_id: string
+          id: string
+          progress: string
+          today_focus: string
+          updated_at: string
+        }
+        Insert: {
+          blockers?: string | null
+          created_at?: string
+          day_entry_id: string
+          id?: string
+          progress: string
+          today_focus: string
+          updated_at?: string
+        }
+        Update: {
+          blockers?: string | null
+          created_at?: string
+          day_entry_id?: string
+          id?: string
+          progress?: string
+          today_focus?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "day_updates_day_entry_id_fkey"
+            columns: ["day_entry_id"]
+            isOneToOne: false
+            referencedRelation: "day_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          is_active: boolean
+          name: string
+          team: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id: string
+          is_active?: boolean
+          name: string
+          team?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          team?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_role: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["app_role"]
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "manager" | "employee"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +290,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "manager", "employee"],
+    },
   },
 } as const
