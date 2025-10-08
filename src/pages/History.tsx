@@ -19,6 +19,8 @@ interface HistoryEntry {
   entry_date: string;
   check_in_at: string | null;
   check_out_at: string | null;
+  lunch_break_start: string | null;
+  lunch_break_end: string | null;
   total_work_time_minutes: number | null;
   status: string;
   day_updates: Array<{
@@ -180,35 +182,114 @@ export default function History() {
                 })}
             </DialogTitle>
             <DialogDescription>
-              {selectedEntry?.check_in_at &&
-                `Checked in at ${new Date(selectedEntry.check_in_at).toLocaleTimeString('en-US', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}`}
-              {selectedEntry?.check_out_at &&
-                ` • Checked out at ${new Date(selectedEntry.check_out_at).toLocaleTimeString('en-US', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}`}
+              Work day details and updates
             </DialogDescription>
           </DialogHeader>
 
-          {selectedEntry?.day_updates?.[0] && (
-            <div className="space-y-4 mt-4">
-              <div>
-                <h4 className="font-semibold mb-2">What they worked on:</h4>
-                <p className="text-sm text-muted-foreground">{selectedEntry.day_updates[0].today_focus}</p>
+          {selectedEntry && (
+            <div className="space-y-6 mt-4">
+              {/* Time tracking section */}
+              <div className="space-y-3">
+                <h4 className="font-semibold text-base">Time Tracking</h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Check-in:</span>
+                    <p className="font-medium">
+                      {selectedEntry.check_in_at
+                        ? new Date(selectedEntry.check_in_at).toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })
+                        : 'Not checked in'}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Check-out:</span>
+                    <p className="font-medium">
+                      {selectedEntry.check_out_at
+                        ? new Date(selectedEntry.check_out_at).toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })
+                        : 'Not checked out'}
+                    </p>
+                  </div>
+                  {selectedEntry.lunch_break_start && selectedEntry.lunch_break_end && (
+                    <>
+                      <div>
+                        <span className="text-muted-foreground">Lunch start:</span>
+                        <p className="font-medium">
+                          {new Date(selectedEntry.lunch_break_start).toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Lunch end:</span>
+                        <p className="font-medium">
+                          {new Date(selectedEntry.lunch_break_end).toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Lunch duration:</span>
+                        <p className="font-medium">
+                          {Math.floor(
+                            (new Date(selectedEntry.lunch_break_end).getTime() -
+                              new Date(selectedEntry.lunch_break_start).getTime()) /
+                              60000
+                          )}{' '}
+                          minutes
+                        </p>
+                      </div>
+                    </>
+                  )}
+                  {selectedEntry.total_work_time_minutes && (
+                    <div>
+                      <span className="text-muted-foreground">Total work time:</span>
+                      <p className="font-medium text-success">
+                        {Math.floor(selectedEntry.total_work_time_minutes / 60)}h{' '}
+                        {selectedEntry.total_work_time_minutes % 60}m
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              <div>
-                <h4 className="font-semibold mb-2">Tasks completed:</h4>
-                <p className="text-sm text-muted-foreground">{selectedEntry.day_updates[0].progress}</p>
-              </div>
+              {/* Daily updates section */}
+              {selectedEntry.day_updates?.[0] ? (
+                <div className="space-y-4 border-t pt-4">
+                  <h4 className="font-semibold text-base">Daily Updates</h4>
+                  
+                  <div>
+                    <h5 className="font-semibold mb-2 text-sm">What they worked on:</h5>
+                    <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
+                      {selectedEntry.day_updates[0].today_focus}
+                    </p>
+                  </div>
 
-              {selectedEntry.day_updates[0].blockers && (
-                <div>
-                  <h4 className="font-semibold mb-2">Blockers:</h4>
-                  <p className="text-sm text-muted-foreground">{selectedEntry.day_updates[0].blockers}</p>
+                  <div>
+                    <h5 className="font-semibold mb-2 text-sm">Tasks completed:</h5>
+                    <p className="text-sm text-muted-foreground bg-muted/50 p-3 rounded-md">
+                      {selectedEntry.day_updates[0].progress}
+                    </p>
+                  </div>
+
+                  {selectedEntry.day_updates[0].blockers && (
+                    <div>
+                      <h5 className="font-semibold mb-2 text-sm text-destructive">Blockers:</h5>
+                      <p className="text-sm text-muted-foreground bg-destructive/5 p-3 rounded-md border border-destructive/20">
+                        {selectedEntry.day_updates[0].blockers}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="border-t pt-4">
+                  <p className="text-sm text-muted-foreground italic">No daily updates recorded</p>
                 </div>
               )}
             </div>
