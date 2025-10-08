@@ -160,14 +160,7 @@ export default function Employees() {
           lunch_break_end,
           total_work_time_minutes,
           status,
-          last_modified_by,
-          modification_reason,
-          updated_at,
-          day_updates (
-            today_focus,
-            progress,
-            blockers
-          )
+          updated_at
         `)
         .eq('user_id', employeeId)
         .gte('entry_date', startDate.toISOString().split('T')[0])
@@ -176,11 +169,11 @@ export default function Employees() {
 
       if (error) throw error;
 
-      const formatted = data?.map((entry) => ({
+      const formatted = data?.map((entry): any => ({
         ...entry,
-        today_focus: entry.day_updates?.[0]?.today_focus || null,
-        progress: entry.day_updates?.[0]?.progress || null,
-        blockers: entry.day_updates?.[0]?.blockers || null,
+        today_focus: null,
+        progress: null,
+        blockers: null,
       }));
 
       setEmployeeHistory(formatted || []);

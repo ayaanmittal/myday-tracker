@@ -133,7 +133,7 @@ export default function TaskManager() {
           .in('id', userIds);
 
         // Combine the data
-        const tasksWithProfiles = tasksData.map(task => ({
+        const tasksWithProfiles = tasksData.map((task): any => ({
           ...task,
           assigned_to_profile: profilesData?.find(profile => profile.id === task.assigned_to),
           assigned_by_profile: profilesData?.find(profile => profile.id === task.assigned_by)

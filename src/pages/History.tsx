@@ -127,12 +127,12 @@ export default function History() {
             .order('entry_date', { ascending: false });
           
           if (fallbackError) throw fallbackError;
-          setEntries(fallbackData || []);
+          setEntries(fallbackData as any || []);
           return;
         }
         throw error;
       }
-      setEntries(data || []);
+      setEntries(data as any || []);
     } catch (error) {
       console.error('Error fetching history:', error);
     } finally {

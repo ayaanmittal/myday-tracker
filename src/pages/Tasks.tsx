@@ -91,7 +91,7 @@ export default function Tasks() {
           .in('id', assignedByIds);
 
         // Combine the data
-        const tasksWithProfiles = tasksData.map(task => ({
+        const tasksWithProfiles = tasksData.map((task): any => ({
           ...task,
           assigned_by_profile: profilesData?.find(profile => profile.id === task.assigned_by)
         }));

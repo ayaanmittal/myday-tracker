@@ -86,7 +86,7 @@ try {
   }
   
   // Set a flag that React has loaded
-  window.reactLoaded = true;
+  (window as any).reactLoaded = true;
   console.log('React loaded flag set');
   
 } catch (error) {

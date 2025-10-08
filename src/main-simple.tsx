@@ -88,7 +88,7 @@ try {
         }
         
         // Set success flag
-        window.reactLoaded = true;
+        (window as any).reactLoaded = true;
         console.log('Simple React loading completed');
         
       }).catch((error) => {
