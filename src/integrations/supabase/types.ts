@@ -127,6 +127,33 @@ export type Database = {
         }
         Relationships: []
       }
+      office_rules: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          is_active: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          id?: string
+          is_active?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          is_active?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -156,6 +183,76 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      rule_acknowledgments: {
+        Row: {
+          acknowledged_at: string
+          id: string
+          rule_id: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string
+          id?: string
+          rule_id: string
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string
+          id?: string
+          rule_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rule_acknowledgments_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "office_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rule_violations: {
+        Row: {
+          created_at: string
+          flagged_at: string
+          flagged_by: string
+          id: string
+          reason: string | null
+          rule_id: string
+          user_id: string
+          warning_level: number
+        }
+        Insert: {
+          created_at?: string
+          flagged_at?: string
+          flagged_by: string
+          id?: string
+          reason?: string | null
+          rule_id: string
+          user_id: string
+          warning_level: number
+        }
+        Update: {
+          created_at?: string
+          flagged_at?: string
+          flagged_by?: string
+          id?: string
+          reason?: string | null
+          rule_id?: string
+          user_id?: string
+          warning_level?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rule_violations_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "office_rules"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {

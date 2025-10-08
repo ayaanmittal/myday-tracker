@@ -1,4 +1,4 @@
-import { Home, Calendar, Users, MessageSquare, Settings, LogOut, UserCog } from 'lucide-react';
+import { Home, Calendar, Users, MessageSquare, Settings, LogOut, UserCog, FileText, Shield } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import {
   Sidebar,
@@ -27,6 +27,7 @@ export function AppSidebar() {
   const employeeItems = [
     { title: 'Today', url: '/today', icon: Home, badge: 0 },
     { title: 'History', url: '/history', icon: Calendar, badge: 0 },
+    { title: 'Office Rules', url: '/office-rules', icon: FileText, badge: 0 },
     { title: 'Messages', url: '/messages', icon: MessageSquare, badge: unreadCount },
   ];
 
@@ -34,6 +35,7 @@ export function AppSidebar() {
     { title: 'Dashboard', url: '/dashboard', icon: Home, badge: 0 },
     { title: 'Employees', url: '/employees', icon: Users, badge: 0 },
     { title: 'Manage Users', url: '/manage-employees', icon: UserCog, badge: 0 },
+    { title: 'Manage Rules', url: '/manage-rules', icon: Shield, badge: 0 },
     { title: 'Messages', url: '/messages', icon: MessageSquare, badge: unreadCount },
     { title: 'Settings', url: '/settings', icon: Settings, badge: 0 },
   ];

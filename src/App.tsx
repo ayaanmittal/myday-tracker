@@ -17,6 +17,8 @@ import Messages from "./pages/Messages";
 import Employees from "./pages/Employees";
 import Settings from "./pages/Settings";
 import ManageEmployees from "./pages/ManageEmployees";
+import OfficeRules from "./pages/OfficeRules";
+import ManageRules from "./pages/ManageRules";
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -33,6 +35,8 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/employees" element={<Employees />} />
             <Route path="/manage-employees" element={<ManageEmployees />} />
+            <Route path="/office-rules" element={<OfficeRules />} />
+            <Route path="/manage-rules" element={<ManageRules />} />
             <Route path="/messages" element={<Messages />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
