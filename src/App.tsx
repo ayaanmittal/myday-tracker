@@ -12,6 +12,7 @@ import { AuthProvider } from "./hooks/useAuth";
 import Login from "./pages/Login";
 import Today from "./pages/Today";
 import History from "./pages/History";
+import Analytics from "./pages/Analytics";
 import Dashboard from "./pages/Dashboard";
 import Messages from "./pages/Messages";
 import Employees from "./pages/Employees";
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/today" element={<Today />} />
             <Route path="/history" element={<History />} />
+            <Route path="/analytics" element={<Analytics />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/employees" element={<Employees />} />
             <Route path="/manage-employees" element={<ManageEmployees />} />

@@ -320,57 +320,6 @@ export default function Today() {
         {entry && entry.status === 'in_progress' && (
           <div className="space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle>Daily Update</CardTitle>
-                <CardDescription>Share what you're working on today</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="focus">What are you working on today? (max 300 chars)</Label>
-                  <Textarea
-                    id="focus"
-                    placeholder="Today I'm focusing on..."
-                    value={update.today_focus}
-                    onChange={(e) => setUpdate({ ...update, today_focus: e.target.value })}
-                    maxLength={300}
-                    rows={3}
-                  />
-                  <p className="text-xs text-muted-foreground">{update.today_focus.length}/300</p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="progress">Top 1-3 tasks completed / progress (max 300 chars)</Label>
-                  <Textarea
-                    id="progress"
-                    placeholder="Tasks completed..."
-                    value={update.progress}
-                    onChange={(e) => setUpdate({ ...update, progress: e.target.value })}
-                    maxLength={300}
-                    rows={3}
-                  />
-                  <p className="text-xs text-muted-foreground">{update.progress.length}/300</p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="blockers">Any blockers or help needed? (optional, max 200 chars)</Label>
-                  <Textarea
-                    id="blockers"
-                    placeholder="No blockers..."
-                    value={update.blockers}
-                    onChange={(e) => setUpdate({ ...update, blockers: e.target.value })}
-                    maxLength={200}
-                    rows={2}
-                  />
-                  <p className="text-xs text-muted-foreground">{update.blockers.length}/200</p>
-                </div>
-
-                <Button onClick={handleSaveUpdate} disabled={loading || !update.today_focus || !update.progress}>
-                  {loading ? 'Saving...' : 'Save Update'}
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card>
               <CardHeader className="text-center pb-4">
                 <CardTitle>Lunch Break</CardTitle>
                 <CardDescription>Track your lunch break</CardDescription>
@@ -396,6 +345,57 @@ export default function Today() {
               </CardContent>
             </Card>
 
+            <Card>
+              <CardHeader>
+                <CardTitle>Daily Update</CardTitle>
+                <CardDescription>Share what you worked on today</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="focus">What did you work on today? (max 300 chars)</Label>
+                  <Textarea
+                    id="focus"
+                    placeholder="Today I worked on..."
+                    value={update.today_focus}
+                    onChange={(e) => setUpdate({ ...update, today_focus: e.target.value })}
+                    maxLength={300}
+                    rows={3}
+                  />
+                  <p className="text-xs text-muted-foreground">{update.today_focus.length}/300</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="progress">What tasks did you complete today? (max 300 chars)</Label>
+                  <Textarea
+                    id="progress"
+                    placeholder="I completed..."
+                    value={update.progress}
+                    onChange={(e) => setUpdate({ ...update, progress: e.target.value })}
+                    maxLength={300}
+                    rows={3}
+                  />
+                  <p className="text-xs text-muted-foreground">{update.progress.length}/300</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="blockers">Did you face any blockers or need help? (optional, max 200 chars)</Label>
+                  <Textarea
+                    id="blockers"
+                    placeholder="No blockers..."
+                    value={update.blockers}
+                    onChange={(e) => setUpdate({ ...update, blockers: e.target.value })}
+                    maxLength={200}
+                    rows={2}
+                  />
+                  <p className="text-xs text-muted-foreground">{update.blockers.length}/200</p>
+                </div>
+
+                <Button onClick={handleSaveUpdate} disabled={loading || !update.today_focus || !update.progress}>
+                  {loading ? 'Saving...' : 'Save Update'}
+                </Button>
+              </CardContent>
+            </Card>
+
             <Card className="border-2 border-success/20">
               <CardHeader className="text-center pb-4">
                 <CardTitle>End Your Day</CardTitle>
@@ -411,9 +411,12 @@ export default function Today() {
               </CardContent>
             </Card>
 
-            <div className="text-center">
+            <div className="text-center space-x-4">
               <Button variant="link" onClick={() => navigate('/history')}>
                 View History
+              </Button>
+              <Button variant="link" onClick={() => navigate('/analytics')}>
+                View Analytics
               </Button>
             </div>
           </div>
