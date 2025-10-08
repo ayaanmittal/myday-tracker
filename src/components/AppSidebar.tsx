@@ -1,4 +1,4 @@
-import { Home, Calendar, Users, MessageSquare, Settings, LogOut, UserCog, FileText, Shield, BarChart3 } from 'lucide-react';
+import { Home, Calendar, Users, MessageSquare, Settings, LogOut, UserCog, FileText, Shield, BarChart3, LineChart } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import {
   Sidebar,
@@ -34,6 +34,7 @@ export function AppSidebar() {
 
   const adminItems = [
     { title: 'Dashboard', url: '/dashboard', icon: Home, badge: 0 },
+    { title: 'Reports', url: '/admin-reports', icon: LineChart, badge: 0 },
     { title: 'Employees', url: '/employees', icon: Users, badge: 0 },
     { title: 'Manage Users', url: '/manage-employees', icon: UserCog, badge: 0 },
     { title: 'Manage Rules', url: '/manage-rules', icon: Shield, badge: 0 },

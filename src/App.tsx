@@ -14,6 +14,7 @@ import Today from "./pages/Today";
 import History from "./pages/History";
 import Analytics from "./pages/Analytics";
 import Dashboard from "./pages/Dashboard";
+import AdminReports from "./pages/AdminReports";
 import Messages from "./pages/Messages";
 import Employees from "./pages/Employees";
 import Settings from "./pages/Settings";
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/history" element={<History />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/admin-reports" element={<AdminReports />} />
             <Route path="/employees" element={<Employees />} />
             <Route path="/manage-employees" element={<ManageEmployees />} />
             <Route path="/office-rules" element={<OfficeRules />} />
