@@ -398,6 +398,8 @@ export default function Employees() {
                             ? 'default'
                             : entry.status === 'in_progress'
                             ? 'secondary'
+                            : entry.status === 'unlogged'
+                            ? 'destructive'
                             : 'outline'
                         }
                         className={
@@ -405,6 +407,8 @@ export default function Employees() {
                             ? 'bg-success/10 text-success'
                             : entry.status === 'in_progress'
                             ? 'bg-info/10 text-info'
+                            : entry.status === 'unlogged'
+                            ? 'bg-destructive/10 text-destructive'
                             : ''
                         }
                       >

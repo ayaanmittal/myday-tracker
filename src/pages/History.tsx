@@ -152,6 +152,8 @@ export default function History() {
                           ? 'bg-success/10 text-success'
                           : entry.status === 'in_progress'
                           ? 'bg-warning/10 text-warning'
+                          : entry.status === 'unlogged'
+                          ? 'bg-destructive/10 text-destructive'
                           : 'bg-muted text-muted-foreground'
                       }`}
                     >

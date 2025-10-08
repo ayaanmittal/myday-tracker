@@ -319,6 +319,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      mark_unlogged_days: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      mark_unlogged_days_range: {
+        Args: { end_date: string; start_date: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "manager" | "employee"

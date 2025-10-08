@@ -226,6 +226,8 @@ export default function Dashboard() {
                           ? 'default'
                           : employee.status === 'in_progress'
                           ? 'secondary'
+                          : employee.status === 'unlogged'
+                          ? 'destructive'
                           : 'outline'
                       }
                       className={
@@ -233,6 +235,8 @@ export default function Dashboard() {
                           ? 'bg-success/10 text-success hover:bg-success/20'
                           : employee.status === 'in_progress'
                           ? 'bg-info/10 text-info hover:bg-info/20'
+                          : employee.status === 'unlogged'
+                          ? 'bg-destructive/10 text-destructive hover:bg-destructive/20'
                           : ''
                       }
                     >
@@ -240,6 +244,8 @@ export default function Dashboard() {
                         ? 'Completed'
                         : employee.status === 'in_progress'
                         ? 'Working'
+                        : employee.status === 'unlogged'
+                        ? 'Unlogged'
                         : 'Not Started'}
                     </Badge>
 
