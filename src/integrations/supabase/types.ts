@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      conversations: {
+        Row: {
+          created_at: string
+          id: string
+          last_message_at: string | null
+          last_message_id: string | null
+          participant_1: string
+          participant_2: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_message_at?: string | null
+          last_message_id?: string | null
+          participant_1: string
+          participant_2: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_message_at?: string | null
+          last_message_id?: string | null
+          participant_1?: string
+          participant_2?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       day_entries: {
         Row: {
           check_in_at: string | null
@@ -23,8 +53,10 @@ export type Database = {
           entry_date: string
           id: string
           ip_address: string | null
+          last_modified_by: string | null
           lunch_break_end: string | null
           lunch_break_start: string | null
+          modification_reason: string | null
           status: string
           total_work_time_minutes: number | null
           updated_at: string
@@ -38,8 +70,10 @@ export type Database = {
           entry_date: string
           id?: string
           ip_address?: string | null
+          last_modified_by?: string | null
           lunch_break_end?: string | null
           lunch_break_start?: string | null
+          modification_reason?: string | null
           status?: string
           total_work_time_minutes?: number | null
           updated_at?: string
@@ -53,8 +87,10 @@ export type Database = {
           entry_date?: string
           id?: string
           ip_address?: string | null
+          last_modified_by?: string | null
           lunch_break_end?: string | null
           lunch_break_start?: string | null
+          modification_reason?: string | null
           status?: string
           total_work_time_minutes?: number | null
           updated_at?: string
@@ -100,32 +136,226 @@ export type Database = {
           },
         ]
       }
-      messages: {
+      extra_work_logs: {
         Row: {
           created_at: string
-          sender_id: string
+          day_entry_id: string
+          description: string | null
+          hours_worked: number
           id: string
-          is_read: boolean
-          message: string
-          to_user_id: string
+          logged_at: string
+          updated_at: string
+          user_id: string
+          work_type: string
         }
         Insert: {
           created_at?: string
-          sender_id: string
+          day_entry_id: string
+          description?: string | null
+          hours_worked: number
           id?: string
-          is_read?: boolean
-          message: string
-          to_user_id: string
+          logged_at?: string
+          updated_at?: string
+          user_id: string
+          work_type?: string
         }
         Update: {
           created_at?: string
-          from_user_id?: string
+          day_entry_id?: string
+          description?: string | null
+          hours_worked?: number
           id?: string
-          is_read?: boolean
-          message?: string
-          to_user_id?: string
+          logged_at?: string
+          updated_at?: string
+          user_id?: string
+          work_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extra_work_logs_day_entry_id_fkey"
+            columns: ["day_entry_id"]
+            isOneToOne: false
+            referencedRelation: "day_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leave_balances: {
+        Row: {
+          created_at: string
+          id: string
+          leave_type_id: string
+          remaining_days: number | null
+          total_days: number
+          updated_at: string
+          used_days: number
+          user_id: string
+          year: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          leave_type_id: string
+          remaining_days?: number | null
+          total_days?: number
+          updated_at?: string
+          used_days?: number
+          user_id: string
+          year: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          leave_type_id?: string
+          remaining_days?: number | null
+          total_days?: number
+          updated_at?: string
+          used_days?: number
+          user_id?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leave_balances_leave_type_id_fkey"
+            columns: ["leave_type_id"]
+            isOneToOne: false
+            referencedRelation: "leave_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leave_requests: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          created_at: string
+          days_requested: number
+          end_date: string
+          id: string
+          leave_type_id: string
+          reason: string | null
+          rejection_reason: string | null
+          start_date: string
+          status: string
+          updated_at: string
+          user_id: string
+          work_from_home: boolean
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          days_requested: number
+          end_date: string
+          id?: string
+          leave_type_id: string
+          reason?: string | null
+          rejection_reason?: string | null
+          start_date: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          work_from_home?: boolean
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          created_at?: string
+          days_requested?: number
+          end_date?: string
+          id?: string
+          leave_type_id?: string
+          reason?: string | null
+          rejection_reason?: string | null
+          start_date?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          work_from_home?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leave_requests_leave_type_id_fkey"
+            columns: ["leave_type_id"]
+            isOneToOne: false
+            referencedRelation: "leave_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leave_types: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          is_paid: boolean
+          max_days_per_year: number
+          name: string
+          requires_approval: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_paid?: boolean
+          max_days_per_year?: number
+          name: string
+          requires_approval?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          is_paid?: boolean
+          max_days_per_year?: number
+          name?: string
+          requires_approval?: boolean
+          updated_at?: string
         }
         Relationships: []
+      }
+      messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          is_read: boolean
+          sender_id: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          sender_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean
+          sender_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       office_rules: {
         Row: {
@@ -157,32 +387,32 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          designation: string | null
           email: string
           id: string
           is_active: boolean
           name: string
           team: string | null
-          designation: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          designation?: string | null
           email: string
           id: string
           is_active?: boolean
           name: string
           team?: string | null
-          designation?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          designation?: string | null
           email?: string
           id?: string
           is_active?: boolean
           name?: string
           team?: string | null
-          designation?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -281,6 +511,48 @@ export type Database = {
           },
         ]
       }
+      tasks: {
+        Row: {
+          assigned_by: string
+          assigned_to: string
+          completed_at: string | null
+          created_at: string
+          description: string | null
+          due_date: string | null
+          id: string
+          priority: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_by: string
+          assigned_to: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_by?: string
+          assigned_to?: string
+          completed_at?: string | null
+          created_at?: string
+          description?: string | null
+          due_date?: string | null
+          id?: string
+          priority?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -304,403 +576,43 @@ export type Database = {
       }
       users: {
         Row: {
+          created_at: string | null
+          email: string
           id: string
+          is_active: boolean | null
           name: string
           phone: string | null
-          email: string
-          is_active: boolean
-          created_at: string
-          updated_at: string
+          updated_at: string | null
         }
         Insert: {
+          created_at?: string | null
+          email: string
           id: string
+          is_active?: boolean | null
           name: string
           phone?: string | null
-          email: string
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
+          updated_at?: string | null
         }
         Update: {
-          id?: string
-          name?: string
-          phone?: string | null
+          created_at?: string | null
           email?: string
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "users_id_fkey"
-            columns: ["id"]
-            isOneToOne: true
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      conversations: {
-        Row: {
-          id: string
-          participant_1: string
-          participant_2: string
-          last_message_at: string | null
-          last_message_id: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
           id?: string
-          participant_1: string
-          participant_2: string
-          last_message_at?: string | null
-          last_message_id?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          participant_1?: string
-          participant_2?: string
-          last_message_at?: string | null
-          last_message_id?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "conversations_participant_1_fkey"
-            columns: ["participant_1"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "conversations_participant_2_fkey"
-            columns: ["participant_2"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      tasks: {
-        Row: {
-          id: string
-          title: string
-          description: string | null
-          assigned_to: string
-          assigned_by: string
-          status: string
-          priority: string
-          due_date: string | null
-          completed_at: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          title: string
-          description?: string | null
-          assigned_to: string
-          assigned_by: string
-          status?: string
-          priority?: string
-          due_date?: string | null
-          completed_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          title?: string
-          description?: string | null
-          assigned_to?: string
-          assigned_by?: string
-          status?: string
-          priority?: string
-          due_date?: string | null
-          completed_at?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "tasks_assigned_to_fkey"
-            columns: ["assigned_to"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tasks_assigned_by_fkey"
-            columns: ["assigned_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      extra_work_logs: {
-        Row: {
-          id: string
-          day_entry_id: string
-          user_id: string
-          work_type: string
-          hours_worked: number
-          description: string | null
-          logged_at: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          day_entry_id: string
-          user_id: string
-          work_type?: string
-          hours_worked: number
-          description?: string | null
-          logged_at?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          day_entry_id?: string
-          user_id?: string
-          work_type?: string
-          hours_worked?: number
-          description?: string | null
-          logged_at?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "extra_work_logs_day_entry_id_fkey"
-            columns: ["day_entry_id"]
-            isOneToOne: false
-            referencedRelation: "day_entries"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "extra_work_logs_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      leave_types: {
-        Row: {
-          id: string
-          name: string
-          description: string | null
-          max_days_per_year: number
-          is_paid: boolean
-          requires_approval: boolean
-          is_active: boolean
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          name: string
-          description?: string | null
-          max_days_per_year?: number
-          is_paid?: boolean
-          requires_approval?: boolean
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
+          is_active?: boolean | null
           name?: string
-          description?: string | null
-          max_days_per_year?: number
-          is_paid?: boolean
-          requires_approval?: boolean
-          is_active?: boolean
-          created_at?: string
-          updated_at?: string
+          phone?: string | null
+          updated_at?: string | null
         }
         Relationships: []
-      }
-      leave_requests: {
-        Row: {
-          id: string
-          user_id: string
-          leave_type_id: string
-          start_date: string
-          end_date: string
-          days_requested: number
-          reason: string | null
-          work_from_home: boolean
-          status: string
-          approved_by: string | null
-          approved_at: string | null
-          rejection_reason: string | null
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          leave_type_id: string
-          start_date: string
-          end_date: string
-          days_requested: number
-          reason?: string | null
-          work_from_home?: boolean
-          status?: string
-          approved_by?: string | null
-          approved_at?: string | null
-          rejection_reason?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          leave_type_id?: string
-          start_date?: string
-          end_date?: string
-          days_requested?: number
-          reason?: string | null
-          work_from_home?: boolean
-          status?: string
-          approved_by?: string | null
-          approved_at?: string | null
-          rejection_reason?: string | null
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "leave_requests_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "leave_requests_leave_type_id_fkey"
-            columns: ["leave_type_id"]
-            isOneToOne: false
-            referencedRelation: "leave_types"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "leave_requests_approved_by_fkey"
-            columns: ["approved_by"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      leave_balances: {
-        Row: {
-          id: string
-          user_id: string
-          leave_type_id: string
-          year: number
-          total_days: number
-          used_days: number
-          remaining_days: number
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          leave_type_id: string
-          year: number
-          total_days?: number
-          used_days?: number
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          leave_type_id?: string
-          year?: number
-          total_days?: number
-          used_days?: number
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "leave_balances_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "leave_balances_leave_type_id_fkey"
-            columns: ["leave_type_id"]
-            isOneToOne: false
-            referencedRelation: "leave_types"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
-      messages: {
-        Row: {
-          id: string
-          conversation_id: string
-          sender_id: string
-          content: string
-          is_read: boolean
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          conversation_id: string
-          sender_id: string
-          content: string
-          is_read?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          conversation_id?: string
-          sender_id?: string
-          content?: string
-          is_read?: boolean
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "messages_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "messages_sender_id_fkey"
-            columns: ["sender_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      get_or_create_conversation: {
+        Args: { p_user1_id: string; p_user2_id: string }
+        Returns: string
+      }
       get_user_role: {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["app_role"]
