@@ -64,7 +64,7 @@ export function AppSidebar() {
                         `flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
                           isActive
                             ? 'bg-primary text-primary-foreground font-medium'
-                            : 'text-foreground/90 hover:bg-accent hover:text-accent-foreground'
+                            : 'text-black hover:bg-accent hover:text-black'
                         }`
                       }
                     >
@@ -83,6 +83,7 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -90,7 +91,7 @@ export function AppSidebar() {
         <div className="mt-auto border-t p-4">
           <button
             onClick={signOut}
-            className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-destructive/10 hover:text-destructive transition-colors w-full text-foreground/90"
+            className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-destructive/10 hover:text-destructive transition-colors w-full text-black"
           >
             <LogOut className="h-5 w-5" />
             {!collapsed && <span>Sign Out</span>}
