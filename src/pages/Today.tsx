@@ -16,6 +16,8 @@ interface DayEntry {
   status: string;
   check_in_at: string | null;
   check_out_at: string | null;
+  lunch_break_start: string | null;
+  lunch_break_end: string | null;
   total_work_time_minutes: number | null;
 }
 
@@ -126,6 +128,66 @@ export default function Today() {
     }
   };
 
+  const handleLunchBreakStart = async () => {
+    if (!entry) return;
+    setLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from('day_entries')
+        .update({
+          lunch_break_start: new Date().toISOString(),
+        })
+        .eq('id', entry.id);
+
+      if (error) throw error;
+
+      setEntry({ ...entry, lunch_break_start: new Date().toISOString() });
+      toast({
+        title: 'Lunch break started',
+        description: 'Enjoy your break!',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLunchBreakEnd = async () => {
+    if (!entry) return;
+    setLoading(true);
+
+    try {
+      const { error } = await supabase
+        .from('day_entries')
+        .update({
+          lunch_break_end: new Date().toISOString(),
+        })
+        .eq('id', entry.id);
+
+      if (error) throw error;
+
+      setEntry({ ...entry, lunch_break_end: new Date().toISOString() });
+      toast({
+        title: 'Lunch break ended',
+        description: 'Welcome back!',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCheckOut = async () => {
     if (!entry) return;
     setLoading(true);
@@ -133,7 +195,15 @@ export default function Today() {
     try {
       const checkOutTime = new Date();
       const checkInTime = new Date(entry.check_in_at!);
-      const minutes = Math.floor((checkOutTime.getTime() - checkInTime.getTime()) / 60000);
+      let minutes = Math.floor((checkOutTime.getTime() - checkInTime.getTime()) / 60000);
+
+      // Subtract lunch break time if both start and end are recorded
+      if (entry.lunch_break_start && entry.lunch_break_end) {
+        const lunchStart = new Date(entry.lunch_break_start);
+        const lunchEnd = new Date(entry.lunch_break_end);
+        const lunchMinutes = Math.floor((lunchEnd.getTime() - lunchStart.getTime()) / 60000);
+        minutes -= lunchMinutes;
+      }
 
       const { error } = await supabase
         .from('day_entries')
@@ -297,6 +367,32 @@ export default function Today() {
                 <Button onClick={handleSaveUpdate} disabled={loading || !update.today_focus || !update.progress}>
                   {loading ? 'Saving...' : 'Save Update'}
                 </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="text-center pb-4">
+                <CardTitle>Lunch Break</CardTitle>
+                <CardDescription>Track your lunch break</CardDescription>
+              </CardHeader>
+              <CardContent className="flex justify-center gap-4 pb-6">
+                {!entry.lunch_break_start && (
+                  <Button size="lg" onClick={handleLunchBreakStart} disabled={loading} className="min-w-[200px]">
+                    <Clock className="mr-2 h-5 w-5" />
+                    {loading ? 'Starting...' : 'Start Lunch Break'}
+                  </Button>
+                )}
+                {entry.lunch_break_start && !entry.lunch_break_end && (
+                  <Button size="lg" onClick={handleLunchBreakEnd} disabled={loading} className="min-w-[200px]">
+                    <CheckCircle className="mr-2 h-5 w-5" />
+                    {loading ? 'Ending...' : 'End Lunch Break'}
+                  </Button>
+                )}
+                {entry.lunch_break_start && entry.lunch_break_end && (
+                  <div className="text-center text-muted-foreground">
+                    <p>Lunch break: {new Date(entry.lunch_break_start).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - {new Date(entry.lunch_break_end).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 

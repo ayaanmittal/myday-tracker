@@ -23,6 +23,8 @@ export type Database = {
           entry_date: string
           id: string
           ip_address: string | null
+          lunch_break_end: string | null
+          lunch_break_start: string | null
           status: string
           total_work_time_minutes: number | null
           updated_at: string
@@ -36,6 +38,8 @@ export type Database = {
           entry_date: string
           id?: string
           ip_address?: string | null
+          lunch_break_end?: string | null
+          lunch_break_start?: string | null
           status?: string
           total_work_time_minutes?: number | null
           updated_at?: string
@@ -49,6 +53,8 @@ export type Database = {
           entry_date?: string
           id?: string
           ip_address?: string | null
+          lunch_break_end?: string | null
+          lunch_break_start?: string | null
           status?: string
           total_work_time_minutes?: number | null
           updated_at?: string
