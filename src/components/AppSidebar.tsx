@@ -44,7 +44,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar className={collapsed ? 'w-16' : 'w-64'} collapsible="icon">
-      <SidebarContent className="bg-card text-black">
+      <SidebarContent className="bg-card">
         <div className={`p-4 border-b ${collapsed ? 'flex justify-center' : ''}`}>
           <img 
             src={logo} 
@@ -54,7 +54,7 @@ export function AppSidebar() {
         </div>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-black px-3">{collapsed ? '' : 'Navigation'}</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-foreground px-3">{collapsed ? '' : 'Navigation'}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (
@@ -66,7 +66,7 @@ export function AppSidebar() {
                         `flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
                           isActive
                             ? 'bg-primary text-primary-foreground font-medium'
-                            : 'text-black hover:text-primary hover:bg-accent/50'
+                            : 'text-foreground hover:text-primary :bg-accent/50'
                         }`
                       }
                     >
@@ -93,7 +93,7 @@ export function AppSidebar() {
         <div className="mt-auto border-t p-4">
           <button
             onClick={signOut}
-            className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-destructive/10 hover:text-destructive transition-colors w-full text-black"
+            className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-destructive/10 hover:text-destructive transition-colors w-full text-foreground"
           >
             <LogOut className="h-5 w-5" />
             {!collapsed && <span>Sign Out</span>}
