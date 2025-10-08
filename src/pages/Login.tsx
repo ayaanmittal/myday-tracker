@@ -67,7 +67,7 @@ export default function Login() {
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <img src={logo} alt="Zoogol" className="h-16 w-auto object-contain" />
+            <img src={logo} alt="Zoogol" className="h-12 w-auto object-contain" />
           </div>
           <CardTitle className="text-2xl font-bold">MyDay</CardTitle>
           <CardDescription>

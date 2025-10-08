@@ -128,7 +128,7 @@ export function FirstTimeRulesDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="max-h-[400px] pr-4">
+        <ScrollArea className="h-[50vh] pr-4">
           <div className="space-y-4">
             {rules.map((rule, index) => (
               <Card key={rule.id}>
