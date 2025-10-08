@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
 import logo from '@/assets/zoogol-logo.png';
 
@@ -14,6 +15,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [name, setName] = useState('');
+  const [staySignedIn, setStaySignedIn] = useState(false);
   const navigate = useNavigate();
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -44,6 +46,13 @@ export default function Login() {
         });
 
         if (error) throw error;
+        
+        // Store preference in localStorage for session management
+        if (staySignedIn) {
+          localStorage.setItem('stay_signed_in', 'true');
+        } else {
+          localStorage.removeItem('stay_signed_in');
+        }
 
         toast({
           title: 'Welcome back!',
@@ -112,6 +121,21 @@ export default function Login() {
                 minLength={6}
               />
             </div>
+            {!isSignUp && (
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="stay-signed-in"
+                  checked={staySignedIn}
+                  onCheckedChange={(checked) => setStaySignedIn(checked as boolean)}
+                />
+                <label
+                  htmlFor="stay-signed-in"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Stay signed in
+                </label>
+              </div>
+            )}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}
             </Button>
