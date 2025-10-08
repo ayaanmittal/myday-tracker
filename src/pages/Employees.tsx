@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Layout } from '@/components/Layout';
 import { Calendar, Clock, MessageSquare, Search, TrendingUp, User } from 'lucide-react';
+import { DatePicker } from '@/components/DatePicker';
 import {
   Table,
   TableBody,
@@ -49,6 +50,7 @@ export default function Employees() {
   const { user } = useAuth();
   const { data: role, isLoading: roleLoading } = useUserRole();
   const navigate = useNavigate();
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -100,6 +102,12 @@ export default function Employees() {
 
   const fetchEmployeeHistory = async (employeeId: string) => {
     try {
+      // Get entries around the selected date (15 days before and after)
+      const startDate = new Date(selectedDate);
+      startDate.setDate(startDate.getDate() - 15);
+      const endDate = new Date(selectedDate);
+      endDate.setDate(endDate.getDate() + 15);
+
       const { data, error } = await supabase
         .from('day_entries')
         .select(`
@@ -115,8 +123,9 @@ export default function Employees() {
           )
         `)
         .eq('user_id', employeeId)
-        .order('entry_date', { ascending: false })
-        .limit(30);
+        .gte('entry_date', startDate.toISOString().split('T')[0])
+        .lte('entry_date', endDate.toISOString().split('T')[0])
+        .order('entry_date', { ascending: false });
 
       if (error) throw error;
 
@@ -163,6 +172,10 @@ export default function Employees() {
             <h1 className="text-3xl font-bold tracking-tight">Employees</h1>
             <p className="text-muted-foreground">Manage and monitor employee activity</p>
           </div>
+          <DatePicker
+            date={selectedDate}
+            onDateChange={(date) => date && setSelectedDate(date)}
+          />
         </div>
 
         <Card>

@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Users, Clock, CheckCircle, AlertCircle, MessageSquare } from 'lucide-react';
 import { Layout } from '@/components/Layout';
+import { DatePicker } from '@/components/DatePicker';
 
 interface EmployeeStats {
   total: number;
@@ -32,6 +33,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const { data: role, isLoading: roleLoading } = useUserRole();
   const navigate = useNavigate();
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [stats, setStats] = useState<EmployeeStats>({ total: 0, checkedIn: 0, notCheckedIn: 0, completed: 0 });
   const [employees, setEmployees] = useState<EmployeeEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,11 +52,11 @@ export default function Dashboard() {
     if (role === 'admin') {
       fetchDashboardData();
     }
-  }, [user, role, roleLoading, navigate]);
+  }, [user, role, roleLoading, navigate, selectedDate]);
 
   const fetchDashboardData = async () => {
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const targetDate = selectedDate.toISOString().split('T')[0];
 
       // Fetch all employees with today's entry
       const { data: profilesData, error: profilesError } = await supabase
@@ -64,7 +66,7 @@ export default function Dashboard() {
 
       if (profilesError) throw profilesError;
 
-      // Fetch today's entries
+      // Fetch entries for selected date
       const { data: entriesData, error: entriesError } = await supabase
         .from('day_entries')
         .select(`
@@ -75,7 +77,7 @@ export default function Dashboard() {
           status,
           day_updates (today_focus)
         `)
-        .eq('entry_date', today);
+        .eq('entry_date', targetDate);
 
       if (entriesError) throw entriesError;
 
@@ -128,11 +130,15 @@ export default function Dashboard() {
   return (
     <Layout>
       <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-          </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-muted-foreground">Employee activity and attendance</p>
+          </div>
+          <DatePicker
+            date={selectedDate}
+            onDateChange={(date) => date && setSelectedDate(date)}
+          />
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -179,8 +185,12 @@ export default function Dashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Today's Activity</CardTitle>
-            <CardDescription>Real-time employee status and updates</CardDescription>
+            <CardTitle>
+              {selectedDate.toDateString() === new Date().toDateString()
+                ? "Today's Activity"
+                : `Activity for ${selectedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+            </CardTitle>
+            <CardDescription>Employee status and updates</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">

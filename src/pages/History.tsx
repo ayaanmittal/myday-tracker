@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Calendar, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
+import { DatePicker } from '@/components/DatePicker';
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,7 @@ interface HistoryEntry {
 export default function History() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEntry, setSelectedEntry] = useState<HistoryEntry | null>(null);
@@ -40,12 +42,16 @@ export default function History() {
       return;
     }
     fetchHistory();
-  }, [user, navigate]);
+  }, [user, navigate, selectedDate]);
 
   const fetchHistory = async () => {
     if (!user) return;
 
     try {
+      // Get entries for the selected month
+      const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
+      const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+
       const { data, error } = await supabase
         .from('day_entries')
         .select(`
@@ -57,6 +63,8 @@ export default function History() {
           )
         `)
         .eq('user_id', user.id)
+        .gte('entry_date', startOfMonth.toISOString().split('T')[0])
+        .lte('entry_date', endOfMonth.toISOString().split('T')[0])
         .order('entry_date', { ascending: false });
 
       if (error) throw error;
@@ -81,9 +89,17 @@ export default function History() {
   return (
     <Layout>
       <div className="p-6 max-w-4xl mx-auto space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Work History</h1>
-          <p className="text-muted-foreground">View your past entries</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Work History</h1>
+            <p className="text-muted-foreground">
+              {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+            </p>
+          </div>
+          <DatePicker
+            date={selectedDate}
+            onDateChange={(date) => date && setSelectedDate(date)}
+          />
         </div>
 
         <div className="space-y-4">
