@@ -6,8 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
-import { Clock, CheckCircle, LogOut } from 'lucide-react';
+import { Clock, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Layout } from '@/components/Layout';
+import { useUserRole } from '@/hooks/useUserRole';
 
 interface DayEntry {
   id: string;
@@ -24,8 +26,9 @@ interface DayUpdate {
 }
 
 export default function Today() {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const { data: role, isLoading: roleLoading } = useUserRole();
   const [entry, setEntry] = useState<DayEntry | null>(null);
   const [update, setUpdate] = useState<DayUpdate>({ today_focus: '', progress: '', blockers: '' });
   const [loading, setLoading] = useState(false);
@@ -36,8 +39,14 @@ export default function Today() {
       navigate('/login');
       return;
     }
+
+    if (!roleLoading && role === 'admin') {
+      navigate('/dashboard');
+      return;
+    }
+
     fetchTodayEntry();
-  }, [user, navigate]);
+  }, [user, role, roleLoading, navigate]);
 
   const fetchTodayEntry = async () => {
     if (!user) return;
@@ -198,28 +207,24 @@ export default function Today() {
     }
   };
 
-  if (loadingPage) {
+  if (loadingPage || roleLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
+      <Layout>
+        <div className="flex items-center justify-center h-full">
+          <div className="text-muted-foreground">Loading...</div>
+        </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
-      <div className="container max-w-4xl mx-auto p-4 py-8">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">MyDay</h1>
-            <p className="text-muted-foreground">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-            </p>
-          </div>
-          <Button variant="outline" onClick={signOut}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Sign Out
-          </Button>
+    <Layout>
+      <div className="p-6 max-w-4xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Today</h1>
+          <p className="text-muted-foreground">
+            {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </p>
         </div>
 
         {!entry && (
@@ -339,6 +344,6 @@ export default function Today() {
           </Card>
         )}
       </div>
-    </div>
+    </Layout>
   );
 }

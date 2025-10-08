@@ -12,6 +12,8 @@ import { AuthProvider } from "./hooks/useAuth";
 import Login from "./pages/Login";
 import Today from "./pages/Today";
 import History from "./pages/History";
+import Dashboard from "./pages/Dashboard";
+import Messages from "./pages/Messages";
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -25,6 +27,8 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/today" element={<Today />} />
             <Route path="/history" element={<History />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/messages" element={<Messages />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

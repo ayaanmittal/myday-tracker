@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Calendar, Clock } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Calendar, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Layout } from '@/components/Layout';
 import {
   Dialog,
   DialogContent,
@@ -70,21 +70,19 @@ export default function History() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
+      <Layout>
+        <div className="flex items-center justify-center h-full">
+          <div className="text-muted-foreground">Loading...</div>
+        </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
-      <div className="container max-w-4xl mx-auto p-4 py-8">
-        <div className="mb-8">
-          <Button variant="ghost" onClick={() => navigate('/today')} className="mb-4">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Today
-          </Button>
-          <h1 className="text-3xl font-bold">Work History</h1>
+    <Layout>
+      <div className="p-6 max-w-4xl mx-auto space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Work History</h1>
           <p className="text-muted-foreground">View your past entries</p>
         </div>
 
@@ -199,6 +197,6 @@ export default function History() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </Layout>
   );
 }
