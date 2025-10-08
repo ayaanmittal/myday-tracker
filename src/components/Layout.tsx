@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
+import { FirstTimeRulesDialog } from './FirstTimeRulesDialog';
 
 interface LayoutProps {
   children: ReactNode;
@@ -9,6 +10,7 @@ interface LayoutProps {
 export function Layout({ children }: LayoutProps) {
   return (
     <SidebarProvider>
+      <FirstTimeRulesDialog />
       <div className="min-h-screen flex w-full bg-secondary/30">
         <AppSidebar />
         <div className="flex-1 flex flex-col">

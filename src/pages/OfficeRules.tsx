@@ -4,10 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/useAuth";
+import { useRuleContract } from "@/hooks/useRuleContract";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
-import { CheckCircle2, AlertTriangle } from "lucide-react";
+import { CheckCircle2, AlertTriangle, FileCheck } from "lucide-react";
 import { format } from "date-fns";
 
 interface Rule {
@@ -35,6 +36,7 @@ interface Violation {
 
 const OfficeRules = () => {
   const { user } = useAuth();
+  const { data: contract } = useRuleContract();
   const queryClient = useQueryClient();
 
   const { data: rules = [], isLoading: rulesLoading } = useQuery({
@@ -129,6 +131,32 @@ const OfficeRules = () => {
           <h1 className="text-3xl font-bold">Office Rules</h1>
           <p className="text-muted-foreground">Review and acknowledge our office policies</p>
         </div>
+
+        {contract && (
+          <Card className="border-green-500 bg-green-50 dark:bg-green-950">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                <FileCheck className="h-5 w-5" />
+                Contract Signed
+              </CardTitle>
+              <CardDescription className="text-green-600 dark:text-green-500">
+                You have completed your initial acknowledgment of all office rules
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-8 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Initials</p>
+                  <p className="font-mono font-bold text-lg">{contract.initials}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Signed On</p>
+                  <p className="font-semibold">{format(new Date(contract.signed_at), "PPP 'at' p")}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {violations.length > 0 && (
           <Card className="border-destructive">

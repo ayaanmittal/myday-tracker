@@ -213,6 +213,30 @@ export type Database = {
           },
         ]
       }
+      rule_contracts: {
+        Row: {
+          created_at: string
+          id: string
+          initials: string
+          signed_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          initials: string
+          signed_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          initials?: string
+          signed_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       rule_violations: {
         Row: {
           created_at: string
