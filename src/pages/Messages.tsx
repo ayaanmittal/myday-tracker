@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { Send } from 'lucide-react';
 import { Layout } from '@/components/Layout';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface Message {
   id: string;
@@ -25,6 +26,8 @@ interface Contact {
   name: string;
   email: string;
   unread_count: number;
+  last_message?: string;
+  last_message_time?: string;
 }
 
 export default function Messages() {
@@ -38,6 +41,8 @@ export default function Messages() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!user) {
@@ -53,6 +58,62 @@ export default function Messages() {
       markMessagesAsRead(selectedContact);
     }
   }, [selectedContact]);
+
+  // Set up real-time subscription
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('messages-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'messages',
+          filter: `or(from_user_id.eq.${user.id},to_user_id.eq.${user.id})`,
+        },
+        (payload) => {
+          console.log('New message received:', payload);
+          fetchContacts();
+          if (
+            selectedContact &&
+            (payload.new.from_user_id === selectedContact || payload.new.to_user_id === selectedContact)
+          ) {
+            fetchMessages(selectedContact);
+            if (payload.new.to_user_id === user.id) {
+              markMessagesAsRead(selectedContact);
+            }
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'messages',
+        },
+        () => {
+          fetchContacts();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user, selectedContact]);
+
+  // Auto-scroll to bottom when messages change
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      }
+    }
+  }, [messages]);
 
   const fetchContacts = async () => {
     if (!user) return;
@@ -81,15 +142,39 @@ export default function Messages() {
 
       if (profilesError) throw profilesError;
 
-      // Calculate unread counts
-      const contactsWithUnread = profiles?.map((profile) => ({
-        ...profile,
-        unread_count: messagesData?.filter(
-          (msg) => msg.from_user_id === profile.id && msg.to_user_id === user.id && !msg.is_read
-        ).length || 0,
-      })) || [];
+      // Get last messages for each contact
+      const contactsWithData = await Promise.all(
+        profiles?.map(async (profile) => {
+          const unreadCount = messagesData?.filter(
+            (msg) => msg.from_user_id === profile.id && msg.to_user_id === user.id && !msg.is_read
+          ).length || 0;
 
-      setContacts(contactsWithUnread);
+          // Get last message with this contact
+          const { data: lastMsg } = await supabase
+            .from('messages')
+            .select('message, created_at, from_user_id')
+            .or(`and(from_user_id.eq.${user.id},to_user_id.eq.${profile.id}),and(from_user_id.eq.${profile.id},to_user_id.eq.${user.id})`)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+
+          return {
+            ...profile,
+            unread_count: unreadCount,
+            last_message: lastMsg?.message,
+            last_message_time: lastMsg?.created_at,
+          };
+        }) || []
+      );
+
+      // Sort by last message time
+      contactsWithData.sort((a, b) => {
+        const timeA = a.last_message_time ? new Date(a.last_message_time).getTime() : 0;
+        const timeB = b.last_message_time ? new Date(b.last_message_time).getTime() : 0;
+        return timeB - timeA;
+      });
+
+      setContacts(contactsWithData);
     } catch (error) {
       console.error('Error fetching contacts:', error);
     }
@@ -175,12 +260,27 @@ export default function Messages() {
     }
   };
 
+  const formatTime = (date: string) => {
+    const messageDate = new Date(date);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (messageDate.toDateString() === today.toDateString()) {
+      return messageDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    } else if (messageDate.toDateString() === yesterday.toDateString()) {
+      return 'Yesterday';
+    } else {
+      return messageDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+  };
+
   return (
     <Layout>
       <div className="h-[calc(100vh-3.5rem)] flex">
         <div className="w-80 border-r bg-card overflow-y-auto">
           <div className="p-4 border-b">
-            <h2 className="font-semibold text-lg">Messages</h2>
+            <h2 className="font-semibold text-lg">Conversations</h2>
           </div>
           <div className="divide-y">
             {contacts.map((contact) => (
@@ -191,16 +291,27 @@ export default function Messages() {
                   selectedContact === contact.id ? 'bg-accent' : ''
                 }`}
               >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">{contact.name}</p>
-                    <p className="text-sm text-muted-foreground">{contact.email}</p>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{contact.name}</p>
+                    {contact.last_message && (
+                      <p className="text-sm text-muted-foreground truncate">
+                        {contact.last_message}
+                      </p>
+                    )}
                   </div>
-                  {contact.unread_count > 0 && (
-                    <div className="h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
-                      {contact.unread_count}
-                    </div>
-                  )}
+                  <div className="flex flex-col items-end gap-1">
+                    {contact.last_message_time && (
+                      <p className="text-xs text-muted-foreground whitespace-nowrap">
+                        {formatTime(contact.last_message_time)}
+                      </p>
+                    )}
+                    {contact.unread_count > 0 && (
+                      <div className="h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
+                        {contact.unread_count}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </button>
             ))}
@@ -221,30 +332,35 @@ export default function Messages() {
                 </p>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex ${message.from_user_id === user?.id ? 'justify-end' : 'justify-start'}`}
-                  >
+              <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
+                <div className="space-y-4">
+                  {messages.map((message) => (
                     <div
-                      className={`max-w-[70%] rounded-lg p-3 ${
-                        message.from_user_id === user?.id
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted'
-                      }`}
+                      key={message.id}
+                      className={`flex ${message.from_user_id === user?.id ? 'justify-end' : 'justify-start'}`}
                     >
-                      <p className="text-sm">{message.message}</p>
-                      <p className="text-xs opacity-70 mt-1">
-                        {new Date(message.created_at).toLocaleTimeString('en-US', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </p>
+                      <div
+                        className={`max-w-[70%] rounded-lg p-3 ${
+                          message.from_user_id === user?.id
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted'
+                        }`}
+                      >
+                        <p className="text-sm whitespace-pre-wrap break-words">{message.message}</p>
+                        <p className="text-xs opacity-70 mt-1">
+                          {new Date(message.created_at).toLocaleString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                  <div ref={messagesEndRef} />
+                </div>
+              </ScrollArea>
 
               <div className="p-4 border-t bg-card">
                 <div className="flex gap-2">
