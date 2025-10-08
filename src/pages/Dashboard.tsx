@@ -129,11 +129,11 @@ export default function Dashboard() {
 
   return (
     <Layout>
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-muted-foreground">Employee activity and attendance</p>
+            <h1 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight gradient-text">Dashboard</h1>
+            <p className="text-muted-foreground text-base sm:text-lg font-medium">Employee activity and attendance</p>
           </div>
           <DatePicker
             date={selectedDate}
@@ -141,44 +141,44 @@ export default function Dashboard() {
           />
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <Card className="elegant-card elegant-shadow">
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="text-sm font-semibold text-muted-foreground">Total Employees</CardTitle>
+              <Users className="h-5 w-5 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.total}</div>
+              <div className="text-3xl font-bold font-heading">{stats.total}</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Checked In</CardTitle>
-              <Clock className="h-4 w-4 text-info" />
+          <Card className="elegant-card elegant-shadow">
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="text-sm font-semibold text-muted-foreground">Checked In</CardTitle>
+              <Clock className="h-5 w-5 text-info" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.checkedIn}</div>
+              <div className="text-3xl font-bold font-heading">{stats.checkedIn}</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Not Checked In</CardTitle>
-              <AlertCircle className="h-4 w-4 text-warning" />
+          <Card className="elegant-card elegant-shadow">
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="text-sm font-semibold text-muted-foreground">Not Checked In</CardTitle>
+              <AlertCircle className="h-5 w-5 text-warning" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.notCheckedIn}</div>
+              <div className="text-3xl font-bold font-heading">{stats.notCheckedIn}</div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Completed</CardTitle>
-              <CheckCircle className="h-4 w-4 text-success" />
+          <Card className="elegant-card elegant-shadow">
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <CardTitle className="text-sm font-semibold text-muted-foreground">Completed</CardTitle>
+              <CheckCircle className="h-5 w-5 text-success" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.completed}</div>
+              <div className="text-3xl font-bold font-heading">{stats.completed}</div>
             </CardContent>
           </Card>
         </div>

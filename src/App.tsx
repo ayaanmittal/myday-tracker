@@ -21,6 +21,10 @@ import Settings from "./pages/Settings";
 import ManageEmployees from "./pages/ManageEmployees";
 import OfficeRules from "./pages/OfficeRules";
 import ManageRules from "./pages/ManageRules";
+import TaskManager from "./pages/TaskManager";
+import Tasks from "./pages/Tasks";
+import LeaveApplication from "./pages/LeaveApplication";
+import LeaveApproval from "./pages/LeaveApproval";
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -39,6 +43,10 @@ const App = () => (
             <Route path="/admin-reports" element={<AdminReports />} />
             <Route path="/employees" element={<Employees />} />
             <Route path="/manage-employees" element={<ManageEmployees />} />
+            <Route path="/task-manager" element={<TaskManager />} />
+            <Route path="/tasks" element={<Tasks />} />
+            <Route path="/leave" element={<LeaveApplication />} />
+            <Route path="/leave-approval" element={<LeaveApproval />} />
             <Route path="/office-rules" element={<OfficeRules />} />
             <Route path="/manage-rules" element={<ManageRules />} />
             <Route path="/messages" element={<Messages />} />

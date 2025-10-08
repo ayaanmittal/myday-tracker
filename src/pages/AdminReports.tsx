@@ -7,7 +7,7 @@ import { Layout } from '@/components/Layout';
 import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
-import { Users, TrendingUp, Clock, AlertCircle, Calendar, CheckCircle2, User } from 'lucide-react';
+import { Users, TrendingUp, Clock, AlertCircle, Calendar, CheckCircle2, User, Plane, CalendarDays, CheckCircle, XCircle } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -41,6 +41,35 @@ interface AdminAnalytics {
     unloggedDays: number;
     avgHours: number;
     lastActivity: string;
+  }>;
+  // Leave Analytics
+  leaveStats: {
+    totalRequests: number;
+    pendingRequests: number;
+    approvedRequests: number;
+    rejectedRequests: number;
+    avgDaysPerRequest: number;
+    mostRequestedType: string;
+  };
+  leaveTrend: Array<{ date: string; requests: number; approved: number; rejected: number }>;
+  leaveTypeBreakdown: Array<{ name: string; value: number; color: string }>;
+  recentLeaveRequests: Array<{
+    id: string;
+    employeeName: string;
+    leaveType: string;
+    startDate: string;
+    endDate: string;
+    days: number;
+    status: string;
+    workFromHome: boolean;
+    createdAt: string;
+  }>;
+  leaveBalances: Array<{
+    employeeName: string;
+    leaveType: string;
+    totalDays: number;
+    usedDays: number;
+    remainingDays: number;
   }>;
 }
 
@@ -246,6 +275,145 @@ export default function AdminReports() {
         };
       }) || [];
 
+      // Fetch leave data
+      let leaveStats = {
+        totalRequests: 0,
+        pendingRequests: 0,
+        approvedRequests: 0,
+        rejectedRequests: 0,
+        avgDaysPerRequest: 0,
+        mostRequestedType: 'N/A',
+      };
+      let leaveTrend: Array<{ date: string; requests: number; approved: number; rejected: number }> = [];
+      let leaveTypeBreakdown: Array<{ name: string; value: number; color: string }> = [];
+      let recentLeaveRequests: Array<{
+        id: string;
+        employeeName: string;
+        leaveType: string;
+        startDate: string;
+        endDate: string;
+        days: number;
+        status: string;
+        workFromHome: boolean;
+        createdAt: string;
+      }> = [];
+      let leaveBalances: Array<{
+        employeeName: string;
+        leaveType: string;
+        totalDays: number;
+        usedDays: number;
+        remainingDays: number;
+      }> = [];
+
+      try {
+        // Fetch leave requests
+        const { data: leaveRequests, error: leaveError } = await supabase
+          .from('leave_requests')
+          .select(`
+            *,
+            leave_types (name)
+          `)
+          .order('created_at', { ascending: false });
+
+        if (!leaveError && leaveRequests) {
+          // Calculate leave stats
+          const totalRequests = leaveRequests.length;
+          const pendingRequests = leaveRequests.filter(r => r.status === 'pending').length;
+          const approvedRequests = leaveRequests.filter(r => r.status === 'approved').length;
+          const rejectedRequests = leaveRequests.filter(r => r.status === 'rejected').length;
+          const avgDaysPerRequest = totalRequests > 0 
+            ? leaveRequests.reduce((sum, r) => sum + r.days_requested, 0) / totalRequests 
+            : 0;
+
+          // Most requested leave type
+          const typeCounts = leaveRequests.reduce((acc, r) => {
+            const type = r.leave_types?.name || 'Unknown';
+            acc[type] = (acc[type] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>);
+          const mostRequestedType = Object.entries(typeCounts)
+            .sort(([,a], [,b]) => b - a)[0]?.[0] || 'N/A';
+
+          leaveStats = {
+            totalRequests,
+            pendingRequests,
+            approvedRequests,
+            rejectedRequests,
+            avgDaysPerRequest,
+            mostRequestedType,
+          };
+
+          // Leave trend (last 7 days)
+          const last7Days = Array.from({ length: 7 }, (_, i) => {
+            const date = new Date(now);
+            date.setDate(date.getDate() - (6 - i));
+            return date.toISOString().split('T')[0];
+          });
+
+          leaveTrend = last7Days.map(date => {
+            const dayRequests = leaveRequests.filter(r => 
+              r.created_at.startsWith(date)
+            );
+            return {
+              date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+              requests: dayRequests.length,
+              approved: dayRequests.filter(r => r.status === 'approved').length,
+              rejected: dayRequests.filter(r => r.status === 'rejected').length,
+            };
+          });
+
+          // Leave type breakdown
+          const typeStats = Object.entries(typeCounts).map(([name, value]) => ({
+            name,
+            value,
+            color: `hsl(${Math.random() * 360}, 70%, 50%)`,
+          }));
+          leaveTypeBreakdown = typeStats;
+
+          // Recent leave requests
+          recentLeaveRequests = leaveRequests.slice(0, 10).map(req => {
+            const employee = profiles?.find(p => p.id === req.user_id);
+            return {
+              id: req.id,
+              employeeName: employee?.name || 'Unknown',
+              leaveType: req.leave_types?.name || 'Unknown',
+              startDate: new Date(req.start_date).toLocaleDateString(),
+              endDate: new Date(req.end_date).toLocaleDateString(),
+              days: req.days_requested,
+              status: req.status,
+              workFromHome: req.work_from_home,
+              createdAt: new Date(req.created_at).toLocaleDateString(),
+            };
+          });
+        }
+
+        // Fetch leave balances
+        const currentYear = new Date().getFullYear();
+        const { data: balances, error: balancesError } = await supabase
+          .from('leave_balances')
+          .select(`
+            *,
+            leave_types (name)
+          `)
+          .eq('year', currentYear);
+
+        if (!balancesError && balances) {
+          leaveBalances = balances.map(balance => {
+            const employee = profiles?.find(p => p.id === balance.user_id);
+            return {
+              employeeName: employee?.name || 'Unknown',
+              leaveType: balance.leave_types?.name || 'Unknown',
+              totalDays: balance.total_days,
+              usedDays: balance.used_days,
+              remainingDays: balance.remaining_days,
+            };
+          });
+        }
+      } catch (error) {
+        console.warn('Error fetching leave data:', error);
+        // Continue with empty leave data
+      }
+
       setAnalytics({
         totalEmployees,
         activeEmployees,
@@ -258,6 +426,11 @@ export default function AdminReports() {
         recentActivity,
         statusBreakdown,
         employeeDetails,
+        leaveStats,
+        leaveTrend,
+        leaveTypeBreakdown,
+        recentLeaveRequests,
+        leaveBalances,
       });
     } catch (error) {
       console.error('Error fetching admin analytics:', error);
@@ -295,12 +468,12 @@ export default function AdminReports() {
 
   return (
     <Layout>
-      <div className="p-6 max-w-7xl mx-auto space-y-6">
+      <div className="p-4 sm:p-6 max-w-7xl mx-auto space-y-4 sm:space-y-6">
         <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Analytics & Reports</h1>
-              <p className="text-muted-foreground">Comprehensive workforce insights and performance metrics</p>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Analytics & Reports</h1>
+              <p className="text-muted-foreground text-sm sm:text-base">Comprehensive workforce insights and performance metrics</p>
             </div>
             <div className="flex gap-2">
               {(['week', 'month', 'quarter'] as const).map((period) => (
@@ -356,7 +529,7 @@ export default function AdminReports() {
         </div>
 
         {/* Overview Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
@@ -417,16 +590,67 @@ export default function AdminReports() {
           </Card>
         </div>
 
+        {/* Leave Statistics */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Leave Requests</CardTitle>
+              <Plane className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{analytics.leaveStats.totalRequests}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {analytics.leaveStats.avgDaysPerRequest.toFixed(1)} avg days/request
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Pending Requests</CardTitle>
+              <Clock className="h-4 w-4 text-warning" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-warning">
+                {analytics.leaveStats.pendingRequests}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Approved Requests</CardTitle>
+              <CheckCircle className="h-4 w-4 text-success" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-success">
+                {analytics.leaveStats.approvedRequests}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Most Requested Type</CardTitle>
+              <CalendarDays className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-lg font-bold">{analytics.leaveStats.mostRequestedType}</div>
+            </CardContent>
+          </Card>
+        </div>
+
         <Tabs defaultValue="overview" className="space-y-6">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="leave">Leave Analytics</TabsTrigger>
             <TabsTrigger value="employees">Employee Details</TabsTrigger>
             <TabsTrigger value="activity">Recent Activity</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
             {/* Charts Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
               <Card>
                 <CardHeader>
                   <CardTitle>Weekly Trend</CardTitle>
@@ -546,6 +770,208 @@ export default function AdminReports() {
                     </div>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="leave" className="space-y-6">
+            {/* Leave Charts Row */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Leave Request Trend</CardTitle>
+                  <CardDescription>Daily leave requests over the last week</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer
+                    config={{
+                      requests: { label: "Requests", color: "hsl(var(--primary))" },
+                      approved: { label: "Approved", color: "hsl(var(--success))" },
+                      rejected: { label: "Rejected", color: "hsl(var(--destructive))" },
+                    }}
+                    className="h-[300px]"
+                  >
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={analytics.leaveTrend}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="date" />
+                        <YAxis />
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                        <Line type="monotone" dataKey="requests" stroke="hsl(var(--primary))" strokeWidth={2} />
+                        <Line type="monotone" dataKey="approved" stroke="hsl(var(--success))" strokeWidth={2} />
+                        <Line type="monotone" dataKey="rejected" stroke="hsl(var(--destructive))" strokeWidth={2} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle>Leave Type Distribution</CardTitle>
+                  <CardDescription>Most requested leave types</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer
+                    config={analytics.leaveTypeBreakdown.reduce((acc, item) => {
+                      acc[item.name] = { label: item.name, color: item.color };
+                      return acc;
+                    }, {} as Record<string, { label: string; color: string }>)}
+                    className="h-[300px]"
+                  >
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={analytics.leaveTypeBreakdown}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          label={({ name, value }) => `${name}: ${value}`}
+                          outerRadius={100}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {analytics.leaveTypeBreakdown.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <ChartTooltip content={<ChartTooltipContent />} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Recent Leave Requests */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Leave Requests</CardTitle>
+                <CardDescription>Latest leave applications and their status</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Employee</TableHead>
+                      <TableHead>Leave Type</TableHead>
+                      <TableHead>Duration</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Work From Home</TableHead>
+                      <TableHead>Created</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {analytics.recentLeaveRequests.map((request) => (
+                      <TableRow key={request.id}>
+                        <TableCell className="font-medium">{request.employeeName}</TableCell>
+                        <TableCell>{request.leaveType}</TableCell>
+                        <TableCell>
+                          {request.days} days
+                          <div className="text-xs text-muted-foreground">
+                            {request.startDate} - {request.endDate}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            className={
+                              request.status === 'approved'
+                                ? 'bg-success/10 text-success'
+                                : request.status === 'rejected'
+                                ? 'bg-destructive/10 text-destructive'
+                                : 'bg-warning/10 text-warning'
+                            }
+                          >
+                            {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {request.workFromHome ? (
+                            <Badge variant="outline" className="bg-blue-50 text-blue-700">
+                              Yes
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">No</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {request.createdAt}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+
+            {/* Leave Balances */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Employee Leave Balances</CardTitle>
+                <CardDescription>Current leave entitlements and usage</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Employee</TableHead>
+                      <TableHead>Leave Type</TableHead>
+                      <TableHead>Total Days</TableHead>
+                      <TableHead>Used Days</TableHead>
+                      <TableHead>Remaining</TableHead>
+                      <TableHead>Usage %</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {analytics.leaveBalances.map((balance, index) => {
+                      const usagePercent = balance.totalDays > 0 
+                        ? (balance.usedDays / balance.totalDays) * 100 
+                        : 0;
+                      
+                      return (
+                        <TableRow key={index}>
+                          <TableCell className="font-medium">{balance.employeeName}</TableCell>
+                          <TableCell>{balance.leaveType}</TableCell>
+                          <TableCell>{balance.totalDays}</TableCell>
+                          <TableCell>{balance.usedDays}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className={
+                                balance.remainingDays > 5
+                                  ? 'bg-success/10 text-success border-success'
+                                  : balance.remainingDays > 0
+                                  ? 'bg-warning/10 text-warning border-warning'
+                                  : 'bg-destructive/10 text-destructive border-destructive'
+                              }
+                            >
+                              {balance.remainingDays}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center space-x-2">
+                              <div className="w-16 bg-muted rounded-full h-2">
+                                <div 
+                                  className={`h-2 rounded-full ${
+                                    usagePercent > 80 
+                                      ? 'bg-destructive' 
+                                      : usagePercent > 50 
+                                      ? 'bg-warning' 
+                                      : 'bg-success'
+                                  }`}
+                                  style={{ width: `${Math.min(usagePercent, 100)}%` }}
+                                />
+                              </div>
+                              <span className="text-sm text-muted-foreground">
+                                {usagePercent.toFixed(0)}%
+                              </span>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           </TabsContent>

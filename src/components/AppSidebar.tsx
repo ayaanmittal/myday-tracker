@@ -1,4 +1,4 @@
-import { Home, Calendar, Users, MessageSquare, Settings, LogOut, UserCog, FileText, Shield, BarChart3, LineChart } from 'lucide-react';
+import { Home, Calendar, Users, MessageSquare, Settings, LogOut, UserCog, FileText, Shield, BarChart3, LineChart, CheckSquare, ClipboardList, Plane } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import {
   Sidebar,
@@ -14,6 +14,9 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useMessageNotifications } from '@/hooks/useMessageNotifications';
+import { useLeaveRequests } from '@/hooks/useLeaveRequests';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 import logo from '@/assets/zoogol-logo.png';
 import { Badge } from '@/components/ui/badge';
 
@@ -23,61 +26,91 @@ export function AppSidebar() {
   const { signOut } = useAuth();
   const { data: role } = useUserRole();
   const { unreadCount } = useMessageNotifications();
+  const { pendingCount: leavePendingCount } = useLeaveRequests();
+  const [employeeCount, setEmployeeCount] = useState<number>(0);
+
+  // Fetch employee count for admin users
+  useEffect(() => {
+    if (role === 'admin') {
+      const fetchEmployeeCount = async () => {
+        try {
+          const { count, error } = await supabase
+            .from('profiles')
+            .select('*', { count: 'exact', head: true })
+            .eq('is_active', true);
+          
+          if (!error && count !== null) {
+            setEmployeeCount(count);
+          }
+        } catch (error) {
+          console.error('Error fetching employee count:', error);
+        }
+      };
+      
+      fetchEmployeeCount();
+    }
+  }, [role]);
 
   const employeeItems = [
-    { title: 'Today', url: '/today', icon: Home, badge: 0 },
-    { title: 'History', url: '/history', icon: Calendar, badge: 0 },
-    { title: 'Analytics', url: '/analytics', icon: BarChart3, badge: 0 },
-    { title: 'Office Rules', url: '/office-rules', icon: FileText, badge: 0 },
+    { title: 'Today', url: '/today', icon: Home },
+    { title: 'History', url: '/history', icon: Calendar },
+    { title: 'Analytics', url: '/analytics', icon: BarChart3 },
+    { title: 'Tasks', url: '/tasks', icon: CheckSquare },
+    { title: 'Leave', url: '/leave', icon: Plane },
+    { title: 'Office Rules', url: '/office-rules', icon: FileText },
     { title: 'Messages', url: '/messages', icon: MessageSquare, badge: unreadCount },
   ];
 
   const adminItems = [
-    { title: 'Dashboard', url: '/dashboard', icon: Home, badge: 0 },
-    { title: 'Reports', url: '/admin-reports', icon: LineChart, badge: 0 },
-    { title: 'Employees', url: '/employees', icon: Users, badge: 0 },
-    { title: 'Manage Users', url: '/manage-employees', icon: UserCog, badge: 0 },
-    { title: 'Manage Rules', url: '/manage-rules', icon: Shield, badge: 0 },
+    { title: 'Dashboard', url: '/dashboard', icon: Home },
+    { title: 'Reports', url: '/admin-reports', icon: LineChart },
+    { title: 'Employees', url: '/employees', icon: Users, badge: employeeCount },
+    { title: 'Manage Users', url: '/manage-employees', icon: UserCog },
+    { title: 'Task Manager', url: '/task-manager', icon: ClipboardList },
+    { title: 'Leave Approval', url: '/leave-approval', icon: Plane, badge: leavePendingCount },
+    { title: 'Manage Rules', url: '/manage-rules', icon: Shield },
     { title: 'Messages', url: '/messages', icon: MessageSquare, badge: unreadCount },
-    { title: 'Settings', url: '/settings', icon: Settings, badge: 0 },
+    { title: 'Settings', url: '/settings', icon: Settings },
   ];
 
   const items = role === 'admin' ? adminItems : employeeItems;
 
   return (
-    <Sidebar className={collapsed ? 'w-16' : 'w-64'} collapsible="icon">
-      <SidebarContent className="bg-card">
+    <Sidebar className={`${collapsed ? 'w-16' : 'w-64'} elegant-shadow`} collapsible="icon" side="left">
+      <SidebarContent className="bg-card text-black">
         <div className={`p-4 border-b ${collapsed ? 'flex justify-center' : ''}`}>
           <img 
             src={logo} 
             alt="Zoogol" 
-            className={collapsed ? 'h-8 w-8 object-contain' : 'h-10 w-auto object-contain'}
+            className={`${collapsed ? 'h-8 w-8' : 'h-10 w-auto'} object-contain transition-all duration-200`}
           />
         </div>
 
         <SidebarGroup>
-          <SidebarGroupLabel className="text-foreground px-3">{collapsed ? '' : 'Navigation'}</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-black px-3">
+            {collapsed ? '' : 'Navigation'}
+          </SidebarGroupLabel>
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="px-2 py-2">
               {items.map((item) => (
                 <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild>
+                  <SidebarMenuButton asChild className="elegant-button">
                     <NavLink
                       to={item.url}
                       className={({ isActive }) =>
                         `flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
                           isActive
                             ? 'bg-primary text-primary-foreground font-medium'
-                            : 'text-foreground hover:text-primary :bg-accent/50'
+                            : 'text-black hover:text-sidebar-accent-foreground hover:bg-sidebar-accent'
                         }`
                       }
                     >
-                      <item.icon className="h-5 w-5" />
+                      <item.icon className="h-5 w-5 text-black" />
                       {!collapsed && (
-                        <div className="flex items-center justify-between flex-1">
-                          <span>{item.title}</span>
+                        <div className="flex items-center justify-between flex-1 min-w-0">
+                          <span className="truncate text-black !text-black" style={{ color: 'black' }}>{item.title}</span>
                           {item.badge && item.badge > 0 && (
-                            <Badge className="ml-auto bg-destructive text-destructive-foreground">
+                            <Badge className="ml-2 bg-destructive text-destructive-foreground text-xs font-semibold px-1 py-0.5 rounded-full h-4 min-w-4 flex items-center justify-center">
                               {item.badge}
                             </Badge>
                           )}
@@ -87,7 +120,6 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
-
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -95,10 +127,10 @@ export function AppSidebar() {
         <div className="mt-auto border-t p-4">
           <button
             onClick={signOut}
-            className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-destructive/10 hover:text-destructive transition-colors w-full text-foreground"
+            className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-destructive/10 hover:text-destructive transition-colors w-full text-black"
           >
             <LogOut className="h-5 w-5" />
-            {!collapsed && <span>Sign Out</span>}
+            {!collapsed && <span className="text-black !text-black" style={{ color: 'black' }}>Sign Out</span>}
           </button>
         </div>
       </SidebarContent>

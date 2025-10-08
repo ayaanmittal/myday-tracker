@@ -6,9 +6,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Layout } from '@/components/Layout';
-import { Calendar, Clock, MessageSquare, Search, TrendingUp, User, AlertTriangle } from 'lucide-react';
+import { Calendar, Clock, MessageSquare, Search, TrendingUp, User, AlertTriangle, Edit, Save, X } from 'lucide-react';
+import { toast } from '@/hooks/use-toast';
 import { DatePicker } from '@/components/DatePicker';
 import {
   Table,
@@ -48,11 +50,17 @@ interface Violation {
 }
 
 interface EmployeeHistory {
+  id: string;
   entry_date: string;
   check_in_at: string | null;
   check_out_at: string | null;
+  lunch_break_start: string | null;
+  lunch_break_end: string | null;
   total_work_time_minutes: number | null;
   status: string;
+  last_modified_by: string | null;
+  modification_reason: string | null;
+  updated_at: string | null;
   today_focus: string | null;
   progress: string | null;
   blockers: string | null;
@@ -70,6 +78,14 @@ export default function Employees() {
   const [employeeViolations, setEmployeeViolations] = useState<Violation[]>([]);
   const [showViolations, setShowViolations] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [editingEntry, setEditingEntry] = useState<EmployeeHistory | null>(null);
+  const [editTimes, setEditTimes] = useState({
+    check_in: '',
+    check_out: '',
+    lunch_start: '',
+    lunch_end: ''
+  });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -136,11 +152,17 @@ export default function Employees() {
       const { data, error } = await supabase
         .from('day_entries')
         .select(`
+          id,
           entry_date,
           check_in_at,
           check_out_at,
+          lunch_break_start,
+          lunch_break_end,
           total_work_time_minutes,
           status,
+          last_modified_by,
+          modification_reason,
+          updated_at,
           day_updates (
             today_focus,
             progress,
@@ -195,6 +217,214 @@ export default function Employees() {
     if (level === 1) return "bg-yellow-500 hover:bg-yellow-600";
     if (level === 2) return "bg-orange-500 hover:bg-orange-600";
     return "bg-red-500 hover:bg-red-600";
+  };
+
+  const startEditing = (entry: EmployeeHistory) => {
+    setEditingEntry(entry);
+    
+    // Helper function to convert database timestamp to HTML time input format
+    const formatTimeForInput = (timestamp: string | null) => {
+      if (!timestamp) return '';
+      try {
+        const date = new Date(timestamp);
+        // Format as HH:MM for HTML time input using local time
+        const hours = date.getHours().toString().padStart(2, '0');
+        const minutes = date.getMinutes().toString().padStart(2, '0');
+        return `${hours}:${minutes}`;
+      } catch (error) {
+        console.error('Error formatting time:', error, timestamp);
+        return '';
+      }
+    };
+
+    setEditTimes({
+      check_in: formatTimeForInput(entry.check_in_at),
+      check_out: formatTimeForInput(entry.check_out_at),
+      lunch_start: formatTimeForInput(entry.lunch_break_start),
+      lunch_end: formatTimeForInput(entry.lunch_break_end)
+    });
+
+    console.log('Starting edit with times:', {
+      entry,
+      editTimes: {
+        check_in: formatTimeForInput(entry.check_in_at),
+        check_out: formatTimeForInput(entry.check_out_at),
+        lunch_start: formatTimeForInput(entry.lunch_break_start),
+        lunch_end: formatTimeForInput(entry.lunch_break_end)
+      }
+    });
+  };
+
+  const cancelEditing = () => {
+    setEditingEntry(null);
+    setEditTimes({
+      check_in: '',
+      check_out: '',
+      lunch_start: '',
+      lunch_end: ''
+    });
+  };
+
+  const saveTimes = async () => {
+    if (!editingEntry || !user) return;
+
+    // Validation
+    if (editTimes.check_in && editTimes.check_out) {
+      const checkIn = new Date(`${editingEntry.entry_date}T${editTimes.check_in}:00`);
+      const checkOut = new Date(`${editingEntry.entry_date}T${editTimes.check_out}:00`);
+      
+      if (checkOut <= checkIn) {
+        toast({
+          title: 'Invalid Times',
+          description: 'Check-out time must be after check-in time.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
+    if (editTimes.lunch_start && editTimes.lunch_end) {
+      const lunchStart = new Date(`${editingEntry.entry_date}T${editTimes.lunch_start}:00`);
+      const lunchEnd = new Date(`${editingEntry.entry_date}T${editTimes.lunch_end}:00`);
+      
+      if (lunchEnd <= lunchStart) {
+        toast({
+          title: 'Invalid Lunch Times',
+          description: 'Lunch end time must be after lunch start time.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Check if lunch break is within work hours
+      if (editTimes.check_in && editTimes.check_out) {
+        const checkIn = new Date(`${editingEntry.entry_date}T${editTimes.check_in}:00`);
+        const checkOut = new Date(`${editingEntry.entry_date}T${editTimes.check_out}:00`);
+        
+        if (lunchStart < checkIn || lunchEnd > checkOut) {
+          toast({
+            title: 'Invalid Lunch Times',
+            description: 'Lunch break must be within work hours.',
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
+    }
+
+    setSaving(true);
+    try {
+      const entryDate = editingEntry.entry_date;
+      
+      // Fix date parsing - handle both string and Date objects
+      let dateStr: string;
+      if (typeof entryDate === 'string') {
+        dateStr = entryDate;
+      } else {
+        dateStr = new Date(entryDate).toISOString().split('T')[0];
+      }
+
+      // Convert time strings to full datetime strings with proper timezone handling
+      const createDateTime = (timeStr: string) => {
+        if (!timeStr) return null;
+        // Ensure time is in HH:MM format
+        const time = timeStr.includes(':') ? timeStr : `${timeStr}:00`;
+        
+        // Create a local datetime and convert to UTC
+        const localDateTime = new Date(`${dateStr}T${time}:00`);
+        return localDateTime.toISOString();
+      };
+
+      const checkInDateTime = createDateTime(editTimes.check_in);
+      const checkOutDateTime = createDateTime(editTimes.check_out);
+      const lunchStartDateTime = createDateTime(editTimes.lunch_start);
+      const lunchEndDateTime = createDateTime(editTimes.lunch_end);
+
+      console.log('Time conversion debug:', {
+        entryDate,
+        dateStr,
+        editTimes,
+        checkInDateTime,
+        checkOutDateTime,
+        lunchStartDateTime,
+        lunchEndDateTime,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        timezoneOffset: new Date().getTimezoneOffset()
+      });
+
+      // Calculate new total work time
+      let newTotalMinutes = 0;
+      if (checkInDateTime && checkOutDateTime) {
+        const checkIn = new Date(checkInDateTime);
+        const checkOut = new Date(checkOutDateTime);
+        const totalMinutes = (checkOut.getTime() - checkIn.getTime()) / (1000 * 60);
+        
+        // Subtract lunch break if both lunch times are provided
+        if (lunchStartDateTime && lunchEndDateTime) {
+          const lunchStart = new Date(lunchStartDateTime);
+          const lunchEnd = new Date(lunchEndDateTime);
+          const lunchMinutes = (lunchEnd.getTime() - lunchStart.getTime()) / (1000 * 60);
+          newTotalMinutes = Math.max(0, totalMinutes - lunchMinutes);
+        } else {
+          newTotalMinutes = totalMinutes;
+        }
+      }
+
+      // Update the day entry with proper error handling
+      const { data, error } = await supabase
+        .from('day_entries')
+        .update({
+          check_in_at: checkInDateTime,
+          check_out_at: checkOutDateTime,
+          lunch_break_start: lunchStartDateTime,
+          lunch_break_end: lunchEndDateTime,
+          total_work_time_minutes: newTotalMinutes > 0 ? Math.round(newTotalMinutes) : null,
+          updated_at: new Date().toISOString(),
+          last_modified_by: user.id,
+          modification_reason: 'Admin time correction'
+        })
+        .eq('id', editingEntry.id)
+        .select();
+
+      if (error) throw error;
+
+      toast({
+        title: 'Times Updated',
+        description: `Employee times have been successfully updated. Changes logged for audit trail.`,
+      });
+
+      // Refresh the employee history
+      if (selectedEmployee) {
+        fetchEmployeeHistory(selectedEmployee.id);
+      }
+      cancelEditing();
+
+    } catch (error: any) {
+      console.error('Error updating times:', error);
+      console.error('Error details:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code
+      });
+      
+      let errorMessage = 'Failed to update times';
+      if (error.message?.includes('permission denied')) {
+        errorMessage = 'Permission denied. Please ensure you have admin access.';
+      } else if (error.message?.includes('function') && error.message?.includes('does not exist')) {
+        errorMessage = 'Database function not found. Please run the database setup script.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      toast({
+        title: 'Error',
+        description: errorMessage,
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const filteredEmployees = employees.filter(
@@ -392,52 +622,140 @@ export default function Employees() {
                           )}
                         </div>
                       </div>
-                      <Badge
-                        variant={
-                          entry.status === 'completed'
-                            ? 'default'
-                            : entry.status === 'in_progress'
-                            ? 'secondary'
-                            : entry.status === 'unlogged'
-                            ? 'destructive'
-                            : 'outline'
-                        }
-                        className={
-                          entry.status === 'completed'
-                            ? 'bg-success/10 text-success'
-                            : entry.status === 'in_progress'
-                            ? 'bg-info/10 text-info'
-                            : entry.status === 'unlogged'
-                            ? 'bg-destructive/10 text-destructive'
-                            : ''
-                        }
-                      >
-                        {entry.status.replace('_', ' ').toUpperCase()}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => startEditing(entry)}
+                          className="flex items-center gap-1"
+                        >
+                          <Edit className="h-3 w-3" />
+                          Edit Times
+                        </Button>
+                        <Badge
+                          variant={
+                            entry.status === 'completed'
+                              ? 'default'
+                              : entry.status === 'in_progress'
+                              ? 'secondary'
+                              : entry.status === 'unlogged'
+                              ? 'destructive'
+                              : 'outline'
+                          }
+                          className={
+                            entry.status === 'completed'
+                              ? 'bg-success/10 text-success'
+                              : entry.status === 'in_progress'
+                              ? 'bg-info/10 text-info'
+                              : entry.status === 'unlogged'
+                              ? 'bg-destructive/10 text-destructive'
+                              : ''
+                          }
+                        >
+                          {entry.status.replace('_', ' ').toUpperCase()}
+                        </Badge>
+                      </div>
                     </div>
                   </CardHeader>
 
-                  {(entry.today_focus || entry.progress || entry.blockers) && (
-                    <CardContent className="space-y-3">
-                      {entry.today_focus && (
-                        <div>
-                          <p className="text-sm font-semibold mb-1">Focus:</p>
-                          <p className="text-sm text-muted-foreground">{entry.today_focus}</p>
+                  {editingEntry && editingEntry.id === entry.id ? (
+                    <CardContent className="space-y-4 p-4 border rounded-lg bg-muted/50">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="check_in" className="text-sm">Check-in Time</Label>
+                          <Input
+                            id="check_in"
+                            type="time"
+                            value={editTimes.check_in}
+                            onChange={(e) => setEditTimes(prev => ({ ...prev, check_in: e.target.value }))}
+                            className="text-sm"
+                          />
                         </div>
-                      )}
-                      {entry.progress && (
-                        <div>
-                          <p className="text-sm font-semibold mb-1">Progress:</p>
-                          <p className="text-sm text-muted-foreground">{entry.progress}</p>
+                        <div className="space-y-2">
+                          <Label htmlFor="check_out" className="text-sm">Check-out Time</Label>
+                          <Input
+                            id="check_out"
+                            type="time"
+                            value={editTimes.check_out}
+                            onChange={(e) => setEditTimes(prev => ({ ...prev, check_out: e.target.value }))}
+                            className="text-sm"
+                          />
                         </div>
-                      )}
-                      {entry.blockers && (
-                        <div>
-                          <p className="text-sm font-semibold mb-1 text-warning">Blockers:</p>
-                          <p className="text-sm text-muted-foreground">{entry.blockers}</p>
+                        <div className="space-y-2">
+                          <Label htmlFor="lunch_start" className="text-sm">Lunch Start</Label>
+                          <Input
+                            id="lunch_start"
+                            type="time"
+                            value={editTimes.lunch_start}
+                            onChange={(e) => setEditTimes(prev => ({ ...prev, lunch_start: e.target.value }))}
+                            className="text-sm"
+                          />
                         </div>
-                      )}
+                        <div className="space-y-2">
+                          <Label htmlFor="lunch_end" className="text-sm">Lunch End</Label>
+                          <Input
+                            id="lunch_end"
+                            type="time"
+                            value={editTimes.lunch_end}
+                            onChange={(e) => setEditTimes(prev => ({ ...prev, lunch_end: e.target.value }))}
+                            className="text-sm"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          onClick={saveTimes}
+                          disabled={saving}
+                          className="flex items-center gap-1"
+                        >
+                          <Save className="h-3 w-3" />
+                          {saving ? 'Saving...' : 'Save Changes'}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={cancelEditing}
+                          disabled={saving}
+                          className="flex items-center gap-1"
+                        >
+                          <X className="h-3 w-3" />
+                          Cancel
+                        </Button>
+                      </div>
                     </CardContent>
+                  ) : (
+                    <>
+                      {(entry.today_focus || entry.progress || entry.blockers) && (
+                        <CardContent className="space-y-3">
+                          {entry.today_focus && (
+                            <div>
+                              <p className="text-sm font-semibold mb-1">Focus:</p>
+                              <p className="text-sm text-muted-foreground">{entry.today_focus}</p>
+                            </div>
+                          )}
+                          {entry.progress && (
+                            <div>
+                              <p className="text-sm font-semibold mb-1">Progress:</p>
+                              <p className="text-sm text-muted-foreground">{entry.progress}</p>
+                            </div>
+                          )}
+                          {entry.blockers && (
+                            <div>
+                              <p className="text-sm font-semibold mb-1 text-warning">Blockers:</p>
+                              <p className="text-sm text-muted-foreground">{entry.blockers}</p>
+                            </div>
+                          )}
+                        </CardContent>
+                      )}
+                      {entry.last_modified_by && entry.modification_reason && (
+                        <CardContent className="pt-0">
+                          <div className="text-xs text-amber-600 bg-amber-50 p-2 rounded">
+                            <strong>Last modified:</strong> {entry.modification_reason} • {entry.updated_at ? new Date(entry.updated_at).toLocaleString() : 'Unknown time'}
+                          </div>
+                        </CardContent>
+                      )}
+                    </>
                   )}
                 </Card>
               ))

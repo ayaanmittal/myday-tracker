@@ -103,7 +103,7 @@ export type Database = {
       messages: {
         Row: {
           created_at: string
-          from_user_id: string
+          sender_id: string
           id: string
           is_read: boolean
           message: string
@@ -111,7 +111,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
-          from_user_id: string
+          sender_id: string
           id?: string
           is_read?: boolean
           message: string
@@ -162,6 +162,7 @@ export type Database = {
           is_active: boolean
           name: string
           team: string | null
+          designation: string | null
           updated_at: string
         }
         Insert: {
@@ -171,6 +172,7 @@ export type Database = {
           is_active?: boolean
           name: string
           team?: string | null
+          designation?: string | null
           updated_at?: string
         }
         Update: {
@@ -180,6 +182,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           team?: string | null
+          designation?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -298,6 +301,400 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      users: {
+        Row: {
+          id: string
+          name: string
+          phone: string | null
+          email: string
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id: string
+          name: string
+          phone?: string | null
+          email: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          phone?: string | null
+          email?: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "users_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      conversations: {
+        Row: {
+          id: string
+          participant_1: string
+          participant_2: string
+          last_message_at: string | null
+          last_message_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          participant_1: string
+          participant_2: string
+          last_message_at?: string | null
+          last_message_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          participant_1?: string
+          participant_2?: string
+          last_message_at?: string | null
+          last_message_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_participant_1_fkey"
+            columns: ["participant_1"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_participant_2_fkey"
+            columns: ["participant_2"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      tasks: {
+        Row: {
+          id: string
+          title: string
+          description: string | null
+          assigned_to: string
+          assigned_by: string
+          status: string
+          priority: string
+          due_date: string | null
+          completed_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          description?: string | null
+          assigned_to: string
+          assigned_by: string
+          status?: string
+          priority?: string
+          due_date?: string | null
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          description?: string | null
+          assigned_to?: string
+          assigned_by?: string
+          status?: string
+          priority?: string
+          due_date?: string | null
+          completed_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      extra_work_logs: {
+        Row: {
+          id: string
+          day_entry_id: string
+          user_id: string
+          work_type: string
+          hours_worked: number
+          description: string | null
+          logged_at: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          day_entry_id: string
+          user_id: string
+          work_type?: string
+          hours_worked: number
+          description?: string | null
+          logged_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          day_entry_id?: string
+          user_id?: string
+          work_type?: string
+          hours_worked?: number
+          description?: string | null
+          logged_at?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "extra_work_logs_day_entry_id_fkey"
+            columns: ["day_entry_id"]
+            isOneToOne: false
+            referencedRelation: "day_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "extra_work_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      leave_types: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          max_days_per_year: number
+          is_paid: boolean
+          requires_approval: boolean
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          max_days_per_year?: number
+          is_paid?: boolean
+          requires_approval?: boolean
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          max_days_per_year?: number
+          is_paid?: boolean
+          requires_approval?: boolean
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      leave_requests: {
+        Row: {
+          id: string
+          user_id: string
+          leave_type_id: string
+          start_date: string
+          end_date: string
+          days_requested: number
+          reason: string | null
+          work_from_home: boolean
+          status: string
+          approved_by: string | null
+          approved_at: string | null
+          rejection_reason: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          leave_type_id: string
+          start_date: string
+          end_date: string
+          days_requested: number
+          reason?: string | null
+          work_from_home?: boolean
+          status?: string
+          approved_by?: string | null
+          approved_at?: string | null
+          rejection_reason?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          leave_type_id?: string
+          start_date?: string
+          end_date?: string
+          days_requested?: number
+          reason?: string | null
+          work_from_home?: boolean
+          status?: string
+          approved_by?: string | null
+          approved_at?: string | null
+          rejection_reason?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leave_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_requests_leave_type_id_fkey"
+            columns: ["leave_type_id"]
+            isOneToOne: false
+            referencedRelation: "leave_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_requests_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      leave_balances: {
+        Row: {
+          id: string
+          user_id: string
+          leave_type_id: string
+          year: number
+          total_days: number
+          used_days: number
+          remaining_days: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          leave_type_id: string
+          year: number
+          total_days?: number
+          used_days?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          leave_type_id?: string
+          year?: number
+          total_days?: number
+          used_days?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leave_balances_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_balances_leave_type_id_fkey"
+            columns: ["leave_type_id"]
+            isOneToOne: false
+            referencedRelation: "leave_types"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      messages: {
+        Row: {
+          id: string
+          conversation_id: string
+          sender_id: string
+          content: string
+          is_read: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          conversation_id: string
+          sender_id: string
+          content: string
+          is_read?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          conversation_id?: string
+          sender_id?: string
+          content?: string
+          is_read?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
     Views: {

@@ -40,6 +40,7 @@ interface Employee {
   name: string;
   email: string;
   team: string | null;
+  designation: string | null;
   is_active: boolean;
   role: string;
 }
@@ -59,6 +60,7 @@ export default function ManageEmployees() {
     email: '',
     password: '',
     team: '',
+    designation: '',
     role: 'employee' as 'admin' | 'manager' | 'employee',
   });
 
@@ -116,6 +118,7 @@ export default function ManageEmployees() {
           .update({
             name: formData.name,
             team: formData.team || null,
+            designation: formData.designation || null,
           })
           .eq('id', editingEmployee.id);
 
@@ -146,10 +149,13 @@ export default function ManageEmployees() {
         if (authError) throw authError;
 
         if (authData.user) {
-          // Update profile with team
+          // Update profile with team and designation
           await supabase
             .from('profiles')
-            .update({ team: formData.team || null })
+            .update({ 
+              team: formData.team || null,
+              designation: formData.designation || null 
+            })
             .eq('id', authData.user.id);
 
           // Update role if not employee
@@ -188,6 +194,7 @@ export default function ManageEmployees() {
       email: employee.email,
       password: '',
       team: employee.team || '',
+      designation: employee.designation || '',
       role: employee.role as 'admin' | 'manager' | 'employee',
     });
     setDialogOpen(true);
@@ -223,6 +230,7 @@ export default function ManageEmployees() {
       email: '',
       password: '',
       team: '',
+      designation: '',
       role: 'employee',
     });
     setEditingEmployee(null);
@@ -316,6 +324,16 @@ export default function ManageEmployees() {
                 </div>
 
                 <div className="space-y-2">
+                  <Label htmlFor="designation">Designation (optional)</Label>
+                  <Input
+                    id="designation"
+                    value={formData.designation}
+                    onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
+                    placeholder="e.g., Senior Developer, Team Lead, Manager"
+                  />
+                </div>
+
+                <div className="space-y-2">
                   <Label htmlFor="role">Role</Label>
                   <Select
                     value={formData.role}
@@ -365,6 +383,7 @@ export default function ManageEmployees() {
                 <TableRow>
                   <TableHead>Employee</TableHead>
                   <TableHead>Team</TableHead>
+                  <TableHead>Designation</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -385,6 +404,7 @@ export default function ManageEmployees() {
                       </div>
                     </TableCell>
                     <TableCell>{employee.team || '-'}</TableCell>
+                    <TableCell>{employee.designation || '-'}</TableCell>
                     <TableCell>
                       <Badge variant="outline" className="capitalize">
                         {employee.role}

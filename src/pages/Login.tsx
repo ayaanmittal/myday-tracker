@@ -7,14 +7,13 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
+import { sessionManager } from '@/lib/sessionManager';
 import logo from '@/assets/zoogol-logo.png';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [name, setName] = useState('');
   const [staySignedIn, setStaySignedIn] = useState(false);
   const navigate = useNavigate();
 
@@ -23,43 +22,24 @@ export default function Login() {
     setLoading(true);
 
     try {
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-            data: { name }
-          }
-        });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-        if (error) throw error;
+      if (error) throw error;
+      
+      // Store preference using session manager
+      sessionManager.setStaySignedIn(staySignedIn);
+      console.log('Stay signed in preference saved:', staySignedIn);
 
-        toast({
-          title: 'Account created!',
-          description: 'Please check your email to verify your account.',
-        });
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-
-        if (error) throw error;
-        
-        // Store preference in localStorage for session management
-        if (staySignedIn) {
-          localStorage.setItem('stay_signed_in', 'true');
-        } else {
-          localStorage.removeItem('stay_signed_in');
-        }
-
-        toast({
-          title: 'Welcome back!',
-          description: 'You have successfully signed in.',
-        });
-        navigate('/today');
-      }
+      toast({
+        title: 'Welcome back!',
+        description: staySignedIn 
+          ? 'You have successfully signed in. You will stay signed in.' 
+          : 'You have successfully signed in.',
+      });
+      navigate('/today');
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -73,33 +53,20 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary p-4">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="space-y-1 text-center">
-          <div className="flex justify-center mb-4">
-            <img src={logo} alt="Zoogol" className="h-12 w-auto object-contain" />
+      <Card className="w-full max-w-md elegant-card elegant-shadow-lg">
+        <CardHeader className="space-y-1 text-center pb-4 sm:pb-6 p-4 sm:p-6">
+          <div className="flex justify-center mb-6">
+            <img src={logo} alt="Zoogol" className="h-16 w-auto object-contain" />
           </div>
-          <CardTitle className="text-2xl font-bold">MyDay</CardTitle>
-          <CardDescription>
-            {isSignUp ? 'Create your account' : 'Sign in to your account'}
+          <CardTitle className="font-heading text-3xl font-bold gradient-text">MyDay</CardTitle>
+          <CardDescription className="text-lg text-muted-foreground">
+            Sign in to your account
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleAuth} className="space-y-4">
-            {isSignUp && (
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  type="text"
-                  placeholder="John Doe"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                />
-              </div>
-            )}
+          <form onSubmit={handleAuth} className="space-y-6">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email" className="text-sm font-semibold">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -107,10 +74,11 @@ export default function Login() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="elegant-input"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password" className="text-sm font-semibold">Password</Label>
               <Input
                 id="password"
                 type="password"
@@ -119,36 +87,26 @@ export default function Login() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
+                className="elegant-input"
               />
             </div>
-            {!isSignUp && (
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="stay-signed-in"
-                  checked={staySignedIn}
-                  onCheckedChange={(checked) => setStaySignedIn(checked as boolean)}
-                />
-                <label
-                  htmlFor="stay-signed-in"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                >
-                  Stay signed in
-                </label>
-              </div>
-            )}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Loading...' : isSignUp ? 'Sign Up' : 'Sign In'}
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="stay-signed-in"
+                checked={staySignedIn}
+                onCheckedChange={(checked) => setStaySignedIn(checked as boolean)}
+              />
+              <label
+                htmlFor="stay-signed-in"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+              >
+                Stay signed in
+              </label>
+            </div>
+            <Button type="submit" className="w-full elegant-button text-lg py-6" disabled={loading}>
+              {loading ? 'Loading...' : 'Sign In'}
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm">
-            <button
-              type="button"
-              onClick={() => setIsSignUp(!isSignUp)}
-              className="text-primary hover:underline"
-            >
-              {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
-            </button>
-          </div>
         </CardContent>
       </Card>
       <footer className="fixed bottom-4 text-center w-full text-sm text-muted-foreground">

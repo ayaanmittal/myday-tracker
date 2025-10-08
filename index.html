@@ -2,23 +2,247 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>myday-tracker</title>
-    <meta name="description" content="Lovable Generated Project" />
-    <meta name="author" content="Lovable" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>MyDay Tracker - Zoogol</title>
+    <meta name="description" content="Employee time tracking and productivity management system" />
+    <meta name="author" content="Zoogol" />
+    
+    <!-- Mobile optimizations -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="format-detection" content="telephone=no" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/zoogol-logo.png" />
+    <link rel="shortcut icon" type="image/png" href="/zoogol-logo.png" />
+    <link rel="apple-touch-icon" href="/zoogol-logo.png" />
 
-    <meta property="og:title" content="myday-tracker" />
-    <meta property="og:description" content="Lovable Generated Project" />
+    <meta property="og:title" content="MyDay Tracker - Zoogol" />
+    <meta property="og:description" content="Employee time tracking and productivity management system" />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta property="og:image" content="/zoogol-logo.png" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@lovable_dev" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta name="twitter:site" content="@zoogol" />
+    <meta name="twitter:image" content="/zoogol-logo.png" />
+    
+    <!-- Mobile loading styles -->
+    <style>
+      #root {
+        min-height: 100vh;
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+      }
+      
+      .mobile-loading {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+      }
+      
+      .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #e2e8f0;
+        border-top: 4px solid #3b82f6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+      .loading-text {
+        margin-top: 16px;
+        color: #64748b;
+        font-size: 14px;
+        text-align: center;
+      }
+      
+      .mobile-error {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: #fef2f2;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        padding: 20px;
+      }
+      
+      .error-content {
+        text-align: center;
+        max-width: 300px;
+      }
+      
+      .error-title {
+        color: #dc2626;
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 8px;
+      }
+      
+      .error-message {
+        color: #7f1d1d;
+        font-size: 14px;
+        margin-bottom: 16px;
+      }
+      
+      .retry-button {
+        background: #3b82f6;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 6px;
+        font-size: 14px;
+        cursor: pointer;
+      }
+    </style>
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="mobile-loading" id="mobile-loading">
+        <div>
+          <div class="loading-spinner"></div>
+          <div class="loading-text">Loading MyDay...</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Mobile loading script -->
+    <script>
+      // Enhanced mobile loading detection and error handling
+      (function() {
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        const loadingEl = document.getElementById('mobile-loading');
+        let loadingTimeout;
+        let hasError = false;
+        let checkCount = 0;
+        const maxChecks = 200; // 20 seconds with 100ms intervals
+        
+        console.log('Mobile loading script started. Is mobile:', isMobile);
+        
+        // Show error if loading takes too long
+        loadingTimeout = setTimeout(function() {
+          if (!hasError) {
+            console.log('Loading timeout reached');
+            showError('Loading is taking longer than expected. Please check your internet connection.');
+          }
+        }, 20000); // 20 second timeout
+        
+        // Handle JavaScript errors
+        window.addEventListener('error', function(event) {
+          console.error('JavaScript error caught:', event.error);
+          hasError = true;
+          clearTimeout(loadingTimeout);
+          showError('JavaScript error: ' + (event.error ? event.error.message : event.message));
+        });
+        
+        // Handle unhandled promise rejections
+        window.addEventListener('unhandledrejection', function(event) {
+          console.error('Promise rejection caught:', event.reason);
+          hasError = true;
+          clearTimeout(loadingTimeout);
+          showError('Loading error: ' + event.reason);
+        });
+        
+        // Hide loading when React app loads
+        function hideLoading() {
+          console.log('Hiding loading screen');
+          clearTimeout(loadingTimeout);
+          if (loadingEl) {
+            loadingEl.style.display = 'none';
+          }
+        }
+        
+        function showError(message) {
+          console.log('Showing error:', message);
+          if (loadingEl) {
+            loadingEl.innerHTML = `
+              <div class="error-content">
+                <div class="error-title">App Error</div>
+                <div class="error-message">${message}</div>
+                <div style="margin-top: 10px; font-size: 12px; color: #666;">
+                  <div>Debug Info:</div>
+                  <div>• Mobile: ${isMobile}</div>
+                  <div>• Online: ${navigator.onLine}</div>
+                  <div>• User Agent: ${navigator.userAgent.substring(0, 50)}...</div>
+                  <div>• Viewport: ${window.innerWidth}x${window.innerHeight}</div>
+                </div>
+                <button class="retry-button" onclick="window.location.reload()">Retry</button>
+                <button class="retry-button" onclick="window.open('/mobile-debug.html', '_blank')" style="background: #10b981; margin-left: 10px;">Debug Page</button>
+              </div>
+            `;
+          }
+        }
+        
+        // Enhanced React loading detection
+        function checkReactLoaded() {
+          checkCount++;
+          console.log('Checking React load status, attempt:', checkCount);
+          
+          // Multiple ways to detect React loading
+          const reactDetected = (
+            window.React || 
+            window.ReactDOM ||
+            document.querySelector('[data-reactroot]') || 
+            document.querySelector('#root > *') ||
+            document.querySelector('#root').innerHTML.trim() !== '' ||
+            document.querySelector('script[type="module"]')?.src?.includes('main.tsx')
+          );
+          
+          console.log('React detected:', reactDetected);
+          
+          if (reactDetected) {
+            hideLoading();
+          } else if (checkCount < maxChecks && !hasError) {
+            setTimeout(checkReactLoaded, 100);
+          } else if (checkCount >= maxChecks) {
+            console.log('Max checks reached, showing timeout error');
+            showError('Application failed to load. Please try refreshing the page.');
+          }
+        }
+        
+        // Check for network connectivity
+        function checkNetwork() {
+          if (!navigator.onLine) {
+            showError('No internet connection. Please check your network and try again.');
+            return false;
+          }
+          return true;
+        }
+        
+        // Start the loading process
+        if (checkNetwork()) {
+          console.log('Network is online, starting React check');
+          // Start checking after a short delay
+          setTimeout(checkReactLoaded, 500);
+        }
+        
+        // Fallback: hide loading after 25 seconds regardless
+        setTimeout(function() {
+          if (!hasError) {
+            console.log('Fallback timeout reached');
+            hideLoading();
+          }
+        }, 25000);
+      })();
+    </script>
+    
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
+

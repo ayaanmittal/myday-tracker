@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>MyDay Tracker - Zoogol</title>
+    <meta name="description" content="Employee time tracking and productivity management system" />
+    <meta name="author" content="Zoogol" />
+    
+    <!-- Mobile optimizations -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="format-detection" content="telephone=no" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/zoogol-logo.png" />
+    <link rel="shortcut icon" type="image/png" href="/zoogol-logo.png" />
+    <link rel="apple-touch-icon" href="/zoogol-logo.png" />
+
+    <meta property="og:title" content="MyDay Tracker - Zoogol" />
+    <meta property="og:description" content="Employee time tracking and productivity management system" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/zoogol-logo.png" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@zoogol" />
+    <meta name="twitter:image" content="/zoogol-logo.png" />
+    
+    <!-- Simple mobile loading styles -->
+    <style>
+      #root {
+        min-height: 100vh;
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+      }
+      
+      .simple-loading {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      
+      .loading-spinner {
+        width: 40px;
+        height: 40px;
+        border: 4px solid #e2e8f0;
+        border-top: 4px solid #3b82f6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 20px;
+      }
+      
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      
+      .loading-text {
+        color: #64748b;
+        font-size: 16px;
+        text-align: center;
+        margin-bottom: 10px;
+      }
+      
+      .loading-subtext {
+        color: #94a3b8;
+        font-size: 14px;
+        text-align: center;
+      }
+      
+      .error-content {
+        text-align: center;
+        max-width: 400px;
+        padding: 20px;
+      }
+      
+      .error-title {
+        color: #dc2626;
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 12px;
+      }
+      
+      .error-message {
+        color: #7f1d1d;
+        font-size: 16px;
+        margin-bottom: 20px;
+        line-height: 1.5;
+      }
+      
+      .retry-button {
+        background: #3b82f6;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 6px;
+        font-size: 14px;
+        cursor: pointer;
+        margin: 5px;
+      }
+      
+      .retry-button:hover {
+        background: #2563eb;
+      }
+      
+      .debug-button {
+        background: #10b981;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 6px;
+        font-size: 14px;
+        cursor: pointer;
+        margin: 5px;
+      }
+      
+      .debug-button:hover {
+        background: #059669;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="root">
+      <div class="simple-loading" id="simple-loading">
+        <div>
+          <div class="loading-spinner"></div>
+          <div class="loading-text">Loading MyDay...</div>
+          <div class="loading-subtext">Please wait while the app loads</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Simple mobile loading script -->
+    <script>
+      console.log('Simple mobile loading script started');
+      
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const loadingEl = document.getElementById('simple-loading');
+      let hasError = false;
+      
+      console.log('Is mobile device:', isMobile);
+      
+      // Handle JavaScript errors
+      window.addEventListener('error', function(event) {
+        console.error('JavaScript error caught:', event.error);
+        hasError = true;
+        showError('JavaScript error: ' + (event.error ? event.error.message : event.message));
+      });
+      
+      // Handle unhandled promise rejections
+      window.addEventListener('unhandledrejection', function(event) {
+        console.error('Promise rejection caught:', event.reason);
+        hasError = true;
+        showError('Loading error: ' + event.reason);
+      });
+      
+      function hideLoading() {
+        console.log('Hiding simple loading screen');
+        if (loadingEl) {
+          loadingEl.style.display = 'none';
+        }
+      }
+      
+      function showError(message) {
+        console.log('Showing simple error:', message);
+        if (loadingEl) {
+          loadingEl.innerHTML = `
+            <div class="error-content">
+              <div class="error-title">App Error</div>
+              <div class="error-message">${message}</div>
+              <div style="margin-top: 15px; font-size: 12px; color: #666;">
+                <div>Debug Info:</div>
+                <div>• Mobile: ${isMobile}</div>
+                <div>• Online: ${navigator.onLine}</div>
+                <div>• Viewport: ${window.innerWidth}x${window.innerHeight}</div>
+                <div>• User Agent: ${navigator.userAgent.substring(0, 60)}...</div>
+              </div>
+              <button class="retry-button" onclick="window.location.reload()">Retry</button>
+              <button class="debug-button" onclick="window.open('/mobile-debug.html', '_blank')">Debug Page</button>
+            </div>
+          `;
+        }
+      }
+      
+      // Check if React has loaded
+      function checkReactLoaded() {
+        console.log('Checking React load status...');
+        
+        if (window.reactLoaded || document.querySelector('#root > *:not(#simple-loading)')) {
+          console.log('React detected, hiding loading screen');
+          hideLoading();
+        } else {
+          setTimeout(checkReactLoaded, 500);
+        }
+      }
+      
+      // Start checking after a delay
+      setTimeout(checkReactLoaded, 1000);
+      
+      // Fallback timeout
+      setTimeout(function() {
+        if (!hasError && loadingEl && loadingEl.style.display !== 'none') {
+          console.log('Timeout reached, showing error');
+          showError('Application failed to load. Please check your internet connection and try again.');
+        }
+      }, 30000);
+    </script>
+    
+    <!-- Try simple loading first, fallback to main if needed -->
+    <script type="module" src="/src/main-simple.tsx"></script>
+  </body>
+</html>

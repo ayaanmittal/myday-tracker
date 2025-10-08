@@ -25,7 +25,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { Plus, Trash2, Flag } from "lucide-react";
+import { Plus, Trash2, Flag, Edit } from "lucide-react";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -48,8 +48,10 @@ const ManageRules = () => {
   const { data: role, isLoading: roleLoading } = useUserRole();
   const queryClient = useQueryClient();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isFlagDialogOpen, setIsFlagDialogOpen] = useState(false);
   const [newRule, setNewRule] = useState({ title: "", description: "" });
+  const [editRule, setEditRule] = useState({ id: "", title: "", description: "" });
   const [flagData, setFlagData] = useState({
     employeeId: "",
     ruleId: "",
@@ -104,6 +106,27 @@ const ManageRules = () => {
     },
   });
 
+  const updateRuleMutation = useMutation({
+    mutationFn: async (rule: { id: string; title: string; description: string }) => {
+      const { error } = await supabase
+        .from('office_rules')
+        .update({ title: rule.title, description: rule.description })
+        .eq('id', rule.id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['office-rules-admin'] });
+      queryClient.invalidateQueries({ queryKey: ['office-rules'] });
+      setEditRule({ id: "", title: "", description: "" });
+      setIsEditDialogOpen(false);
+      toast({
+        title: "Rule Updated",
+        description: "The rule has been updated successfully.",
+      });
+    },
+  });
+
   const deleteRuleMutation = useMutation({
     mutationFn: async (ruleId: string) => {
       const { error } = await supabase
@@ -146,6 +169,15 @@ const ManageRules = () => {
       });
     },
   });
+
+  const handleEditRule = (rule: Rule) => {
+    setEditRule({
+      id: rule.id,
+      title: rule.title,
+      description: rule.description,
+    });
+    setIsEditDialogOpen(true);
+  };
 
   if (roleLoading) {
     return (
@@ -330,6 +362,50 @@ const ManageRules = () => {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+
+            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Edit Office Rule</DialogTitle>
+                  <DialogDescription>
+                    Update the rule details
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="edit-title">Rule Title</Label>
+                    <Input
+                      id="edit-title"
+                      value={editRule.title}
+                      onChange={(e) =>
+                        setEditRule({ ...editRule, title: e.target.value })
+                      }
+                      placeholder="e.g., Punctuality Policy"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="edit-description">Rule Description</Label>
+                    <Textarea
+                      id="edit-description"
+                      value={editRule.description}
+                      onChange={(e) =>
+                        setEditRule({ ...editRule, description: e.target.value })
+                      }
+                      placeholder="Describe the rule in detail..."
+                      rows={5}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    onClick={() => updateRuleMutation.mutate(editRule)}
+                    disabled={!editRule.title || !editRule.description || updateRuleMutation.isPending}
+                  >
+                    Update Rule
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
@@ -351,13 +427,22 @@ const ManageRules = () => {
                       </CardTitle>
                       <CardDescription className="mt-2">{rule.description}</CardDescription>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => deleteRuleMutation.mutate(rule.id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEditRule(rule)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => deleteRuleMutation.mutate(rule.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
               </Card>
