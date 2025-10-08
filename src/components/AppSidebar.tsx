@@ -64,7 +64,7 @@ export function AppSidebar() {
                         `flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
                           isActive
                             ? 'bg-primary text-primary-foreground font-medium'
-                            : 'text-black hover:bg-accent hover:text-black'
+                            : 'text-black hover:text-primary hover:bg-accent/50'
                         }`
                       }
                     >
