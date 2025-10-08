@@ -38,7 +38,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar className={collapsed ? 'w-16' : 'w-64'} collapsible="icon">
-      <SidebarContent>
+      <SidebarContent className="bg-card">
         <div className={`p-4 border-b ${collapsed ? 'flex justify-center' : ''}`}>
           <img 
             src={logo} 
@@ -48,7 +48,7 @@ export function AppSidebar() {
         </div>
 
         <SidebarGroup>
-          <SidebarGroupLabel>{collapsed ? '' : 'Navigation'}</SidebarGroupLabel>
+          <SidebarGroupLabel className="text-foreground px-3">{collapsed ? '' : 'Navigation'}</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => (
@@ -57,7 +57,7 @@ export function AppSidebar() {
                     <NavLink
                       to={item.url}
                       className={({ isActive }) =>
-                        `flex items-center gap-3 px-3 py-2 rounded-md transition-colors ${
+                        `flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-foreground ${
                           isActive
                             ? 'bg-primary text-primary-foreground font-medium'
                             : 'hover:bg-accent hover:text-accent-foreground'
@@ -77,7 +77,7 @@ export function AppSidebar() {
         <div className="mt-auto border-t p-4">
           <button
             onClick={signOut}
-            className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-destructive/10 hover:text-destructive transition-colors w-full"
+            className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-destructive/10 hover:text-destructive transition-colors w-full text-foreground"
           >
             <LogOut className="h-5 w-5" />
             {!collapsed && <span>Sign Out</span>}

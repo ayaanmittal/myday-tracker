@@ -14,6 +14,8 @@ import Today from "./pages/Today";
 import History from "./pages/History";
 import Dashboard from "./pages/Dashboard";
 import Messages from "./pages/Messages";
+import Employees from "./pages/Employees";
+import Settings from "./pages/Settings";
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -28,7 +30,9 @@ const App = () => (
             <Route path="/today" element={<Today />} />
             <Route path="/history" element={<History />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/employees" element={<Employees />} />
             <Route path="/messages" element={<Messages />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>
