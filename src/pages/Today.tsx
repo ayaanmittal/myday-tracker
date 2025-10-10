@@ -1,16 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { toast } from '@/hooks/use-toast';
-import { Clock, CheckCircle, Plus, Home, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 import { Layout } from '@/components/Layout';
 import { useUserRole } from '@/hooks/useUserRole';
+import { AttendanceLogs } from '@/components/AttendanceLogs';
+import { AdminRefreshApiButton } from '@/components/AdminRefreshApiButton';
 import {
   Dialog,
   DialogContent,
@@ -19,22 +14,27 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
+import { CheckCircle, Clock, Users, User } from 'lucide-react';
 
 interface DayEntry {
   id: string;
-  status: string;
+  user_id: string;
+  entry_date: string;
   check_in_at: string | null;
   check_out_at: string | null;
+  total_work_time_minutes: number | null;
   lunch_break_start: string | null;
   lunch_break_end: string | null;
-  total_work_time_minutes: number | null;
+  status: string;
+  is_late?: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 interface DayUpdate {
@@ -61,11 +61,16 @@ export default function Today() {
   const [loading, setLoading] = useState(false);
   const [loadingPage, setLoadingPage] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [checkInSource, setCheckInSource] = useState<string>('');
+  const [checkOutSource, setCheckOutSource] = useState<string>('');
   const [extraWorkForm, setExtraWorkForm] = useState({
     work_type: 'remote',
     hours_worked: '',
     description: '',
   });
+
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!user) {
@@ -73,31 +78,44 @@ export default function Today() {
       return;
     }
 
+    // For admin role, fetch their own work data AND show team management
     if (!roleLoading && role === 'admin') {
-      navigate('/dashboard');
+      fetchTodayEntry();
       return;
     }
 
+    // For manager role, fetch their own work data AND show team management
+    if (!roleLoading && role === 'manager') {
     fetchTodayEntry();
+      return;
+    }
+
+    // For regular users, fetch their today entry
+    if (!roleLoading && role === 'employee') {
+      fetchTodayEntry();
+    }
   }, [user, role, roleLoading, navigate]);
 
   const fetchTodayEntry = async () => {
     if (!user) return;
 
+    setLoadingPage(true);
     try {
       const today = new Date().toISOString().split('T')[0];
-      const { data: entryData, error: entryError } = await supabase
+      
+      const { data: entryData, error } = await supabase
         .from('day_entries')
         .select('*')
         .eq('user_id', user.id)
         .eq('entry_date', today)
         .maybeSingle();
 
-      if (entryError) throw entryError;
+      if (error) throw error;
 
-      if (entryData) {
         setEntry(entryData);
 
+      if (entryData) {
+        // Fetch existing update
         const { data: updateData } = await supabase
           .from('day_updates')
           .select('*')
@@ -116,15 +134,26 @@ export default function Today() {
         const { data: extraWorkData } = await supabase
           .from('extra_work_logs')
           .select('*')
-          .eq('day_entry_id', entryData.id)
+          .eq('user_id', user.id)
           .order('logged_at', { ascending: false });
 
-        setExtraWorkLogs(extraWorkData || []);
+        if (extraWorkData) {
+          setExtraWorkLogs(extraWorkData);
+        }
       }
-    } catch (error: any) {
+
+      // Get check-in/out source information
+      if (entryData) {
+        const checkInSource = await getCheckInOutSource(entryData.check_in_at, 'checkin');
+        const checkOutSource = await getCheckInOutSource(entryData.check_out_at, 'checkout');
+        setCheckInSource(checkInSource);
+        setCheckOutSource(checkOutSource);
+      }
+    } catch (error) {
+      console.error('Error fetching today entry:', error);
       toast({
         title: 'Error',
-        description: error.message,
+        description: 'Failed to load today\'s data',
         variant: 'destructive',
       });
     } finally {
@@ -132,20 +161,75 @@ export default function Today() {
     }
   };
 
-  const handleCheckIn = async () => {
-    if (!user) return;
-    setLoading(true);
+  // Function to determine if check-in/out was manual or biometric
+  const getCheckInOutSource = async (timestamp: string | null, type: 'checkin' | 'checkout') => {
+    if (!user || !timestamp) return 'Manual';
 
     try {
-      const today = new Date().toISOString().split('T')[0];
+      // Check if there's a corresponding attendance log for this timestamp
+      const logTime = new Date(timestamp);
+      const startTime = new Date(logTime.getTime() - 60000); // 1 minute before
+      const endTime = new Date(logTime.getTime() + 60000); // 1 minute after
+
+      // Note: attendance_logs table might not be in Supabase types yet
+      // This is a fallback approach - in production, you'd want to add the table to your types
+      try {
+      const { data: attendanceLogs } = await supabase
+        .from('attendance_logs')
+        .select('source, log_type')
+        .eq('employee_id', user.id)
+        .eq('log_type', type)
+        .gte('log_time', startTime.toISOString())
+        .lte('log_time', endTime.toISOString())
+        .limit(1);
+
+        if (attendanceLogs && attendanceLogs.length > 0) {
+          return (attendanceLogs[0] as any).source === 'teamoffice' ? 'Biometric' : 'Manual';
+        }
+      } catch (error) {
+        // If table doesn't exist or has issues, default to Manual
+        console.log('Attendance logs table not accessible:', error);
+      }
+
+      // If no attendance log found, it's likely manual
+      return 'Manual';
+    } catch (error) {
+      console.error('Error checking attendance source:', error);
+      return 'Manual';
+    }
+  };
+
+  const handleCheckIn = async () => {
+    if (!user) return;
+
+    setLoading(true);
+    try {
+      const now = new Date().toISOString();
+      
+      // Simple late detection logic (will be replaced with database function after migration)
+      const nowDate = new Date(now);
+      const workdayStartTime = '10:30'; // Default from settings
+      const lateThresholdMinutes = 15; // Default from settings
+      
+      // Parse workday start time
+      const [hours, minutes] = workdayStartTime.split(':').map(Number);
+      const workdayStart = new Date(nowDate);
+      workdayStart.setHours(hours, minutes, 0, 0);
+      
+      // Calculate late threshold time
+      const lateThresholdTime = new Date(workdayStart.getTime() + (lateThresholdMinutes * 60 * 1000));
+      
+      // Check if check-in is late
+      const isLate = nowDate > lateThresholdTime;
+      
       const { data, error } = await supabase
         .from('day_entries')
         .insert({
           user_id: user.id,
-          entry_date: today,
-          check_in_at: new Date().toISOString(),
+          entry_date: new Date().toISOString().split('T')[0],
+          check_in_at: now,
           status: 'in_progress',
-          device_info: navigator.userAgent,
+          is_late: isLate,
         })
         .select()
         .single();
@@ -153,69 +237,11 @@ export default function Today() {
       if (error) throw error;
 
       setEntry(data);
+      setCheckInSource('Manual');
+      
       toast({
-        title: 'Day started!',
-        description: 'Your check-in has been recorded.',
-      });
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLunchBreakStart = async () => {
-    if (!entry) return;
-    setLoading(true);
-
-    try {
-      const { error } = await supabase
-        .from('day_entries')
-        .update({
-          lunch_break_start: new Date().toISOString(),
-        })
-        .eq('id', entry.id);
-
-      if (error) throw error;
-
-      setEntry({ ...entry, lunch_break_start: new Date().toISOString() });
-      toast({
-        title: 'Lunch break started',
-        description: 'Enjoy your break!',
-      });
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLunchBreakEnd = async () => {
-    if (!entry) return;
-    setLoading(true);
-
-    try {
-      const { error } = await supabase
-        .from('day_entries')
-        .update({
-          lunch_break_end: new Date().toISOString(),
-        })
-        .eq('id', entry.id);
-
-      if (error) throw error;
-
-      setEntry({ ...entry, lunch_break_end: new Date().toISOString() });
-      toast({
-        title: 'Lunch break ended',
-        description: 'Welcome back!',
+        title: 'Checked in!',
+        description: isLate ? 'You have checked in late.' : 'You have successfully checked in.',
       });
     } catch (error: any) {
       toast({
@@ -230,38 +256,95 @@ export default function Today() {
 
   const handleCheckOut = async () => {
     if (!entry) return;
+    
     setLoading(true);
-
     try {
-      const checkOutTime = new Date();
+      const now = new Date().toISOString();
       const checkInTime = new Date(entry.check_in_at!);
-      let minutes = Math.floor((checkOutTime.getTime() - checkInTime.getTime()) / 60000);
-
-      // Subtract lunch break time if both start and end are recorded
-      if (entry.lunch_break_start && entry.lunch_break_end) {
-        const lunchStart = new Date(entry.lunch_break_start);
-        const lunchEnd = new Date(entry.lunch_break_end);
-        const lunchMinutes = Math.floor((lunchEnd.getTime() - lunchStart.getTime()) / 60000);
-        minutes -= lunchMinutes;
-      }
+      const checkOutTime = new Date(now);
+      const workTimeMs = checkOutTime.getTime() - checkInTime.getTime();
+      const workTimeMinutes = Math.floor(workTimeMs / (1000 * 60));
 
       const { error } = await supabase
         .from('day_entries')
         .update({
-          check_out_at: checkOutTime.toISOString(),
-          total_work_time_minutes: minutes,
+          check_out_at: now,
+          total_work_time_minutes: workTimeMinutes,
           status: 'completed',
         })
         .eq('id', entry.id);
 
       if (error) throw error;
 
-      toast({
-        title: 'Day ended!',
-        description: `You worked for ${Math.floor(minutes / 60)}h ${minutes % 60}m today.`,
-      });
+      setEntry({ ...entry, check_out_at: now, total_work_time_minutes: workTimeMinutes, status: 'completed' });
+      setCheckOutSource('Manual');
       
-      fetchTodayEntry();
+      toast({
+        title: 'Checked out!',
+        description: 'You have successfully checked out.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLunchBreakStart = async () => {
+    if (!entry) return;
+
+    setLoading(true);
+    try {
+      const now = new Date().toISOString();
+      
+      const { error } = await supabase
+        .from('day_entries')
+        .update({ lunch_break_start: now })
+        .eq('id', entry.id);
+
+      if (error) throw error;
+
+      setEntry({ ...entry, lunch_break_start: now });
+      
+      toast({
+        title: 'Lunch break started!',
+        description: 'Your lunch break has been recorded.',
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLunchBreakEnd = async () => {
+    if (!entry) return;
+    
+    setLoading(true);
+    try {
+      const now = new Date().toISOString();
+
+      const { error } = await supabase
+        .from('day_entries')
+        .update({ lunch_break_end: now })
+        .eq('id', entry.id);
+
+      if (error) throw error;
+
+      setEntry({ ...entry, lunch_break_end: now });
+
+      toast({
+        title: 'Lunch break ended!',
+        description: 'Your lunch break has been completed.',
+      });
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -274,10 +357,16 @@ export default function Today() {
   };
 
   const handleSaveUpdate = async () => {
-    if (!entry) return;
+    if (!entry || !update.today_focus || !update.progress) return;
     setLoading(true);
 
     try {
+      const updateData = {
+        today_focus: update.today_focus,
+        progress: update.progress,
+        blockers: update.blockers,
+      };
+
       const { data: existingUpdate } = await supabase
         .from('day_updates')
         .select('id')
@@ -287,7 +376,7 @@ export default function Today() {
       if (existingUpdate) {
         const { error } = await supabase
           .from('day_updates')
-          .update(update)
+          .update(updateData)
           .eq('id', existingUpdate.id);
 
         if (error) throw error;
@@ -296,7 +385,7 @@ export default function Today() {
           .from('day_updates')
           .insert({
             day_entry_id: entry.id,
-            ...update,
+            ...updateData,
           });
 
         if (error) throw error;
@@ -319,42 +408,43 @@ export default function Today() {
 
   const handleAddExtraWork = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!entry || !user) return;
-    setLoading(true);
+    if (!user || !entry) return;
 
+    setLoading(true);
     try {
       const { error } = await supabase
         .from('extra_work_logs')
         .insert({
-          day_entry_id: entry.id,
           user_id: user.id,
           work_type: extraWorkForm.work_type,
           hours_worked: parseFloat(extraWorkForm.hours_worked),
           description: extraWorkForm.description || null,
+          logged_at: new Date().toISOString(),
         });
 
       if (error) throw error;
 
-      toast({
-        title: 'Extra work logged!',
-        description: `${extraWorkForm.hours_worked} hours of ${extraWorkForm.work_type} work has been recorded.`,
-      });
+      // Refresh extra work logs
+      const { data: extraWorkData } = await supabase
+        .from('extra_work_logs')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('logged_at', { ascending: false });
 
-      setDialogOpen(false);
+      if (extraWorkData) {
+        setExtraWorkLogs(extraWorkData);
+      }
+
       setExtraWorkForm({
         work_type: 'remote',
         hours_worked: '',
         description: '',
       });
 
-      // Refresh extra work logs
-      const { data: extraWorkData } = await supabase
-        .from('extra_work_logs')
-        .select('*')
-        .eq('day_entry_id', entry.id)
-        .order('logged_at', { ascending: false });
-
-      setExtraWorkLogs(extraWorkData || []);
+      toast({
+        title: 'Extra work logged!',
+        description: 'Your extra work has been recorded.',
+      });
     } catch (error: any) {
       toast({
         title: 'Error',
@@ -366,357 +456,608 @@ export default function Today() {
     }
   };
 
-  const handleDeleteExtraWork = async (logId: string) => {
-    if (!confirm('Are you sure you want to delete this work log?')) return;
-
-    try {
-      const { error } = await supabase
-        .from('extra_work_logs')
-        .delete()
-        .eq('id', logId);
-
-      if (error) throw error;
-
-      toast({
-        title: 'Work log deleted',
-        description: 'The extra work log has been removed.',
-      });
-
-      // Refresh extra work logs
-      if (entry) {
-        const { data: extraWorkData } = await supabase
-          .from('extra_work_logs')
-          .select('*')
-          .eq('day_entry_id', entry.id)
-          .order('logged_at', { ascending: false });
-
-        setExtraWorkLogs(extraWorkData || []);
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message,
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const getWorkTypeLabel = (workType: string) => {
-    switch (workType) {
-      case 'remote':
-        return 'Remote Work';
-      case 'overtime':
-        return 'Overtime';
-      case 'weekend':
-        return 'Weekend Work';
-      case 'other':
-        return 'Other';
-      default:
-        return workType;
-    }
-  };
-
-  const getTotalExtraHours = () => {
-    return extraWorkLogs.reduce((total, log) => total + log.hours_worked, 0);
-  };
-
-  if (loadingPage || roleLoading) {
+  if (loadingPage) {
     return (
       <Layout>
-        <div className="flex items-center justify-center h-full">
-          <div className="text-muted-foreground">Loading...</div>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
         </div>
       </Layout>
     );
   }
 
+  // For admin role, show admin dashboard with personal work tracking
+  if (role === 'admin') {
   return (
     <Layout>
-      <div className="p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto space-y-6 sm:space-y-8">
+        <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-6 sm:space-y-8">
         <div className="text-center space-y-2">
-          <h1 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight gradient-text">Today</h1>
+            <h1 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight gradient-text">
+              Admin Dashboard
+            </h1>
           <p className="text-muted-foreground text-base sm:text-lg font-medium">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              Personal Work Tracking & Team Management
           </p>
         </div>
 
-        {!entry && (
+          {/* Admin's Personal Work Section */}
           <Card className="elegant-card border-2 border-primary/20 elegant-shadow-lg">
-            <CardHeader className="text-center pb-6">
+            <CardHeader>
+              <CardTitle className="font-heading text-xl font-bold flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Your Work Today
+              </CardTitle>
+              <CardDescription>
+                Track your own work hours, tasks, and daily updates
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {!entry ? (
+                <div className="text-center py-8">
               <div className="flex justify-center mb-6">
                 <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
                   <Clock className="h-10 w-10 text-primary" />
                 </div>
               </div>
-              <CardTitle className="font-heading text-3xl font-bold mb-3">Ready to start your day?</CardTitle>
-              <CardDescription className="text-lg text-muted-foreground">Click below to check in and begin tracking your work</CardDescription>
-            </CardHeader>
-            <CardContent className="flex justify-center pb-8">
-              <Button size="lg" onClick={handleCheckIn} disabled={loading} className="min-w-[200px] elegant-button text-lg py-6">
-                <Clock className="mr-2 h-5 w-5" />
-                {loading ? 'Starting...' : 'Start Day'}
+                  <h3 className="text-lg font-semibold mb-2">Ready to start your day?</h3>
+                  <p className="text-muted-foreground mb-6">
+                    Begin your workday by checking in and setting your focus for today.
+                  </p>
+                  <Button onClick={handleCheckIn} className="w-full sm:w-auto">
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Check In
               </Button>
-            </CardContent>
-          </Card>
-        )}
-
-        {entry && entry.status === 'in_progress' && (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader className="text-center pb-4">
-                <CardTitle>Lunch Break</CardTitle>
-                <CardDescription>Track your lunch break</CardDescription>
-              </CardHeader>
-              <CardContent className="flex justify-center gap-4 pb-6">
-                {!entry.lunch_break_start && (
-                  <Button size="lg" onClick={handleLunchBreakStart} disabled={loading} className="min-w-[200px]">
-                    <Clock className="mr-2 h-5 w-5" />
-                    {loading ? 'Starting...' : 'Start Lunch Break'}
-                  </Button>
-                )}
-                {entry.lunch_break_start && !entry.lunch_break_end && (
-                  <Button size="lg" onClick={handleLunchBreakEnd} disabled={loading} className="min-w-[200px]">
-                    <CheckCircle className="mr-2 h-5 w-5" />
-                    {loading ? 'Ending...' : 'End Lunch Break'}
-                  </Button>
-                )}
-                {entry.lunch_break_start && entry.lunch_break_end && (
-                  <div className="text-center text-muted-foreground">
-                    <p>Lunch break: {new Date(entry.lunch_break_start).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })} - {new Date(entry.lunch_break_end).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Daily Update</CardTitle>
-                <CardDescription>Share what you worked on today</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="focus">What did you work on today? (max 300 chars)</Label>
-                  <Textarea
-                    id="focus"
-                    placeholder="Today I worked on..."
-                    value={update.today_focus}
-                    onChange={(e) => setUpdate({ ...update, today_focus: e.target.value })}
-                    maxLength={300}
-                    rows={3}
-                  />
-                  <p className="text-xs text-muted-foreground">{update.today_focus.length}/300</p>
                 </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="progress">What tasks did you complete today? (max 300 chars)</Label>
-                  <Textarea
-                    id="progress"
-                    placeholder="I completed..."
-                    value={update.progress}
-                    onChange={(e) => setUpdate({ ...update, progress: e.target.value })}
-                    maxLength={300}
-                    rows={3}
-                  />
-                  <p className="text-xs text-muted-foreground">{update.progress.length}/300</p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="blockers">Did you face any blockers or need help? (optional, max 200 chars)</Label>
-                  <Textarea
-                    id="blockers"
-                    placeholder="No blockers..."
-                    value={update.blockers}
-                    onChange={(e) => setUpdate({ ...update, blockers: e.target.value })}
-                    maxLength={200}
-                    rows={2}
-                  />
-                  <p className="text-xs text-muted-foreground">{update.blockers.length}/200</p>
-                </div>
-
-                <Button onClick={handleSaveUpdate} disabled={loading || !update.today_focus || !update.progress}>
-                  {loading ? 'Saving...' : 'Save Update'}
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="border-2 border-success/20">
-              <CardHeader className="text-center pb-4">
-                <CardTitle>End Your Day</CardTitle>
-                <CardDescription>
-                  Started at {new Date(entry.check_in_at!).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex justify-center pb-6">
-                <Button size="lg" variant="secondary" onClick={handleCheckOut} disabled={loading} className="min-w-[200px]">
-                  <CheckCircle className="mr-2 h-5 w-5" />
-                  {loading ? 'Ending...' : 'End Day'}
-                </Button>
-              </CardContent>
-            </Card>
-
-            <div className="text-center space-x-4">
-              <Button variant="link" onClick={() => navigate('/history')}>
-                View History
-              </Button>
-              <Button variant="link" onClick={() => navigate('/analytics')}>
-                View Analytics
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {entry && entry.status === 'completed' && (
-          <div className="space-y-6">
-            <Card className="border-2 border-success/20">
-              <CardHeader className="text-center pb-4">
-                <div className="flex justify-center mb-4">
-                  <div className="h-16 w-16 rounded-full bg-success/10 flex items-center justify-center">
-                    <CheckCircle className="h-8 w-8 text-success" />
-                  </div>
-                </div>
-                <CardTitle className="text-2xl">Day Complete!</CardTitle>
-                <CardDescription>
-                  You worked for {Math.floor(entry.total_work_time_minutes! / 60)}h {entry.total_work_time_minutes! % 60}m today
-                  {getTotalExtraHours() > 0 && (
-                    <span> + {getTotalExtraHours().toFixed(1)}h extra work</span>
-                  )}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex justify-center gap-4 pb-6">
-                <Button variant="outline" onClick={() => navigate('/history')}>
-                  View History
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Extra Work Logs Section - Under Day Complete */}
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle>Extra Work Logs</CardTitle>
-                    <CardDescription>Log additional hours worked from home or other locations</CardDescription>
-                  </div>
-                  <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Extra Work
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                      <DialogHeader>
-                        <DialogTitle>Add Extra Work Log</DialogTitle>
-                        <DialogDescription>
-                          Log additional hours worked from home or other locations
-                        </DialogDescription>
-                      </DialogHeader>
-                      <form onSubmit={handleAddExtraWork} className="space-y-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="work_type">Work Type</Label>
-                          <Select
-                            value={extraWorkForm.work_type}
-                            onValueChange={(value) => setExtraWorkForm({ ...extraWorkForm, work_type: value })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="remote">Remote Work</SelectItem>
-                              <SelectItem value="overtime">Overtime</SelectItem>
-                              <SelectItem value="weekend">Weekend Work</SelectItem>
-                              <SelectItem value="other">Other</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="hours_worked">Hours Worked</Label>
-                          <Input
-                            id="hours_worked"
-                            type="number"
-                            step="0.5"
-                            min="0.5"
-                            max="24"
-                            value={extraWorkForm.hours_worked}
-                            onChange={(e) => setExtraWorkForm({ ...extraWorkForm, hours_worked: e.target.value })}
-                            placeholder="e.g., 2.5"
-                            required
-                          />
-                        </div>
-
-                        <div className="space-y-2">
-                          <Label htmlFor="description">Description (optional)</Label>
-                          <Textarea
-                            id="description"
-                            value={extraWorkForm.description}
-                            onChange={(e) => setExtraWorkForm({ ...extraWorkForm, description: e.target.value })}
-                            placeholder="e.g., Worked on project documentation from home"
-                            rows={3}
-                          />
-                        </div>
-
-                        <div className="flex justify-end gap-3 pt-4">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() => setDialogOpen(false)}
-                          >
-                            Cancel
-                          </Button>
-                          <Button type="submit" disabled={loading || !extraWorkForm.hours_worked}>
-                            {loading ? 'Adding...' : 'Add Work Log'}
-                          </Button>
-                        </div>
-                      </form>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {extraWorkLogs.length > 0 ? (
-                  <div className="space-y-3">
-                    {extraWorkLogs.map((log) => (
-                      <div key={log.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <Home className="h-4 w-4 text-muted-foreground" />
-                          <div>
-                            <p className="font-medium">{getWorkTypeLabel(log.work_type)}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {log.hours_worked} hours • {new Date(log.logged_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                            {log.description && (
-                              <p className="text-sm text-muted-foreground mt-1">{log.description}</p>
-                            )}
-                          </div>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDeleteExtraWork(log.id)}
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+              ) : (
+                <div className="space-y-6">
+                  {/* Work Status */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center p-4 border rounded-lg">
+                      <div className="text-2xl font-bold text-primary">
+                        {entry.check_in_at ? new Date(entry.check_in_at).toLocaleTimeString('en-US', { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        }) : 'Not started'}
                       </div>
-                    ))}
-                    <div className="pt-3 border-t">
-                      <p className="text-sm font-medium">
-                        Total Extra Hours: {getTotalExtraHours().toFixed(1)} hours
-                      </p>
+                      <div className="text-sm text-muted-foreground flex items-center justify-center gap-2">
+                        Check In
+                        {entry.is_late && (
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            LATE
+                          </span>
+                        )}
+                      </div>
+                      {entry.check_in_at && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {checkInSource || 'Manual'}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-center p-4 border rounded-lg">
+                      <div className="text-2xl font-bold text-primary">
+                        {entry.check_out_at ? new Date(entry.check_out_at).toLocaleTimeString('en-US', { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        }) : 'Still working'}
+                      </div>
+                      <div className="text-sm text-muted-foreground">Check Out</div>
+                      {entry.check_out_at && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {checkOutSource || 'Manual'}
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-center p-4 border rounded-lg">
+                      <div className="text-2xl font-bold text-primary">
+                        {entry.total_work_time_minutes ? 
+                          `${Math.floor(entry.total_work_time_minutes / 60)}h ${entry.total_work_time_minutes % 60}m` : 
+                          '0h 0m'
+                        }
+                      </div>
+                      <div className="text-sm text-muted-foreground">Total Time</div>
                     </div>
                   </div>
-                ) : (
-                  <div className="text-center py-6 text-muted-foreground">
-                    <Home className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p>No extra work logged yet</p>
-                    <p className="text-sm">Click "Add Extra Work" to log additional hours</p>
-                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-wrap gap-2">
+                    {!entry.check_in_at && (
+                      <Button onClick={handleCheckIn}>
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Check In
+                  </Button>
                 )}
+                    {entry.check_in_at && !entry.check_out_at && (
+                      <Button onClick={handleCheckOut} variant="outline">
+                        <Clock className="mr-2 h-4 w-4" />
+                        Check Out
+                  </Button>
+                )}
+                  </div>
+
+                  {/* Daily Updates Form */}
+                  <div className="border-t pt-6">
+                    <h4 className="text-lg font-semibold mb-4">Daily Updates</h4>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="admin-today-focus">Today's Focus</Label>
+                  <Textarea
+                          id="admin-today-focus"
+                          placeholder="What are you focusing on today?"
+                    value={update.today_focus}
+                    onChange={(e) => setUpdate({ ...update, today_focus: e.target.value })}
+                          className="mt-1"
+                  />
+                </div>
+                      <div>
+                        <Label htmlFor="admin-progress">Progress</Label>
+                  <Textarea
+                          id="admin-progress"
+                          placeholder="What progress have you made?"
+                    value={update.progress}
+                    onChange={(e) => setUpdate({ ...update, progress: e.target.value })}
+                          className="mt-1"
+                  />
+                </div>
+                      <div>
+                        <Label htmlFor="admin-blockers">Blockers</Label>
+                  <Textarea
+                          id="admin-blockers"
+                          placeholder="Any blockers or challenges?"
+                    value={update.blockers}
+                    onChange={(e) => setUpdate({ ...update, blockers: e.target.value })}
+                          className="mt-1"
+                  />
+                </div>
+                      <Button 
+                        onClick={handleSaveUpdate} 
+                        disabled={loading || !update.today_focus || !update.progress}
+                        className="w-full"
+                      >
+                  {loading ? 'Saving...' : 'Save Update'}
+                </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              </CardContent>
+            </Card>
+
+
+          {/* Team Management Section */}
+          <Card className="elegant-card border-2 border-primary/20 elegant-shadow-lg">
+            <CardHeader>
+              <CardTitle className="font-heading text-xl font-bold flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Team Attendance
+              </CardTitle>
+                <CardDescription>
+                Monitor your team's attendance and activity
+                </CardDescription>
+              </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <Label htmlFor="admin-date-selector">Date</Label>
+                    <Input
+                      id="admin-date-selector"
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+                    >
+                      Today
+                </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const yesterday = new Date();
+                        yesterday.setDate(yesterday.getDate() - 1);
+                        setSelectedDate(yesterday.toISOString().split('T')[0]);
+                      }}
+                    >
+                      Yesterday
+                    </Button>
+                  </div>
+                </div>
+                <AttendanceLogs 
+                  key={`admin-${selectedDate}`}
+                  startDate={selectedDate}
+                  endDate={selectedDate}
+                  showAllEmployees={true}
+                />
+              </div>
+              </CardContent>
+            </Card>
+        </div>
+      </Layout>
+    );
+  }
+
+  // For manager role, show manager dashboard with personal work tracking
+  if (role === 'manager') {
+    return (
+      <Layout>
+        <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-6 sm:space-y-8">
+          <div className="text-center space-y-2">
+            <h1 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight gradient-text">
+              Manager Dashboard
+            </h1>
+            <p className="text-muted-foreground text-base sm:text-lg font-medium">
+              Personal Work Tracking & Team Management
+            </p>
+          </div>
+
+          {/* Manager's Personal Work Section */}
+          <Card className="elegant-card border-2 border-primary/20 elegant-shadow-lg">
+            <CardHeader>
+              <CardTitle className="font-heading text-xl font-bold flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Your Work Today
+              </CardTitle>
+              <CardDescription>
+                Track your own work hours, tasks, and daily updates
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {!entry ? (
+                <div className="text-center py-8">
+                  <div className="flex justify-center mb-6">
+                    <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Clock className="h-10 w-10 text-primary" />
+                    </div>
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">Ready to start your day?</h3>
+                  <p className="text-muted-foreground mb-6">
+                    Begin your workday by checking in and setting your focus for today.
+                  </p>
+                  <Button onClick={handleCheckIn} className="w-full sm:w-auto">
+                    <CheckCircle className="mr-2 h-4 w-4" />
+                    Check In
+              </Button>
+            </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Work Status */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center p-4 border rounded-lg">
+                      <div className="text-2xl font-bold text-primary">
+                        {entry.check_in_at ? new Date(entry.check_in_at).toLocaleTimeString('en-US', { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        }) : 'Not started'}
+                      </div>
+                      <div className="text-sm text-muted-foreground flex items-center justify-center gap-2">
+                        Check In
+                        {entry.is_late && (
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            LATE
+                          </span>
+                        )}
+                      </div>
+                      {entry.check_in_at && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {checkInSource || 'Manual'}
+          </div>
+        )}
+                </div>
+                    <div className="text-center p-4 border rounded-lg">
+                      <div className="text-2xl font-bold text-primary">
+                        {entry.check_out_at ? new Date(entry.check_out_at).toLocaleTimeString('en-US', { 
+                          hour: '2-digit', 
+                          minute: '2-digit' 
+                        }) : 'Still working'}
+              </div>
+                      <div className="text-sm text-muted-foreground">Check Out</div>
+                      {entry.check_out_at && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {checkOutSource || 'Manual'}
+                        </div>
+                      )}
+                  </div>
+                    <div className="text-center p-4 border rounded-lg">
+                      <div className="text-2xl font-bold text-primary">
+                        {entry.total_work_time_minutes ? 
+                          `${Math.floor(entry.total_work_time_minutes / 60)}h ${entry.total_work_time_minutes % 60}m` : 
+                          '0h 0m'
+                        }
+                      </div>
+                      <div className="text-sm text-muted-foreground">Total Time</div>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-wrap gap-2">
+                    {!entry.check_in_at && (
+                      <Button onClick={handleCheckIn}>
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        Check In
+                      </Button>
+                    )}
+                    {entry.check_in_at && !entry.check_out_at && (
+                      <Button onClick={handleCheckOut} variant="outline">
+                        <Clock className="mr-2 h-4 w-4" />
+                        Check Out
+                      </Button>
+                    )}
+                    {entry.check_in_at && !entry.check_out_at && (
+                      <Button onClick={entry.lunch_break_start && !entry.lunch_break_end ? handleLunchBreakEnd : handleLunchBreakStart} className="bg-blue-600 hover:bg-blue-700 text-white">
+                        <Clock className="mr-2 h-4 w-4" />
+                        {entry.lunch_break_start && !entry.lunch_break_end ? 'End Lunch' : 'Start Lunch'}
+                      </Button>
+                    )}
+                        </div>
+
+                  {/* Daily Updates Form */}
+                  <div className="border-t pt-6">
+                    <h4 className="text-lg font-semibold mb-4">Daily Updates</h4>
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor="manager-today-focus">Today's Focus</Label>
+                        <Textarea
+                          id="manager-today-focus"
+                          placeholder="What are you focusing on today?"
+                          value={update.today_focus}
+                          onChange={(e) => setUpdate({ ...update, today_focus: e.target.value })}
+                          className="mt-1"
+                          />
+                        </div>
+                      <div>
+                        <Label htmlFor="manager-progress">Progress</Label>
+                          <Textarea
+                          id="manager-progress"
+                          placeholder="What progress have you made?"
+                          value={update.progress}
+                          onChange={(e) => setUpdate({ ...update, progress: e.target.value })}
+                          className="mt-1"
+                          />
+                        </div>
+                      <div>
+                        <Label htmlFor="manager-blockers">Blockers</Label>
+                        <Textarea
+                          id="manager-blockers"
+                          placeholder="Any blockers or challenges?"
+                          value={update.blockers}
+                          onChange={(e) => setUpdate({ ...update, blockers: e.target.value })}
+                          className="mt-1"
+                        />
+                      </div>
+                          <Button
+                        onClick={handleSaveUpdate} 
+                        disabled={loading || !update.today_focus || !update.progress}
+                        className="w-full"
+                      >
+                        {loading ? 'Saving...' : 'Save Update'}
+                          </Button>
+                        </div>
+                </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Team Management Section */}
+          <Card className="elegant-card border-2 border-primary/20 elegant-shadow-lg">
+            <CardHeader>
+              <CardTitle className="font-heading text-xl font-bold flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Team Attendance
+              </CardTitle>
+              <CardDescription>
+                Monitor your team's attendance and activity
+              </CardDescription>
+              </CardHeader>
+              <CardContent>
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="flex-1">
+                    <Label htmlFor="manager-date-selector">Date</Label>
+                    <Input
+                      id="manager-date-selector"
+                      type="date"
+                      value={selectedDate}
+                      onChange={(e) => setSelectedDate(e.target.value)}
+                      className="mt-1"
+                    />
+                          </div>
+                  <div className="flex gap-2">
+                        <Button
+                      variant="outline"
+                          size="sm"
+                      onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+                    >
+                      Today
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const yesterday = new Date();
+                        yesterday.setDate(yesterday.getDate() - 1);
+                        setSelectedDate(yesterday.toISOString().split('T')[0]);
+                      }}
+                    >
+                      Yesterday
+                        </Button>
+                      </div>
+                    </div>
+                <AttendanceLogs 
+                  key={`manager-${selectedDate}`}
+                  startDate={selectedDate}
+                  endDate={selectedDate}
+                  showAllEmployees={true}
+                />
+                  </div>
               </CardContent>
             </Card>
           </div>
-        )}
+      </Layout>
+    );
+  }
+
+  // For employee role, show employee dashboard
+  return (
+    <Layout>
+      <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-6 sm:space-y-8">
+        <div className="text-center space-y-2">
+          <h1 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight gradient-text">
+            Your Work Today
+          </h1>
+          <p className="text-muted-foreground text-base sm:text-lg font-medium">
+            Track your work hours, tasks, and daily updates
+          </p>
+        </div>
+
+        <Card className="elegant-card border-2 border-primary/20 elegant-shadow-lg">
+          <CardHeader>
+            <CardTitle className="font-heading text-xl font-bold flex items-center gap-2">
+              <User className="h-5 w-5" />
+              Your Work Today
+            </CardTitle>
+            <CardDescription>
+              Track your work hours, tasks, and daily updates
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {!entry ? (
+              <div className="text-center py-8">
+                <div className="flex justify-center mb-6">
+                  <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Clock className="h-10 w-10 text-primary" />
+                  </div>
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Ready to start your day?</h3>
+                <p className="text-muted-foreground mb-6">
+                  Begin your workday by checking in and setting your focus for today.
+                </p>
+                <Button onClick={handleCheckIn} className="w-full sm:w-auto">
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  Check In
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Work Status */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="text-center p-4 border rounded-lg">
+                    <div className="text-2xl font-bold text-primary">
+                      {entry.check_in_at ? new Date(entry.check_in_at).toLocaleTimeString('en-US', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      }) : 'Not started'}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Check In</div>
+                    {entry.check_in_at && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {checkInSource || 'Manual'}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-center p-4 border rounded-lg">
+                    <div className="text-2xl font-bold text-primary">
+                      {entry.check_out_at ? new Date(entry.check_out_at).toLocaleTimeString('en-US', { 
+                        hour: '2-digit', 
+                        minute: '2-digit' 
+                      }) : 'Still working'}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Check Out</div>
+                    {entry.check_out_at && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {checkOutSource || 'Manual'}
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-center p-4 border rounded-lg">
+                    <div className="text-2xl font-bold text-primary">
+                      {entry.total_work_time_minutes ? 
+                        `${Math.floor(entry.total_work_time_minutes / 60)}h ${entry.total_work_time_minutes % 60}m` : 
+                        '0h 0m'
+                      }
+                    </div>
+                    <div className="text-sm text-muted-foreground">Total Time</div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex flex-wrap gap-2">
+                  {!entry.check_in_at && (
+                    <Button onClick={handleCheckIn}>
+                      <CheckCircle className="mr-2 h-4 w-4" />
+                      Check In
+                    </Button>
+                  )}
+                  {entry.check_in_at && !entry.check_out_at && (
+                    <Button onClick={handleCheckOut} variant="outline">
+                      <Clock className="mr-2 h-4 w-4" />
+                      Check Out
+                    </Button>
+                  )}
+                  {entry.check_in_at && !entry.check_out_at && (
+                    <Button onClick={entry.lunch_break_start && !entry.lunch_break_end ? handleLunchBreakEnd : handleLunchBreakStart} className="bg-blue-600 hover:bg-blue-700 text-white">
+                      <Clock className="mr-2 h-4 w-4" />
+                      {entry.lunch_break_start && !entry.lunch_break_end ? 'End Lunch' : 'Start Lunch'}
+                    </Button>
+                  )}
+                </div>
+
+                {/* Daily Updates Form */}
+                <div className="border-t pt-6">
+                  <h4 className="text-lg font-semibold mb-4">Daily Updates</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="employee-today-focus">Today's Focus</Label>
+                      <Textarea
+                        id="employee-today-focus"
+                        placeholder="What are you focusing on today?"
+                        value={update.today_focus}
+                        onChange={(e) => setUpdate({ ...update, today_focus: e.target.value })}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="employee-progress">Progress</Label>
+                      <Textarea
+                        id="employee-progress"
+                        placeholder="What progress have you made?"
+                        value={update.progress}
+                        onChange={(e) => setUpdate({ ...update, progress: e.target.value })}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="employee-blockers">Blockers</Label>
+                      <Textarea
+                        id="employee-blockers"
+                        placeholder="Any blockers or challenges?"
+                        value={update.blockers}
+                        onChange={(e) => setUpdate({ ...update, blockers: e.target.value })}
+                        className="mt-1"
+                      />
+                    </div>
+                    <Button 
+                      onClick={handleSaveUpdate} 
+                      disabled={loading || !update.today_focus || !update.progress}
+                      className="w-full"
+                    >
+                      {loading ? 'Saving...' : 'Save Update'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </Layout>
   );

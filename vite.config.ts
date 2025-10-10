@@ -8,12 +8,27 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      buffer: 'buffer',
     },
+  },
+  define: {
+    'process.env': {},
+    global: 'globalThis',
+  },
+  optimizeDeps: {
+    include: ['react', 'react-dom', 'react-router-dom', 'buffer'],
   },
   build: {
     // Mobile optimization
@@ -30,9 +45,5 @@ export default defineConfig(({ mode }) => ({
     },
     // Increase chunk size warning limit for mobile
     chunkSizeWarningLimit: 1000,
-  },
-  // Mobile-specific optimizations
-  optimizeDeps: {
-    include: ['react', 'react-dom', 'react-router-dom'],
   },
 }));

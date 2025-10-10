@@ -88,41 +88,159 @@ const ManageRules = () => {
 
   const createRuleMutation = useMutation({
     mutationFn: async (rule: { title: string; description: string }) => {
-      const { error } = await supabase
-        .from('office_rules')
-        .insert(rule);
+      // Try to insert with new columns first, fallback to basic insert
+      let error;
+      try {
+        const result = await supabase
+          .from('office_rules')
+          .insert({
+            ...rule,
+            is_newly_added: true,
+            is_recently_updated: false
+          });
+        error = result.error;
+      } catch (err) {
+        // Fallback to basic insert if new columns don't exist
+        const result = await supabase
+          .from('office_rules')
+          .insert(rule);
+        error = result.error;
+      }
 
       if (error) throw error;
+
+      // Manually reset all acknowledgments when new rule is created
+      const { error: ackError } = await supabase
+        .from('rule_acknowledgments')
+        .delete()
+        .gte('created_at', '1970-01-01'); // Delete all acknowledgments
+
+      if (ackError) {
+        console.warn('Failed to reset acknowledgments:', ackError);
+      }
+
+      // Also delete all contracts to force re-signature
+      const { error: contractError } = await supabase
+        .from('rule_contracts')
+        .delete()
+        .gte('created_at', '1970-01-01'); // Delete all contracts
+
+      if (contractError) {
+        console.warn('Failed to reset contracts:', contractError);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['office-rules-admin'] });
       queryClient.invalidateQueries({ queryKey: ['office-rules'] });
+      queryClient.invalidateQueries({ queryKey: ['office-rules-first-time'] });
+      queryClient.invalidateQueries({ queryKey: ['rule-contract'] });
+      queryClient.invalidateQueries({ queryKey: ['rule-acknowledgments'] });
       setNewRule({ title: "", description: "" });
       setIsAddDialogOpen(false);
       toast({
         title: "Rule Created",
-        description: "The new rule has been created successfully.",
+        description: "The new rule has been created and all users will need to re-acknowledge rules.",
       });
     },
   });
 
   const updateRuleMutation = useMutation({
     mutationFn: async (rule: { id: string; title: string; description: string }) => {
-      const { error } = await supabase
+      console.log('Starting rule update for:', rule);
+      console.log('Current user:', user);
+      console.log('Current role:', role);
+      
+      // Test if we can read the rules first
+      const { data: testRules, error: testError } = await supabase
         .from('office_rules')
-        .update({ title: rule.title, description: rule.description })
+        .select('*')
         .eq('id', rule.id);
+      console.log('Test read result:', { testRules, testError });
+      
+      // Try to update with new columns first, fallback to basic update
+      let error;
+      try {
+        console.log('Attempting update with new columns...');
+        const result = await supabase
+          .from('office_rules')
+          .update({ 
+            title: rule.title, 
+            description: rule.description,
+            updated_at: new Date().toISOString(),
+            is_newly_added: false,
+            is_recently_updated: true
+          })
+          .eq('id', rule.id);
+        error = result.error;
+        console.log('Update result with new columns:', { error, data: result.data });
+      } catch (err) {
+        console.log('New columns not available, falling back to basic update...', err);
+        // Fallback to basic update if new columns don't exist
+        const result = await supabase
+          .from('office_rules')
+          .update({ 
+            title: rule.title, 
+            description: rule.description,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', rule.id);
+        error = result.error;
+        console.log('Update result with basic columns:', { error, data: result.data });
+      }
 
-      if (error) throw error;
+      if (error) {
+        console.error('Rule update failed:', error);
+        throw error;
+      }
+      
+      console.log('Rule update successful, proceeding to reset acknowledgments...');
+
+      // Manually reset all acknowledgments when rule is updated
+      console.log('Resetting all acknowledgments...');
+      const { error: ackError, count: ackCount } = await supabase
+        .from('rule_acknowledgments')
+        .delete()
+        .gte('created_at', '1970-01-01'); // Delete all acknowledgments
+
+      if (ackError) {
+        console.error('Failed to reset acknowledgments:', ackError);
+      } else {
+        console.log(`Successfully deleted ${ackCount} acknowledgments`);
+      }
+
+      // Also delete all contracts to force re-signature
+      console.log('Resetting all contracts...');
+      const { error: contractError, count: contractCount } = await supabase
+        .from('rule_contracts')
+        .delete()
+        .gte('created_at', '1970-01-01'); // Delete all contracts
+
+      if (contractError) {
+        console.error('Failed to reset contracts:', contractError);
+      } else {
+        console.log(`Successfully deleted ${contractCount} contracts`);
+      }
     },
     onSuccess: () => {
+      console.log('Rule update mutation successful');
       queryClient.invalidateQueries({ queryKey: ['office-rules-admin'] });
       queryClient.invalidateQueries({ queryKey: ['office-rules'] });
+      queryClient.invalidateQueries({ queryKey: ['office-rules-first-time'] });
+      queryClient.invalidateQueries({ queryKey: ['rule-contract'] });
+      queryClient.invalidateQueries({ queryKey: ['rule-acknowledgments'] });
       setEditRule({ id: "", title: "", description: "" });
       setIsEditDialogOpen(false);
       toast({
         title: "Rule Updated",
-        description: "The rule has been updated successfully.",
+        description: "The rule has been updated and all users will need to re-acknowledge rules.",
+      });
+    },
+    onError: (error: any) => {
+      console.error('Rule update mutation failed:', error);
+      toast({
+        title: "Update Failed",
+        description: `Failed to update rule: ${error.message || 'Please try again.'}`,
+        variant: "destructive",
       });
     },
   });

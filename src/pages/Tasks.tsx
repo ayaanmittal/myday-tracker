@@ -24,6 +24,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface Task {
   id: string;
@@ -50,6 +57,8 @@ export default function Tasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -149,6 +158,11 @@ export default function Tasks() {
         variant: 'destructive',
       });
     }
+  };
+
+  const handleTaskClick = (task: Task) => {
+    setSelectedTask(task);
+    setDialogOpen(true);
   };
 
   const getStatusIcon = (status: string) => {
@@ -307,13 +321,14 @@ export default function Tasks() {
                   <TableHead>Assigned By</TableHead>
                   <TableHead>Priority</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Date Assigned</TableHead>
                   <TableHead>Due Date</TableHead>
                   <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredTasks.map((task) => (
-                  <TableRow key={task.id}>
+                  <TableRow key={task.id} className="cursor-pointer hover:bg-muted/50" onClick={() => handleTaskClick(task)}>
                     <TableCell>
                       <div>
                         <p className="font-medium">{task.title}</p>
@@ -348,6 +363,12 @@ export default function Tasks() {
                         <Badge className={getStatusColor(task.status)}>
                           {task.status.replace('_', ' ')}
                         </Badge>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span>{new Date(task.created_at).toLocaleDateString()}</span>
                       </div>
                     </TableCell>
                     <TableCell>
@@ -402,18 +423,133 @@ export default function Tasks() {
                 {statusFilter === 'all' 
                   ? 'No tasks assigned to you yet' 
                   : `No ${statusFilter.replace('_', ' ')} tasks found`}
-                {tasks.length === 0 && (
-                  <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <p className="text-sm text-yellow-800">
-                      <strong>Note:</strong> If you're seeing this message and expect to have tasks, 
-                      the database tables may not be set up yet. Please run the database setup script.
-                    </p>
-                  </div>
-                )}
               </div>
             )}
           </CardContent>
         </Card>
+
+        {/* Task Detail Dialog */}
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-semibold">
+                {selectedTask?.title}
+              </DialogTitle>
+              <DialogDescription>
+                Task Details
+              </DialogDescription>
+            </DialogHeader>
+            
+            {selectedTask && (
+              <div className="space-y-6">
+                {/* Task Description */}
+                {selectedTask.description && (
+                  <div>
+                    <h4 className="font-medium text-sm text-muted-foreground mb-2">Description</h4>
+                    <p className="text-sm leading-relaxed">{selectedTask.description}</p>
+                  </div>
+                )}
+
+                {/* Task Information Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h4 className="font-medium text-sm text-muted-foreground mb-2">Status</h4>
+                    <div className="flex items-center gap-2">
+                      {getStatusIcon(selectedTask.status)}
+                      <Badge className={getStatusColor(selectedTask.status)}>
+                        {selectedTask.status.replace('_', ' ')}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium text-sm text-muted-foreground mb-2">Priority</h4>
+                    <Badge className={getPriorityColor(selectedTask.priority)}>
+                      {selectedTask.priority}
+                    </Badge>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium text-sm text-muted-foreground mb-2">Assigned By</h4>
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-muted-foreground" />
+                      <div>
+                        <p className="font-medium text-sm">{selectedTask.assigned_by_profile?.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {selectedTask.assigned_by_profile?.email}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium text-sm text-muted-foreground mb-2">Due Date</h4>
+                    <p className="text-sm">
+                      {selectedTask.due_date 
+                        ? new Date(selectedTask.due_date).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                          })
+                        : 'No due date'
+                      }
+                    </p>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium text-sm text-muted-foreground mb-2">Created</h4>
+                    <p className="text-sm">
+                      {new Date(selectedTask.created_at).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+                  </div>
+
+                  {selectedTask.completed_at && (
+                    <div>
+                      <h4 className="font-medium text-sm text-muted-foreground mb-2">Completed</h4>
+                      <p className="text-sm">
+                        {new Date(selectedTask.completed_at).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Status Update Section */}
+                <div className="border-t pt-4">
+                  <h4 className="font-medium text-sm text-muted-foreground mb-3">Update Status</h4>
+                  <Select
+                    value={selectedTask.status}
+                    onValueChange={(value) => {
+                      handleStatusChange(selectedTask.id, value);
+                      setDialogOpen(false);
+                    }}
+                  >
+                    <SelectTrigger className="w-48">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );

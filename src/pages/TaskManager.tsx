@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Layout } from '@/components/Layout';
 import { toast } from '@/hooks/use-toast';
 import { Plus, Edit, Trash2, CheckCircle, Clock, AlertCircle } from 'lucide-react';
@@ -82,6 +83,7 @@ export default function TaskManager() {
     assigned_to: '',
     priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
     due_date: '',
+    assignToAll: false,
   });
 
   useEffect(() => {
@@ -178,6 +180,17 @@ export default function TaskManager() {
     e.preventDefault();
     setLoading(true);
 
+    // Validate form
+    if (!formData.assignToAll && !formData.assigned_to) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please select an employee or check "Assign to all employees".',
+        variant: 'destructive',
+      });
+      setLoading(false);
+      return;
+    }
+
     try {
       if (editingTask) {
         // Update existing task
@@ -200,24 +213,48 @@ export default function TaskManager() {
           description: 'Task has been updated successfully.',
         });
       } else {
-        // Create new task
-        const { error } = await supabase
-          .from('tasks')
-          .insert({
+        // Create new task(s)
+        if (formData.assignToAll) {
+          // Create task for all employees
+          const taskData = employees.map(employee => ({
             title: formData.title,
             description: formData.description || null,
-            assigned_to: formData.assigned_to,
+            assigned_to: employee.id,
             assigned_by: user?.id,
             priority: formData.priority,
             due_date: formData.due_date || null,
+          }));
+
+          const { error } = await supabase
+            .from('tasks')
+            .insert(taskData);
+
+          if (error) throw error;
+
+          toast({
+            title: 'Tasks created',
+            description: `Task has been created for all ${employees.length} employees.`,
           });
+        } else {
+          // Create task for single employee
+          const { error } = await supabase
+            .from('tasks')
+            .insert({
+              title: formData.title,
+              description: formData.description || null,
+              assigned_to: formData.assigned_to,
+              assigned_by: user?.id,
+              priority: formData.priority,
+              due_date: formData.due_date || null,
+            });
 
-        if (error) throw error;
+          if (error) throw error;
 
-        toast({
-          title: 'Task created',
-          description: 'New task has been created successfully.',
-        });
+          toast({
+            title: 'Task created',
+            description: 'New task has been created successfully.',
+          });
+        }
       }
 
       setDialogOpen(false);
@@ -307,6 +344,7 @@ export default function TaskManager() {
       assigned_to: '',
       priority: 'medium',
       due_date: '',
+      assignToAll: false,
     });
     setEditingTask(null);
   };
@@ -347,7 +385,7 @@ export default function TaskManager() {
                 <DialogDescription>
                   {editingTask
                     ? 'Update task details and assignment'
-                    : 'Assign a new task to an employee'}
+                    : 'Assign a new task to an employee or all employees'}
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -373,12 +411,33 @@ export default function TaskManager() {
                   />
                 </div>
 
+                {/* Assign to all employees checkbox */}
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="assignToAll"
+                    checked={formData.assignToAll}
+                    onCheckedChange={(checked) => {
+                      setFormData({ 
+                        ...formData, 
+                        assignToAll: checked as boolean,
+                        assigned_to: checked ? '' : formData.assigned_to // Clear assigned_to when checking assignToAll
+                      });
+                    }}
+                  />
+                  <Label htmlFor="assignToAll" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    Assign to all employees ({employees.length} employees)
+                  </Label>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="assigned_to">Assign To</Label>
+                    <Label htmlFor="assigned_to">
+                      Assign To {formData.assignToAll && <span className="text-muted-foreground">(disabled - assigning to all)</span>}
+                    </Label>
                     <Select
                       value={formData.assigned_to}
                       onValueChange={(value) => setFormData({ ...formData, assigned_to: value })}
+                      disabled={formData.assignToAll}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select employee" />
@@ -433,7 +492,14 @@ export default function TaskManager() {
                     Cancel
                   </Button>
                   <Button type="submit" disabled={loading}>
-                    {loading ? 'Saving...' : editingTask ? 'Update Task' : 'Create Task'}
+                    {loading 
+                      ? 'Saving...' 
+                      : editingTask 
+                        ? 'Update Task' 
+                        : formData.assignToAll 
+                          ? `Create Tasks for All (${employees.length})` 
+                          : 'Create Task'
+                    }
                   </Button>
                 </div>
               </form>
@@ -454,6 +520,7 @@ export default function TaskManager() {
                   <TableHead>Assigned To</TableHead>
                   <TableHead>Priority</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Date Assigned</TableHead>
                   <TableHead>Due Date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -493,6 +560,9 @@ export default function TaskManager() {
                       </div>
                     </TableCell>
                     <TableCell>
+                      {new Date(task.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
                       {task.due_date ? new Date(task.due_date).toLocaleDateString() : '-'}
                     </TableCell>
                     <TableCell className="text-right space-x-2">
@@ -521,12 +591,6 @@ export default function TaskManager() {
               <div className="text-center py-8 text-muted-foreground">
                 <div>
                   <p>No tasks found</p>
-                  <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <p className="text-sm text-yellow-800">
-                      <strong>Note:</strong> If you're seeing this message and expect to have tasks, 
-                      the database tables may not be set up yet. Please run the database setup script.
-                    </p>
-                  </div>
                 </div>
               </div>
             )}

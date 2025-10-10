@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calendar, Clock, Home, Edit, Save, X } from 'lucide-react';
+import { Calendar, Clock, Home, Edit, Save, X, Users, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { DatePicker } from '@/components/DatePicker';
@@ -18,6 +18,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface ExtraWorkLog {
   id: string;
@@ -25,6 +32,12 @@ interface ExtraWorkLog {
   hours_worked: number;
   description: string | null;
   logged_at: string;
+}
+
+interface Employee {
+  id: string;
+  name: string;
+  email: string;
 }
 
 interface HistoryEntry {
@@ -63,6 +76,9 @@ export default function History() {
     lunch_end: ''
   });
   const [saving, setSaving] = useState(false);
+  // Manager-specific state
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
 
   useEffect(() => {
     if (!user) {
@@ -71,12 +87,52 @@ export default function History() {
     }
 
     if (!roleLoading) {
-    fetchHistory();
+      if (role === 'manager') {
+        fetchEmployees();
+      } else {
+        fetchHistory();
+      }
     }
   }, [user, roleLoading, navigate, selectedDate]);
 
+  useEffect(() => {
+    if (role === 'manager' && selectedEmployeeId) {
+      fetchHistory();
+    }
+  }, [selectedEmployeeId, selectedDate]);
+
+  const fetchEmployees = async () => {
+    try {
+      const { data: employeesData, error } = await supabase
+        .from('profiles')
+        .select('id, name, email')
+        .eq('is_active', true)
+        .order('name');
+
+      if (error) throw error;
+
+      setEmployees(employeesData || []);
+      
+      // Set current user as default selected employee
+      if (user) {
+        setSelectedEmployeeId(user.id);
+      }
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch employees',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const fetchHistory = async () => {
     if (!user) return;
+
+    // For managers, use selectedEmployeeId; for others, use current user
+    const targetUserId = role === 'manager' ? selectedEmployeeId : user.id;
+    if (!targetUserId) return;
 
     try {
       // Get entries for the selected month
@@ -100,7 +156,7 @@ export default function History() {
             logged_at
           )
         `)
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .gte('entry_date', startOfMonth.toISOString().split('T')[0])
         .lte('entry_date', endOfMonth.toISOString().split('T')[0])
         .order('entry_date', { ascending: false });
@@ -121,7 +177,7 @@ export default function History() {
                 blockers
               )
             `)
-            .eq('user_id', user.id)
+            .eq('user_id', targetUserId)
             .gte('entry_date', startOfMonth.toISOString().split('T')[0])
             .lte('entry_date', endOfMonth.toISOString().split('T')[0])
             .order('entry_date', { ascending: false });

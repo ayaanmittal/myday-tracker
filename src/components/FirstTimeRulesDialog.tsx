@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/hooks/useAuth";
 import { useRuleContract } from "@/hooks/useRuleContract";
+import { useUserRole } from "@/hooks/useUserRole";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/hooks/use-toast";
@@ -28,6 +29,7 @@ interface Rule {
 
 export function FirstTimeRulesDialog() {
   const { user } = useAuth();
+  const { data: role, isLoading: roleLoading } = useUserRole();
   const { data: contract, isLoading } = useRuleContract();
   const queryClient = useQueryClient();
   const [initials, setInitials] = useState("");
@@ -51,7 +53,18 @@ export function FirstTimeRulesDialog() {
     mutationFn: async (userInitials: string) => {
       if (!user?.id) throw new Error("No user");
 
-      // Create contract
+      // Delete existing contract first, then create new one
+      const { error: deleteError } = await supabase
+        .from('rule_contracts')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (deleteError) {
+        console.warn('Failed to delete existing contract:', deleteError);
+        // Continue anyway, the insert might still work
+      }
+
+      // Create new contract
       const { error: contractError } = await supabase
         .from('rule_contracts')
         .insert({
@@ -61,15 +74,19 @@ export function FirstTimeRulesDialog() {
 
       if (contractError) throw contractError;
 
-      // Acknowledge all rules
+      // Acknowledge all rules (update if exists, insert if not)
       const acknowledgments = rules.map(rule => ({
         user_id: user.id,
         rule_id: rule.id,
+        acknowledged_at: new Date().toISOString(),
       }));
 
       const { error: ackError } = await supabase
         .from('rule_acknowledgments')
-        .insert(acknowledgments);
+        .upsert(acknowledgments, { 
+          onConflict: 'user_id,rule_id',
+          ignoreDuplicates: false 
+        });
 
       if (ackError) throw ackError;
     },
@@ -81,10 +98,11 @@ export function FirstTimeRulesDialog() {
         description: "You have successfully acknowledged all office rules.",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error('Contract signing error:', error);
       toast({
         title: "Error",
-        description: "Failed to sign contract. Please try again.",
+        description: `Failed to sign contract: ${error.message || 'Please try again.'}`,
         variant: "destructive",
       });
     },
@@ -112,12 +130,12 @@ export function FirstTimeRulesDialog() {
     signContractMutation.mutate(initials);
   };
 
-  // Show dialog only if contract doesn't exist and not loading
-  const showDialog = !isLoading && !contract && rules.length > 0;
+  // Show dialog only if user is logged in, is employee/manager, contract doesn't exist and not loading
+  const showDialog = !!user && (role === 'employee' || role === 'manager') && !isLoading && !contract && rules.length > 0;
 
   return (
     <Dialog open={showDialog} modal>
-      <DialogContent className="max-w-3xl max-h-[90vh]" onPointerDownOutside={(e) => e.preventDefault()}>
+      <DialogContent className="max-w-3xl h-[90vh] flex flex-col" onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl">
             <AlertCircle className="h-6 w-6 text-primary" />
@@ -128,68 +146,70 @@ export function FirstTimeRulesDialog() {
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="h-[50vh] pr-4">
-          <div className="space-y-4">
-            {rules.map((rule, index) => (
-              <Card key={rule.id}>
-                <CardHeader>
-                  <CardTitle className="text-base">
-                    Rule {index + 1}: {rule.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                    {rule.description}
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </ScrollArea>
+        <div className="flex-1 flex flex-col min-h-0 space-y-4">
+          <ScrollArea className="flex-1 pr-4">
+            <div className="space-y-4">
+              {rules.map((rule, index) => (
+                <Card key={rule.id}>
+                  <CardHeader>
+                    <CardTitle className="text-base">
+                      Rule {index + 1}: {rule.title}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                      {rule.description}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </ScrollArea>
 
-        <Separator />
+          <Separator className="flex-shrink-0" />
 
-        <div className="space-y-4">
-          <div className="flex items-start gap-2">
-            <input
-              type="checkbox"
-              id="acknowledge"
-              checked={allAcknowledged}
-              onChange={(e) => setAllAcknowledged(e.target.checked)}
-              className="mt-1 h-4 w-4 rounded border-gray-300"
-            />
-            <Label htmlFor="acknowledge" className="text-sm font-medium">
-              I have read and understood all the office rules listed above and agree to comply with them.
-            </Label>
+          <div className="space-y-4 flex-shrink-0">
+            <div className="flex items-start gap-2">
+              <input
+                type="checkbox"
+                id="acknowledge"
+                checked={allAcknowledged}
+                onChange={(e) => setAllAcknowledged(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-gray-300"
+              />
+              <Label htmlFor="acknowledge" className="text-sm font-medium">
+                I have read and understood all the office rules listed above and agree to comply with them.
+              </Label>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="initials">
+                Your Initials <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="initials"
+                placeholder="e.g., JD"
+                value={initials}
+                onChange={(e) => setInitials(e.target.value.toUpperCase())}
+                maxLength={5}
+                className="uppercase"
+              />
+              <p className="text-xs text-muted-foreground">
+                By entering your initials, you electronically sign this agreement
+              </p>
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="initials">
-              Your Initials <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              id="initials"
-              placeholder="e.g., JD"
-              value={initials}
-              onChange={(e) => setInitials(e.target.value.toUpperCase())}
-              maxLength={5}
-              className="uppercase"
-            />
-            <p className="text-xs text-muted-foreground">
-              By entering your initials, you electronically sign this agreement
-            </p>
-          </div>
+          <DialogFooter className="flex-shrink-0">
+            <Button
+              onClick={handleSubmit}
+              disabled={!initials.trim() || !allAcknowledged || signContractMutation.isPending}
+              className="w-full"
+            >
+              {signContractMutation.isPending ? "Signing..." : "Sign Contract & Continue"}
+            </Button>
+          </DialogFooter>
         </div>
-
-        <DialogFooter>
-          <Button
-            onClick={handleSubmit}
-            disabled={!initials.trim() || !allAcknowledged || signContractMutation.isPending}
-            className="w-full"
-          >
-            {signContractMutation.isPending ? "Signing..." : "Sign Contract & Continue"}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

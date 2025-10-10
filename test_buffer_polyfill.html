@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Buffer Polyfill Test</title>
+</head>
+<body>
+    <h1>Buffer Polyfill Test</h1>
+    <div id="result"></div>
+    
+    <script>
+        // Test if Buffer is available
+        try {
+            if (typeof Buffer !== 'undefined') {
+                document.getElementById('result').innerHTML = '✅ Buffer is available: ' + Buffer.from('test').toString('base64');
+            } else {
+                document.getElementById('result').innerHTML = '❌ Buffer is not available';
+            }
+        } catch (error) {
+            document.getElementById('result').innerHTML = '❌ Error: ' + error.message;
+        }
+    </script>
+</body>
+</html>
+
+

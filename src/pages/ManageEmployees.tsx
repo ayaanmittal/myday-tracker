@@ -137,34 +137,26 @@ export default function ManageEmployees() {
           description: 'Employee information has been updated successfully.',
         });
       } else {
-        // Create new employee
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
-          options: {
-            data: { name: formData.name },
+        // Create new employee using server API (doesn't auto-login)
+        const response = await fetch('/api/users/create', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
+          body: JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+            name: formData.name,
+            team: formData.team,
+            designation: formData.designation,
+            role: formData.role
+          })
         });
 
-        if (authError) throw authError;
+        const result = await response.json();
 
-        if (authData.user) {
-          // Update profile with team and designation
-          await supabase
-            .from('profiles')
-            .update({ 
-              team: formData.team || null,
-              designation: formData.designation || null 
-            })
-            .eq('id', authData.user.id);
-
-          // Update role if not employee
-          if (formData.role !== 'employee') {
-            await supabase
-              .from('user_roles')
-              .update({ role: formData.role })
-              .eq('user_id', authData.user.id);
-          }
+        if (!result.success) {
+          throw new Error(result.error || 'Failed to create user');
         }
 
         toast({

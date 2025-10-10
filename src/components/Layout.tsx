@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
 import { FirstTimeRulesDialog } from './FirstTimeRulesDialog';
-import { MobileDebug } from './MobileDebug';
+// import { MobileDebug } from './MobileDebug';
 import { MobileFallback } from './MobileFallback';
 
 interface LayoutProps {
@@ -14,7 +14,7 @@ export function Layout({ children }: LayoutProps) {
     <MobileFallback>
       <SidebarProvider>
         <FirstTimeRulesDialog />
-        <MobileDebug />
+        {/* <MobileDebug /> */}
         <div className="min-h-screen flex w-full bg-gradient-to-br from-background via-background to-secondary/20 mobile-layout">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

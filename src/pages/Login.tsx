@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Checkbox } from '@/components/ui/checkbox';
 import { toast } from '@/hooks/use-toast';
 import { sessionManager } from '@/lib/sessionManager';
-import logo from '@/assets/zoogol-logo.png';
+import logo from '@/assets/logo.png';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -56,7 +56,7 @@ export default function Login() {
       <Card className="w-full max-w-md elegant-card elegant-shadow-lg">
         <CardHeader className="space-y-1 text-center pb-4 sm:pb-6 p-4 sm:p-6">
           <div className="flex justify-center mb-6">
-            <img src={logo} alt="Zoogol" className="h-16 w-auto object-contain" />
+            <img src={logo} alt="Logo" className="h-16 w-auto object-contain" />
           </div>
           <CardTitle className="font-heading text-3xl font-bold gradient-text">MyDay</CardTitle>
           <CardDescription className="text-lg text-muted-foreground">
@@ -110,7 +110,7 @@ export default function Login() {
         </CardContent>
       </Card>
       <footer className="fixed bottom-4 text-center w-full text-sm text-muted-foreground">
-        © Zoogol Systems
+        © MyDay Systems
       </footer>
     </div>
   );

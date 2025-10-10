@@ -3,9 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>MyDay Tracker - Zoogol</title>
+    <title>MyDay Tracker</title>
     <meta name="description" content="Employee time tracking and productivity management system" />
-    <meta name="author" content="Zoogol" />
+    <meta name="author" content="MyDay Systems" />
     
     <!-- Mobile optimizations -->
     <meta name="mobile-web-app-capable" content="yes" />
@@ -14,18 +14,18 @@
     <meta name="format-detection" content="telephone=no" />
     
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="/zoogol-logo.png" />
-    <link rel="shortcut icon" type="image/png" href="/zoogol-logo.png" />
-    <link rel="apple-touch-icon" href="/zoogol-logo.png" />
+    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="shortcut icon" type="image/png" href="/logo.png" />
+    <link rel="apple-touch-icon" href="/logo.png" />
 
-    <meta property="og:title" content="MyDay Tracker - Zoogol" />
+    <meta property="og:title" content="MyDay Tracker" />
     <meta property="og:description" content="Employee time tracking and productivity management system" />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="/zoogol-logo.png" />
+    <meta property="og:image" content="/logo.png" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@zoogol" />
-    <meta name="twitter:image" content="/zoogol-logo.png" />
+    <meta name="twitter:site" content="@myday" />
+    <meta name="twitter:image" content="/logo.png" />
     
     <!-- Mobile loading styles -->
     <style>
@@ -133,7 +133,7 @@
         let checkCount = 0;
         const maxChecks = 200; // 20 seconds with 100ms intervals
         
-        console.log('Mobile loading script started. Is mobile:', isMobile);
+        console.log('Loading script started');
         
         // Show error if loading takes too long
         loadingTimeout = setTimeout(function() {
@@ -175,13 +175,6 @@
               <div class="error-content">
                 <div class="error-title">App Error</div>
                 <div class="error-message">${message}</div>
-                <div style="margin-top: 10px; font-size: 12px; color: #666;">
-                  <div>Debug Info:</div>
-                  <div>• Mobile: ${isMobile}</div>
-                  <div>• Online: ${navigator.onLine}</div>
-                  <div>• User Agent: ${navigator.userAgent.substring(0, 50)}...</div>
-                  <div>• Viewport: ${window.innerWidth}x${window.innerHeight}</div>
-                </div>
                 <button class="retry-button" onclick="window.location.reload()">Retry</button>
                 <button class="retry-button" onclick="window.open('/mobile-debug.html', '_blank')" style="background: #10b981; margin-left: 10px;">Debug Page</button>
               </div>

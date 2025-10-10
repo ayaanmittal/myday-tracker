@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
+import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,18 +10,47 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Layout } from '@/components/Layout';
 import { toast } from '@/hooks/use-toast';
-import { Settings as SettingsIcon, Clock, Bell, Users } from 'lucide-react';
+import { Settings as SettingsIcon, Clock, Bell, Users, Edit, Save, X } from 'lucide-react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+
+interface Setting {
+  id: string;
+  key: string;
+  value: string;
+  description: string;
+  category: string;
+  data_type: 'string' | 'number' | 'boolean' | 'json';
+  is_public: boolean;
+  created_at: string;
+  updated_at: string;
+  updated_by: string | null;
+}
 
 export default function Settings() {
   const { user } = useAuth();
   const { data: role, isLoading: roleLoading } = useUserRole();
   const navigate = useNavigate();
 
-  const [workdayStartTime, setWorkdayStartTime] = useState('10:30');
-  const [lateThresholdMinutes, setLateThresholdMinutes] = useState('15');
-  const [allowMultipleUpdates, setAllowMultipleUpdates] = useState(false);
-  const [enableReminders, setEnableReminders] = useState(true);
+  const [settings, setSettings] = useState<Setting[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editingSetting, setEditingSetting] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
   const [saving, setSaving] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
 
   useEffect(() => {
     if (!user) {
@@ -32,22 +62,86 @@ export default function Settings() {
       navigate('/today');
       return;
     }
+
+    if (role === 'admin') {
+      fetchSettings();
+    }
   }, [user, role, roleLoading, navigate]);
 
-  const handleSave = async () => {
-    setSaving(true);
-    
-    // Simulate save (in a real app, save to database)
-    setTimeout(() => {
+  const fetchSettings = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('settings')
+        .select('*')
+        .order('category', { ascending: true })
+        .order('key', { ascending: true });
+
+      if (error) throw error;
+      setSettings(data || []);
+    } catch (error: any) {
+      console.error('Error fetching settings:', error);
       toast({
-        title: 'Settings saved',
-        description: 'Your settings have been updated successfully.',
+        title: 'Error',
+        description: 'Failed to fetch settings',
+        variant: 'destructive',
       });
-      setSaving(false);
-    }, 1000);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  if (roleLoading) {
+  const handleEdit = (setting: Setting) => {
+    setEditingSetting(setting.id);
+    setEditValue(setting.value);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingSetting(null);
+    setEditValue('');
+  };
+
+  const handleSaveSetting = async (settingId: string) => {
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('settings')
+        .update({ 
+          value: editValue,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', settingId);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Setting updated',
+        description: 'Setting has been updated successfully.',
+      });
+
+      setEditingSetting(null);
+      setEditValue('');
+      fetchSettings();
+    } catch (error: any) {
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const getCategories = () => {
+    const categories = [...new Set(settings.map(s => s.category))];
+    return categories;
+  };
+
+  const filteredSettings = settings.filter(setting => 
+    categoryFilter === 'all' || setting.category === categoryFilter
+  );
+
+  if (roleLoading || loading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-full">
@@ -59,129 +153,170 @@ export default function Settings() {
 
   return (
     <Layout>
-      <div className="p-6 space-y-6 max-w-4xl">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-          <p className="text-muted-foreground">Configure system preferences and policies</p>
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+            <p className="text-muted-foreground">Configure system preferences and policies</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Categories</SelectItem>
+                {getCategories().map((category) => (
+                  <SelectItem key={category} value={category}>
+                    {category.charAt(0).toUpperCase() + category.slice(1)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              Work Hours Configuration
-            </CardTitle>
-            <CardDescription>Set default work hours and attendance policies</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="start-time">Workday Start Time</Label>
-              <Input
-                id="start-time"
-                type="time"
-                value={workdayStartTime}
-                onChange={(e) => setWorkdayStartTime(e.target.value)}
-              />
-              <p className="text-sm text-muted-foreground">
-                Expected check-in time for employees
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="late-threshold">Late Threshold (minutes)</Label>
-              <Input
-                id="late-threshold"
-                type="number"
-                min="0"
-                max="120"
-                value={lateThresholdMinutes}
-                onChange={(e) => setLateThresholdMinutes(e.target.value)}
-              />
-              <p className="text-sm text-muted-foreground">
-                Mark employees as late after this many minutes past start time
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Daily Updates
-            </CardTitle>
-            <CardDescription>Configure how employees submit their daily updates</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Allow Multiple Updates</Label>
-                <p className="text-sm text-muted-foreground">
-                  Let employees edit their updates throughout the day
-                </p>
-              </div>
-              <Switch
-                checked={allowMultipleUpdates}
-                onCheckedChange={setAllowMultipleUpdates}
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Bell className="h-5 w-5" />
-              Notifications & Reminders
-            </CardTitle>
-            <CardDescription>Manage system notifications and reminders</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label>Enable Reminders</Label>
-                <p className="text-sm text-muted-foreground">
-                  Send reminders for check-in and daily updates
-                </p>
-              </div>
-              <Switch
-                checked={enableReminders}
-                onCheckedChange={setEnableReminders}
-              />
-            </div>
-          </CardContent>
-        </Card>
 
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <SettingsIcon className="h-5 w-5" />
-              System Information
+              System Settings
             </CardTitle>
-            <CardDescription>Application details and version information</CardDescription>
+            <CardDescription>Manage and configure system settings</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div className="text-muted-foreground">Version:</div>
-              <div className="font-medium">1.0.0</div>
-              
-              <div className="text-muted-foreground">Database:</div>
-              <div className="font-medium">Supabase</div>
-              
-              <div className="text-muted-foreground">Total Employees:</div>
-              <div className="font-medium">--</div>
-            </div>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Setting</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead>Value</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Public</TableHead>
+                  <TableHead>Last Updated</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredSettings.map((setting) => (
+                  <TableRow key={setting.id}>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{setting.key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>
+                        <p className="text-sm text-muted-foreground">{setting.description}</p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {setting.category}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      {editingSetting === setting.id ? (
+                        <div className="flex items-center gap-2">
+                          {setting.data_type === 'boolean' ? (
+                            <Switch
+                              checked={editValue === 'true'}
+                              onCheckedChange={(checked) => setEditValue(checked.toString())}
+                            />
+                          ) : setting.data_type === 'number' ? (
+                            <Input
+                              type="number"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              className="w-24"
+                            />
+                          ) : setting.key.includes('time') ? (
+                            <Input
+                              type="time"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              className="w-32"
+                            />
+                          ) : (
+                            <Input
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              className="w-48"
+                            />
+                          )}
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          {setting.data_type === 'boolean' ? (
+                            <Switch
+                              checked={setting.value === 'true'}
+                              disabled
+                            />
+                          ) : (
+                            <span className="font-mono text-sm">{setting.value}</span>
+                          )}
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                        {setting.data_type}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      {setting.is_public ? (
+                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-100 text-green-800">
+                          Yes
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-100 text-red-800">
+                          No
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm text-muted-foreground">
+                        {new Date(setting.updated_at).toLocaleDateString()}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {editingSetting === setting.id ? (
+                        <div className="flex items-center gap-2 justify-end">
+                          <Button
+                            size="sm"
+                            onClick={() => handleSaveSetting(setting.id)}
+                            disabled={saving}
+                          >
+                            <Save className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleCancelEdit}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleEdit(setting)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+
+            {filteredSettings.length === 0 && (
+              <div className="text-center py-8 text-muted-foreground">
+                {categoryFilter === 'all' 
+                  ? 'No settings found' 
+                  : `No settings found in ${categoryFilter} category`}
+              </div>
+            )}
           </CardContent>
         </Card>
-
-        <div className="flex justify-end gap-3">
-          <Button variant="outline" onClick={() => navigate('/dashboard')}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving...' : 'Save Settings'}
-          </Button>
-        </div>
 
         <div className="text-center text-sm text-muted-foreground pt-4 border-t">
           © Zoogol Systems

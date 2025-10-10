@@ -71,7 +71,7 @@ export default function LeaveApplication() {
       return;
     }
 
-    if (!roleLoading && role !== 'employee') {
+    if (!roleLoading && role !== 'employee' && role !== 'manager') {
       navigate('/dashboard');
       return;
     }

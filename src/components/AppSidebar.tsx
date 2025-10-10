@@ -1,4 +1,4 @@
-import { Home, Calendar, Users, MessageSquare, Settings, LogOut, UserCog, FileText, Shield, BarChart3, LineChart, CheckSquare, ClipboardList, Plane } from 'lucide-react';
+import { Home, Calendar, Users, MessageSquare, Settings, LogOut, UserCog, FileText, Shield, BarChart3, LineChart, CheckSquare, ClipboardList, Plane, Megaphone, Bell, Wrench } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import {
   Sidebar,
@@ -15,9 +15,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useMessageNotifications } from '@/hooks/useMessageNotifications';
 import { useLeaveRequests } from '@/hooks/useLeaveRequests';
+import { useAnnouncements } from '@/hooks/useAnnouncements';
+import { useTasks } from '@/hooks/useTasks';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import logo from '@/assets/zoogol-logo.png';
+import logo from '@/assets/logo.png';
 import { Badge } from '@/components/ui/badge';
 
 export function AppSidebar() {
@@ -27,11 +29,16 @@ export function AppSidebar() {
   const { data: role } = useUserRole();
   const { unreadCount } = useMessageNotifications();
   const { pendingCount: leavePendingCount } = useLeaveRequests();
+  const { summary: announcementSummary } = useAnnouncements();
+  const unreadAnnouncementCount = announcementSummary?.unread || 0;
+  const { summary: taskSummary } = useTasks();
+  const pendingTaskCount = taskSummary?.pending || 0;
   const [employeeCount, setEmployeeCount] = useState<number>(0);
+  const [userProfile, setUserProfile] = useState<{ name: string; email: string } | null>(null);
 
-  // Fetch employee count for admin users
+  // Fetch employee count for admin and manager users
   useEffect(() => {
-    if (role === 'admin') {
+    if (role === 'admin' || role === 'manager') {
       const fetchEmployeeCount = async () => {
         try {
           const { count, error } = await supabase
@@ -46,34 +53,82 @@ export function AppSidebar() {
           console.error('Error fetching employee count:', error);
         }
       };
-      
+
       fetchEmployeeCount();
     }
   }, [role]);
+
+  // Fetch user profile information
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('name, email')
+            .eq('id', user.id)
+            .single();
+          
+          if (!error && profile) {
+            setUserProfile({
+              name: profile.name || 'Unknown User',
+              email: profile.email || user.email || 'No email'
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+      }
+    };
+
+    fetchUserProfile();
+  }, []);
 
   const employeeItems = [
     { title: 'Today', url: '/today', icon: Home },
     { title: 'History', url: '/history', icon: Calendar },
     { title: 'Analytics', url: '/analytics', icon: BarChart3 },
-    { title: 'Tasks', url: '/tasks', icon: CheckSquare },
+    { title: 'My Tasks', url: '/tasks', icon: CheckSquare, badge: pendingTaskCount },
     { title: 'Leave', url: '/leave', icon: Plane },
     { title: 'Office Rules', url: '/office-rules', icon: FileText },
+    { title: 'Notifications', url: '/notifications', icon: Bell, badge: announcementSummary.unread },
     { title: 'Messages', url: '/messages', icon: MessageSquare, badge: unreadCount },
   ];
 
   const adminItems = [
-    { title: 'Dashboard', url: '/dashboard', icon: Home },
+    { title: 'Today', url: '/today', icon: Home },
+    { title: 'Dashboard', url: '/dashboard', icon: BarChart3 },
     { title: 'Reports', url: '/admin-reports', icon: LineChart },
     { title: 'Employees', url: '/employees', icon: Users, badge: employeeCount },
     { title: 'Manage Users', url: '/manage-employees', icon: UserCog },
+    { title: 'Admin Tools', url: '/admin-tools', icon: Wrench },
     { title: 'Task Manager', url: '/task-manager', icon: ClipboardList },
     { title: 'Leave Approval', url: '/leave-approval', icon: Plane, badge: leavePendingCount },
+    { title: 'Announcements', url: '/announcements', icon: Megaphone, badge: unreadAnnouncementCount },
     { title: 'Manage Rules', url: '/manage-rules', icon: Shield },
     { title: 'Messages', url: '/messages', icon: MessageSquare, badge: unreadCount },
     { title: 'Settings', url: '/settings', icon: Settings },
   ];
 
-  const items = role === 'admin' ? adminItems : employeeItems;
+  const managerItems = [
+    // Employee features
+    { title: 'Today', url: '/today', icon: Home },
+    { title: 'History', url: '/history', icon: Calendar },
+    { title: 'Analytics', url: '/analytics', icon: BarChart3 },
+    { title: 'My Tasks', url: '/tasks', icon: CheckSquare, badge: pendingTaskCount },
+    { title: 'Task Manager', url: '/task-manager', icon: ClipboardList },
+    { title: 'Leave', url: '/leave', icon: Plane },
+    { title: 'Office Rules', url: '/office-rules', icon: FileText },
+    { title: 'Notifications', url: '/notifications', icon: Bell, badge: announcementSummary.unread },
+    { title: 'Messages', url: '/messages', icon: MessageSquare, badge: unreadCount },
+    // Admin features
+    { title: 'Employees', url: '/employees', icon: Users, badge: employeeCount },
+    { title: 'Announcements', url: '/announcements', icon: Megaphone, badge: unreadAnnouncementCount },
+    { title: 'Settings', url: '/settings', icon: Settings },
+  ];
+
+  const items = role === 'admin' ? adminItems : role === 'manager' ? managerItems : employeeItems;
 
   return (
     <Sidebar className={`${collapsed ? 'w-16' : 'w-64'} elegant-shadow`} collapsible="icon" side="left">
@@ -81,7 +136,7 @@ export function AppSidebar() {
         <div className={`p-4 border-b ${collapsed ? 'flex justify-center' : ''}`}>
           <img 
             src={logo} 
-            alt="Zoogol" 
+            alt="Logo" 
             className={`${collapsed ? 'h-8 w-8' : 'h-10 w-auto'} object-contain transition-all duration-200`}
           />
         </div>
@@ -125,6 +180,20 @@ export function AppSidebar() {
         </SidebarGroup>
 
         <div className="mt-auto border-t p-4">
+          {/* User Profile Info */}
+          {!collapsed && (
+            <div className="mb-3 px-3 py-2 bg-muted/50 rounded-md">
+              {userProfile ? (
+                <>
+                  <div className="text-sm font-medium text-black">{userProfile.name}</div>
+                  <div className="text-xs text-muted-foreground">{userProfile.email}</div>
+                </>
+              ) : (
+                <div className="text-sm text-muted-foreground">Loading...</div>
+              )}
+            </div>
+          )}
+          
           <button
             onClick={signOut}
             className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-destructive/10 hover:text-destructive transition-colors w-full text-black"
