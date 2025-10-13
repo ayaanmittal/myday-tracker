@@ -7,7 +7,7 @@ import { Clock, Fingerprint, User, Calendar, RefreshCw, TrendingUp, Users } from
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
-import { getUserAttendanceData, getAllAttendanceData } from '@/services/attendanceDataProcessorV2Client';
+import { getUserAttendanceDataV3Client, getAllAttendanceDataV3Client, UnifiedAttendanceRecord } from '@/services/attendanceDataProcessorV3Client';
 
 interface AttendanceLog {
   id: number;
@@ -60,7 +60,7 @@ export function AttendanceLogsV2({
 }: AttendanceLogsV2Props) {
   const { user } = useAuth();
   const { role } = useUserRole();
-  const [logs, setLogs] = useState<AttendanceLog[]>([]);
+  const [logs, setLogs] = useState<UnifiedAttendanceRecord[]>([]);
   const [dayEntries, setDayEntries] = useState<DayEntry[]>([]);
   const [summary, setSummary] = useState<AttendanceSummary>({
     totalDays: 0,
@@ -82,7 +82,7 @@ export function AttendanceLogsV2({
       
       if (isAdmin || role === 'admin') {
         // Admin view - show all data
-        data = await getAllAttendanceData(
+        data = await getAllAttendanceDataV3Client(
           startDate || undefined,
           endDate || undefined
         );
@@ -97,7 +97,7 @@ export function AttendanceLogsV2({
       } else {
         // User view - show only their data
         const targetUserId = employeeId || user.id;
-        data = await getUserAttendanceData(
+        data = await getUserAttendanceDataV3Client(
           targetUserId,
           startDate || undefined,
           endDate || undefined
@@ -105,7 +105,7 @@ export function AttendanceLogsV2({
         setSummary(data.summary);
       }
 
-      setLogs(data.attendanceLogs);
+      setLogs(data.dayEntries); // Now using dayEntries as the main data source
       setDayEntries(data.dayEntries);
     } catch (err) {
       console.error('Error loading attendance data:', err);
@@ -325,31 +325,48 @@ export function AttendanceLogsV2({
             </TabsList>
 
             <TabsContent value="logs" className="space-y-4">
-              {logs.length === 0 ? (
+              {dayEntries.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <Clock className="h-12 w-12 mx-auto mb-4 text-gray-400" />
-                  <p>No attendance logs found</p>
+                  <p>No attendance records found</p>
                   <p className="text-sm">Records will appear here once employees check in/out</p>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {logs.map((log) => (
-                    <div key={log.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50">
-                      <div className="flex items-center space-x-4">
-                        {getLogTypeIcon(log.log_type, log.source)}
-                        <div>
-                          <div className="flex items-center space-x-2">
-                            <p className="font-medium">{log.employee_name}</p>
-                            {getLogTypeBadge(log.log_type, log.source)}
-                          </div>
+                  {dayEntries.map((entry) => (
+                    <div key={entry.id} className="p-4 border rounded-lg hover:bg-gray-50">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-4">
+                          <h3 className="font-semibold text-lg">
+                            {formatDate(entry.entry_date)}
+                          </h3>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(entry.status)}`}>
+                            {entry.status}
+                          </span>
+                          {entry.is_late && (
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                              LATE
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-right">
                           <p className="text-sm text-gray-600">
-                            {formatDate(log.log_time)} at {formatTime(log.log_time)}
+                            {formatWorkTime(entry.total_work_time_minutes)}
                           </p>
                         </div>
                       </div>
-                      <div className="text-right text-sm text-gray-600">
-                        <p>Source: {log.source}</p>
-                        {log.device_id && <p>Device: {log.device_id}</p>}
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-gray-600">
+                        <div>
+                          <p><strong>Check-in:</strong> {entry.check_in_at ? formatTime(entry.check_in_at) : 'N/A'}</p>
+                          <p><strong>Check-out:</strong> {entry.check_out_at ? formatTime(entry.check_out_at) : 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p><strong>Source:</strong> {entry.device_info || 'Manual'}</p>
+                          {entry.modification_reason && (
+                            <p><strong>Note:</strong> {entry.modification_reason}</p>
+                          )}
+                        </div>
                       </div>
                     </div>
                   ))}

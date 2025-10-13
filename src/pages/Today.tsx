@@ -104,7 +104,7 @@ export default function Today() {
       const today = new Date().toISOString().split('T')[0];
       
       const { data: entryData, error } = await supabase
-        .from('day_entries')
+        .from('unified_attendance')
         .select('*')
         .eq('user_id', user.id)
         .eq('entry_date', today)
@@ -223,13 +223,16 @@ export default function Today() {
       const isLate = nowDate > lateThresholdTime;
       
       const { data, error } = await supabase
-        .from('day_entries')
+        .from('unified_attendance')
         .insert({
           user_id: user.id,
           entry_date: new Date().toISOString().split('T')[0],
           check_in_at: now,
           status: 'in_progress',
           is_late: isLate,
+          device_info: 'Manual',
+          source: 'manual',
+          modification_reason: 'Manual check-in via web interface'
         })
         .select()
         .single();
@@ -266,7 +269,7 @@ export default function Today() {
       const workTimeMinutes = Math.floor(workTimeMs / (1000 * 60));
 
       const { error } = await supabase
-        .from('day_entries')
+        .from('unified_attendance')
         .update({
           check_out_at: now,
           total_work_time_minutes: workTimeMinutes,
@@ -302,7 +305,7 @@ export default function Today() {
       const now = new Date().toISOString();
       
       const { error } = await supabase
-        .from('day_entries')
+        .from('unified_attendance')
         .update({ lunch_break_start: now })
         .eq('id', entry.id);
 
@@ -333,7 +336,7 @@ export default function Today() {
       const now = new Date().toISOString();
 
       const { error } = await supabase
-        .from('day_entries')
+        .from('unified_attendance')
         .update({ lunch_break_end: now })
         .eq('id', entry.id);
 

@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Layout } from '@/components/Layout';
-import { User, Users, Settings, ArrowRight } from 'lucide-react';
+import { User, Users, Settings, ArrowRight, Calendar, Edit, Clock } from 'lucide-react';
 
 interface Employee {
   id: string;
@@ -214,14 +214,15 @@ export default function Employees() {
                     {employee.is_active ? 'Active' : 'Inactive'}
                   </Badge>
                   
-                  {role === 'admin' && (
+                  {(role === 'admin' || role === 'manager') && (
                     <Button
                       size="sm"
-                      variant="ghost"
-                      onClick={() => navigate('/manage-employees')}
+                      variant="outline"
+                      onClick={() => navigate(`/history?employee=${employee.id}`)}
+                      className="text-xs"
                     >
-                      Manage
-                      <ArrowRight className="h-3 w-3 ml-1" />
+                      <Calendar className="h-3 w-3 mr-1" />
+                      View History
                     </Button>
                   )}
                 </div>

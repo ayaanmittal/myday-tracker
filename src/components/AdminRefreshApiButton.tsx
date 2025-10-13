@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { performApiRefresh, getApiRefreshLogs, ApiRefreshResult, ApiRefreshLog } from '@/services/apiRefreshService';
+import { cleanupDuplicateAttendance } from '@/services/attendanceCleanupService';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   RefreshCw, 
@@ -17,7 +18,8 @@ import {
   Users, 
   Calendar,
   AlertCircle,
-  Loader2
+  Loader2,
+  Trash2
 } from 'lucide-react';
 
 export function AdminRefreshApiButton() {
@@ -52,6 +54,31 @@ export function AdminRefreshApiButton() {
       toast({
         title: 'API Refresh Failed',
         description: `Error: ${error.message}`,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const cleanupMutation = useMutation({
+    mutationFn: async () => {
+      return await cleanupDuplicateAttendance();
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['attendance-logs'] });
+      queryClient.invalidateQueries({ queryKey: ['api-refresh-logs'] });
+      
+      toast({
+        title: result.success ? 'Cleanup Successful' : 'Cleanup Failed',
+        description: result.success 
+          ? `Removed ${result.duplicatesRemoved} duplicate entries` 
+          : result.errors.join(', '),
+        variant: result.success ? 'default' : 'destructive',
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: 'Cleanup Failed',
+        description: error.message || 'An error occurred during cleanup',
         variant: 'destructive',
       });
     },
@@ -101,24 +128,46 @@ export function AdminRefreshApiButton() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Button
-            onClick={handleRefresh}
-            disabled={refreshMutation.isPending || isRefreshing}
-            className="w-full"
-            size="lg"
-          >
-            {refreshMutation.isPending || isRefreshing ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Refreshing API...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Refresh API Data
-              </>
-            )}
-          </Button>
+          <div className="space-y-3">
+            <Button
+              onClick={handleRefresh}
+              disabled={refreshMutation.isPending || isRefreshing}
+              className="w-full"
+              size="lg"
+            >
+              {refreshMutation.isPending || isRefreshing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Refreshing API...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Refresh API Data
+                </>
+              )}
+            </Button>
+            
+            <Button
+              onClick={() => cleanupMutation.mutate()}
+              disabled={cleanupMutation.isPending}
+              variant="outline"
+              className="w-full"
+              size="lg"
+            >
+              {cleanupMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Cleaning up duplicates...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Clean Up Duplicate Entries
+                </>
+              )}
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

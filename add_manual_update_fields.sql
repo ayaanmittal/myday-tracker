@@ -34,3 +34,5 @@ CREATE TRIGGER trigger_update_attendance_logs_updated_at
     EXECUTE FUNCTION update_attendance_logs_updated_at();
 
 
+
+

@@ -1,6 +1,6 @@
 import { supabaseService } from '@/integrations/supabase/service';
-import { getRawRangeMCID } from './teamOffice';
-import { processAndInsertAttendanceRecordsV2 } from './attendanceDataProcessorV2';
+import { getRawRangeMCID } from './teamOfficeClient';
+import { processAndInsertAttendanceRecordsV3Client } from './attendanceDataProcessorV3Client';
 
 export interface FetchOptions {
   startDate?: string; // YYYY-MM-DD format
@@ -100,7 +100,7 @@ export async function fetchAttendanceDataFromAPI(
 
     // Process and insert attendance records
     console.log(`🔄 Processing ${attendanceRecords.length} attendance records...`);
-    const result = await processAndInsertAttendanceRecordsV2(attendanceRecords);
+    const result = await processAndInsertAttendanceRecordsV3Client(attendanceRecords);
 
     recordsProcessed = result.processed;
     errors.push(...result.errorDetails);

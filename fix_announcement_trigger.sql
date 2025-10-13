@@ -25,3 +25,5 @@ CREATE TRIGGER after_announcement_insert
   EXECUTE FUNCTION public.create_general_announcement_recipients();
 
 
+
+

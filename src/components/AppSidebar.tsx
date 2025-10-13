@@ -1,4 +1,4 @@
-import { Home, Calendar, Users, MessageSquare, Settings, LogOut, UserCog, FileText, Shield, BarChart3, LineChart, CheckSquare, ClipboardList, Plane, Megaphone, Bell, Wrench } from 'lucide-react';
+import { Home, Calendar, Users, MessageSquare, Settings, LogOut, UserCog, FileText, Shield, BarChart3, LineChart, CheckSquare, ClipboardList, Plane, Megaphone, Bell, Wrench, Users2, AlertTriangle } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import {
   Sidebar,
@@ -34,6 +34,7 @@ export function AppSidebar() {
   const { summary: taskSummary } = useTasks();
   const pendingTaskCount = taskSummary?.pending || 0;
   const [employeeCount, setEmployeeCount] = useState<number>(0);
+  const [violationCount, setViolationCount] = useState<number>(0);
   const [userProfile, setUserProfile] = useState<{ name: string; email: string } | null>(null);
 
   // Fetch employee count for admin and manager users
@@ -57,6 +58,29 @@ export function AppSidebar() {
       fetchEmployeeCount();
     }
   }, [role]);
+
+  // Fetch violation count for all users
+  useEffect(() => {
+    const fetchViolationCount = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { count, error } = await supabase
+            .from('rule_violations')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', user.id);
+          
+          if (!error && count !== null) {
+            setViolationCount(count);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching violation count:', error);
+      }
+    };
+
+    fetchViolationCount();
+  }, []);
 
   // Fetch user profile information
   useEffect(() => {
@@ -91,6 +115,8 @@ export function AppSidebar() {
     { title: 'Analytics', url: '/analytics', icon: BarChart3 },
     { title: 'My Tasks', url: '/tasks', icon: CheckSquare, badge: pendingTaskCount },
     { title: 'Leave', url: '/leave', icon: Plane },
+    { title: 'Meetings', url: '/meetings', icon: Users2 },
+    { title: 'Violations', url: '/violations', icon: AlertTriangle, badge: violationCount },
     { title: 'Office Rules', url: '/office-rules', icon: FileText },
     { title: 'Notifications', url: '/notifications', icon: Bell, badge: announcementSummary.unread },
     { title: 'Messages', url: '/messages', icon: MessageSquare, badge: unreadCount },
@@ -105,6 +131,8 @@ export function AppSidebar() {
     { title: 'Admin Tools', url: '/admin-tools', icon: Wrench },
     { title: 'Task Manager', url: '/task-manager', icon: ClipboardList },
     { title: 'Leave Approval', url: '/leave-approval', icon: Plane, badge: leavePendingCount },
+    { title: 'Meetings', url: '/meetings', icon: Users2 },
+    { title: 'Violations', url: '/violations', icon: AlertTriangle, badge: violationCount },
     { title: 'Announcements', url: '/announcements', icon: Megaphone, badge: unreadAnnouncementCount },
     { title: 'Manage Rules', url: '/manage-rules', icon: Shield },
     { title: 'Messages', url: '/messages', icon: MessageSquare, badge: unreadCount },
@@ -119,6 +147,8 @@ export function AppSidebar() {
     { title: 'My Tasks', url: '/tasks', icon: CheckSquare, badge: pendingTaskCount },
     { title: 'Task Manager', url: '/task-manager', icon: ClipboardList },
     { title: 'Leave', url: '/leave', icon: Plane },
+    { title: 'Meetings', url: '/meetings', icon: Users2 },
+    { title: 'Violations', url: '/violations', icon: AlertTriangle, badge: violationCount },
     { title: 'Office Rules', url: '/office-rules', icon: FileText },
     { title: 'Notifications', url: '/notifications', icon: Bell, badge: announcementSummary.unread },
     { title: 'Messages', url: '/messages', icon: MessageSquare, badge: unreadCount },

@@ -1,7 +1,7 @@
 import { supabaseService } from '@/integrations/supabase/service';
-import { fetchAttendanceDataFromAPI } from './autoFetchService';
-import { fetchTeamOfficeEmployees, syncTeamOfficeEmployees } from './teamOfficeEmployees';
-import { testTeamOfficeConnection } from './teamOffice';
+import { fetchAttendanceDataFromAPIClient } from './autoFetchServiceClient';
+import { fetchTeamOfficeEmployees, syncTeamOfficeEmployees } from './teamOfficeEmployeesClient';
+import { testTeamOfficeConnection } from './teamOfficeClient';
 
 export interface ApiRefreshResult {
   success: boolean;
@@ -118,7 +118,7 @@ export async function performApiRefresh(adminUserId: string): Promise<ApiRefresh
     console.log('⏰ Syncing attendance data...');
     try {
       const today = new Date().toISOString().split('T')[0];
-      const attendanceResult = await fetchAttendanceDataFromAPI({
+      const attendanceResult = await fetchAttendanceDataFromAPIClient({
         startDate: today,
         endDate: today,
         forceRefresh: true

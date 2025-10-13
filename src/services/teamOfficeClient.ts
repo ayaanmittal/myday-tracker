@@ -1,76 +1,89 @@
-import axios, { AxiosError } from 'axios';
-import { Buffer } from 'buffer';
-
-const api = axios.create({
-  baseURL: 'https://api.etimeoffice.com/api',
-  timeout: 60000, // Increased to 60 seconds
-});
-
-function authHeader() {
-  // Use hardcoded credentials for client-side (these should be safe to expose)
-  const username = 'support:support:support@1:true';
-  
-  // Use Basic Auth with the full credential string as username
-  const basicAuth = Buffer.from(`${username}:`).toString('base64');
-  return { Authorization: `Basic ${basicAuth}` };
-}
-
-function showErr(error: any) {
-  console.error('TeamOffice API Error:', error);
-  if (error instanceof AxiosError) {
-    console.error('Response:', error.response?.data);
-    console.error('Status:', error.response?.status);
-  }
-}
-
-export async function getLastRecord(empcode = 'ALL') {
+export async function testTeamOfficeConnection() {
   try {
-    const { data } = await api.get('/DownloadLastRecord', {
-      params: { Empcode: empcode },
-      headers: authHeader(),
-    });
+    const response = await fetch('/api/teamoffice/test');
+    const data = await response.json();
     return data;
-  } catch (e) { 
-    showErr(e); 
-    throw e;
-  }
-}
-
-export async function getInOutRange(fromDDMMYYYY_HHMM: string, toDDMMYYYY_HHMM: string, empcode = 'ALL') {
-  try {
-    const { data } = await api.get('/DownloadInOutPunchData', {
-      params: { Empcode: empcode, FromDate: fromDDMMYYYY_HHMM, ToDate: toDDMMYYYY_HHMM },
-      headers: authHeader(),
-    });
-    return data;
-  } catch (e) { 
-    showErr(e); 
-    throw e;
-  }
-}
-
-export async function getRawRange(fromDDMMYYYY_HHMM: string, toDDMMYYYY_HHMM: string, empcode = 'ALL') {
-  try {
-    const { data } = await api.get('/DownloadRawPunchData', {
-      params: { Empcode: empcode, FromDate: fromDDMMYYYY_HHMM, ToDate: toDDMMYYYY_HHMM },
-      headers: authHeader(),
-    });
-    return data;
-  } catch (e) { 
-    showErr(e); 
-    throw e;
+  } catch (error) {
+    console.error('TeamOffice connection test failed:', error);
+    throw error;
   }
 }
 
 export async function getRawRangeMCID(fromDDMMYYYY_HHMM: string, toDDMMYYYY_HHMM: string, empcode = 'ALL') {
   try {
-    const { data } = await api.get('/DownloadRawPunchDataMCID', {
-      params: { Empcode: empcode, FromDate: fromDDMMYYYY_HHMM, ToDate: toDDMMYYYY_HHMM },
-      headers: authHeader(),
+    const response = await fetch('/api/teamoffice/raw-range-mcid', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        fromDate: fromDDMMYYYY_HHMM,
+        toDate: toDDMMYYYY_HHMM,
+        empcode: empcode
+      })
     });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
     return data;
-  } catch (e) { 
-    showErr(e); 
-    throw e;
+  } catch (error) {
+    console.error('getRawRangeMCID failed:', error);
+    throw error;
+  }
+}
+
+// New function using the IN/OUT API that provides INTime and OUTTime directly
+export async function getInOutPunchData(fromDDMMYYYY: string, toDDMMYYYY: string, empcode = 'ALL') {
+  try {
+    const response = await fetch('/api/teamoffice/inout-punch-data', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        fromDate: fromDDMMYYYY,
+        toDate: toDDMMYYYY,
+        empcode: empcode
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('getInOutPunchData failed:', error);
+    throw error;
+  }
+}
+
+// Function for getting latest records using LastRecord API
+export async function getLastPunchData(empcode = 'ALL', lastRecord?: string) {
+  try {
+    const response = await fetch('/api/teamoffice/last-punch-data', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        empcode: empcode,
+        lastRecord: lastRecord
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('getLastPunchData failed:', error);
+    throw error;
   }
 }

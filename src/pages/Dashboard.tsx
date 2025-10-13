@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Users, Clock, CheckCircle, AlertCircle, MessageSquare } from 'lucide-react';
 import { Layout } from '@/components/Layout';
 import { DatePicker } from '@/components/DatePicker';
+import { AttendanceRefreshButton } from '@/components/AttendanceRefreshButton';
 
 interface EmployeeStats {
   total: number;
@@ -66,9 +67,9 @@ export default function Dashboard() {
 
       if (profilesError) throw profilesError;
 
-      // Fetch entries for selected date
+      // Fetch entries for selected date from unified_attendance
       const { data: entriesData, error: entriesError } = await supabase
-        .from('day_entries')
+        .from('unified_attendance')
         .select(`
           user_id,
           entry_date,
@@ -135,10 +136,13 @@ export default function Dashboard() {
             <h1 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight gradient-text">Dashboard</h1>
             <p className="text-muted-foreground text-base sm:text-lg font-medium">Employee activity and attendance</p>
           </div>
-          <DatePicker
-            date={selectedDate}
-            onDateChange={(date) => date && setSelectedDate(date)}
-          />
+          <div className="flex flex-col sm:flex-row gap-4">
+            <DatePicker
+              date={selectedDate}
+              onDateChange={(date) => date && setSelectedDate(date)}
+            />
+            <AttendanceRefreshButton />
+          </div>
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">

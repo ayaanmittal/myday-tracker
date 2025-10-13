@@ -11,3 +11,5 @@ ALTER TABLE public.announcement_views
 ADD CONSTRAINT IF NOT EXISTS announcement_views_unique UNIQUE (announcement_id, user_id);
 
 
+
+

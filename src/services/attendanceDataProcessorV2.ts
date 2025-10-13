@@ -103,6 +103,16 @@ export async function processAndInsertAttendanceRecordsV2(
       const checkInTime = parseDateTime(record.DateString, record.INTime);
       const checkOutTime = parseDateTime(record.DateString, record.OUTTime);
       
+      // Debug logging
+      console.log(`Processing ${record.Empcode}:`, {
+        INTime: record.INTime,
+        OUTTime: record.OUTTime,
+        checkInTime: checkInTime?.toISOString(),
+        checkOutTime: checkOutTime?.toISOString(),
+        Status: record.Status,
+        WorkTime: record.WorkTime
+      });
+      
       if (!checkInTime) {
         const errorMsg = `Invalid check-in time for ${record.Empcode} on ${record.DateString}`;
         errors.push(errorMsg);
@@ -110,46 +120,72 @@ export async function processAndInsertAttendanceRecordsV2(
         continue;
       }
 
-      // Only consider check-out time valid if it's different from check-in time
-      const validCheckOutTime = checkOutTime && checkOutTime.getTime() !== checkInTime.getTime() ? checkOutTime : null;
+      // Only consider check-out time valid if it exists, is different from check-in time, and is after check-in
+      const validCheckOutTime = checkOutTime && 
+        checkOutTime.getTime() !== checkInTime.getTime() && 
+        checkOutTime > checkInTime ? checkOutTime : null;
+        
+      console.log(`Valid check-out time for ${record.Empcode}:`, validCheckOutTime?.toISOString() || 'None');
 
-      // Insert check-in log
-      const { error: checkInError } = await supabaseService
+      // Check if check-in log already exists to prevent duplicates
+      const { data: existingCheckIn } = await supabaseService
         .from('attendance_logs')
-        .insert({
-          employee_id: userProfile.id,
-          employee_name: userProfile.name,
-          log_time: checkInTime.toISOString(),
-          log_type: 'checkin',
-          device_id: 'teamoffice',
-          source: 'teamoffice',
-          raw_payload: record
-        });
+        .select('id')
+        .eq('employee_id', userProfile.id)
+        .eq('log_time', checkInTime.toISOString())
+        .eq('log_type', 'checkin')
+        .single();
 
-      if (checkInError && !checkInError.message.includes('duplicate key')) {
-        const errorMsg = `Check-in log error for ${record.Empcode}: ${checkInError.message}`;
-        errors.push(errorMsg);
-        errorDetails.push(errorMsg);
-      }
-
-      // Insert check-out log only if check-out time is valid and different from check-in
-      if (validCheckOutTime) {
-        const { error: checkOutError } = await supabaseService
+      // Insert check-in log only if it doesn't exist
+      if (!existingCheckIn) {
+        const { error: checkInError } = await supabaseService
           .from('attendance_logs')
           .insert({
             employee_id: userProfile.id,
             employee_name: userProfile.name,
-            log_time: validCheckOutTime.toISOString(),
-            log_type: 'checkout',
+            log_time: checkInTime.toISOString(),
+            log_type: 'checkin',
             device_id: 'teamoffice',
             source: 'teamoffice',
             raw_payload: record
           });
 
-        if (checkOutError && !checkOutError.message.includes('duplicate key')) {
-          const errorMsg = `Check-out log error for ${record.Empcode}: ${checkOutError.message}`;
+        if (checkInError) {
+          const errorMsg = `Check-in log error for ${record.Empcode}: ${checkInError.message}`;
           errors.push(errorMsg);
           errorDetails.push(errorMsg);
+        }
+      }
+
+      // Insert check-out log only if check-out time is valid and different from check-in
+      if (validCheckOutTime) {
+        // Check if check-out log already exists to prevent duplicates
+        const { data: existingCheckOut } = await supabaseService
+          .from('attendance_logs')
+          .select('id')
+          .eq('employee_id', userProfile.id)
+          .eq('log_time', validCheckOutTime.toISOString())
+          .eq('log_type', 'checkout')
+          .single();
+
+        if (!existingCheckOut) {
+          const { error: checkOutError } = await supabaseService
+            .from('attendance_logs')
+            .insert({
+              employee_id: userProfile.id,
+              employee_name: userProfile.name,
+              log_time: validCheckOutTime.toISOString(),
+              log_type: 'checkout',
+              device_id: 'teamoffice',
+              source: 'teamoffice',
+              raw_payload: record
+            });
+
+          if (checkOutError) {
+            const errorMsg = `Check-out log error for ${record.Empcode}: ${checkOutError.message}`;
+            errors.push(errorMsg);
+            errorDetails.push(errorMsg);
+          }
         }
       }
 

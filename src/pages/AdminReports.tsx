@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import { AttendanceRefreshButton } from '@/components/AttendanceRefreshButton';
 
 interface AdminAnalytics {
   totalEmployees: number;
@@ -148,9 +149,9 @@ export default function AdminReports() {
       const totalEmployees = profiles?.length || 0;
       const activeEmployees = profiles?.filter(p => p.is_active).length || 0;
 
-      // Fetch day entries for the period and selected employee
+      // Fetch attendance entries for the period and selected employee from unified_attendance
       let entriesQuery = supabase
-        .from('day_entries')
+        .from('unified_attendance')
         .select(`
           *,
           day_updates (
@@ -475,20 +476,23 @@ export default function AdminReports() {
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Analytics & Reports</h1>
               <p className="text-muted-foreground text-sm sm:text-base">Comprehensive workforce insights and performance metrics</p>
             </div>
-            <div className="flex gap-2">
-              {(['week', 'month', 'quarter'] as const).map((period) => (
-                <button
-                  key={period}
-                  onClick={() => setSelectedPeriod(period)}
-                  className={`px-4 py-2 rounded-md transition-colors ${
-                    selectedPeriod === period
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted hover:bg-muted/80'
-                  }`}
-                >
-                  {period.charAt(0).toUpperCase() + period.slice(1)}
-                </button>
-              ))}
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex gap-2">
+                {(['week', 'month', 'quarter'] as const).map((period) => (
+                  <button
+                    key={period}
+                    onClick={() => setSelectedPeriod(period)}
+                    className={`px-4 py-2 rounded-md transition-colors ${
+                      selectedPeriod === period
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted hover:bg-muted/80'
+                    }`}
+                  >
+                    {period.charAt(0).toUpperCase() + period.slice(1)}
+                  </button>
+                ))}
+              </div>
+              <AttendanceRefreshButton />
             </div>
           </div>
 

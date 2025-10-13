@@ -1,8 +1,8 @@
 import * as dotenv from 'dotenv';
 import * as dayjs from 'dayjs';
 import { supabase } from '../integrations/supabase/client';
-import { downloadLastPunchData } from '../services/teamOffice';
-import { getEmployeeMapping } from '../services/teamOfficeEmployees';
+import { getLastPunchData } from '../services/teamOffice';
+import { processAndInsertAttendanceRecordsV3 } from '../services/attendanceDataProcessorV3';
 
 // Load environment variables
 dotenv.config();
@@ -77,7 +77,7 @@ export async function runLastRecordSync() {
       console.log('No last record found, using:', lastRecord);
     }
 
-    const payload = await downloadLastPunchData(lastRecord, process.env.TEAMOFFICE_EMPCODE);
+    const payload = await getLastPunchData(process.env.TEAMOFFICE_EMPCODE || 'ALL', lastRecord);
     // Vendor responses vary (array or {data: []}). Normalize:
     const rows: PunchRow[] = Array.isArray(payload) ? payload
                       : Array.isArray(payload?.data) ? payload.data
@@ -89,58 +89,123 @@ export async function runLastRecordSync() {
     }
 
     console.log(`Found ${rows.length} new records`);
-
-    // Insert rows + track max LastRecord seen
-    let maxLR = lastRecord;
-
-  for (const r of rows) {
-    const ts = parseVendorDate(r.PunchDateTime);
-    if (!ts) {
-      console.warn('Skipping invalid date:', r.PunchDateTime);
-      continue;
-    }
-
-    const io = normalizeLogType(r.IO);
     
-    // Get employee mapping to find our user ID
-    let ourUserId = r.EmpCode || '';
-    let ourUserName = r.Name || null;
-    
-    if (r.EmpCode) {
-      try {
-        const mapping = await getEmployeeMapping(r.EmpCode);
-        if (mapping) {
-          ourUserId = mapping.our_user_id;
-          ourUserName = mapping.our_name || mapping.teamoffice_name;
-          console.log(`Mapped TeamOffice employee ${r.EmpCode} to our user ${ourUserId}`);
-        } else {
-          console.warn(`No mapping found for TeamOffice employee ${r.EmpCode}, using original data`);
-        }
-      } catch (error) {
-        console.error(`Error getting mapping for employee ${r.EmpCode}:`, error);
-        // Continue with original data if mapping fails
+    // Debug logging to see raw API data
+    console.log('Sample raw records:');
+    rows.slice(0, 5).forEach((r, i) => {
+      console.log(`Record ${i + 1}:`, {
+        EmpCode: r.EmpCode,
+        Name: r.Name,
+        IO: r.IO,
+        PunchDateTime: r.PunchDateTime,
+        DeviceID: r.DeviceID
+      });
+    });
+
+    // Group punches by employee and date to create proper day entries
+    const punchGroups = new Map<string, { 
+      empcode: string, 
+      name: string, 
+      date: string, 
+      checkin?: string, 
+      checkout?: string,
+      checkinDevice?: string,
+      checkoutDevice?: string
+    }>();
+
+    for (const r of rows) {
+      const ts = parseVendorDate(r.PunchDateTime);
+      if (!ts || !r.EmpCode) continue;
+      
+      const dateStr = ts.toLocaleDateString('en-GB'); // DD/MM/YYYY format
+      const timeStr = ts.toLocaleTimeString('en-GB', { 
+        hour12: false, 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      }); // HH:MM format
+      
+      const key = `${r.EmpCode}_${dateStr}`;
+      const io = normalizeLogType(r.IO);
+      
+      if (!punchGroups.has(key)) {
+        punchGroups.set(key, {
+          empcode: r.EmpCode,
+          name: r.Name || '',
+          date: dateStr
+        });
+      }
+      
+      const group = punchGroups.get(key)!;
+      
+      if (io === 'checkin') {
+        group.checkin = timeStr;
+        group.checkinDevice = String(r.DeviceID || '');
+      } else if (io === 'checkout') {
+        group.checkout = timeStr;
+        group.checkoutDevice = String(r.DeviceID || '');
       }
     }
-    
-    const { error } = await supabase
-      .from('attendance_logs')
-      .insert({
-        employee_id: ourUserId,
-        employee_name: ourUserName,
-        log_time: ts.toISOString(),
-        log_type: io,
-        device_id: String(r.DeviceID || ''),
-        source: 'teamoffice',
-        raw_payload: r
-      });
 
-    if (error && !error.message.includes('duplicate key')) {
-      console.error('Error inserting attendance log:', error);
+    // Convert grouped punches to TeamOffice format
+    const teamOfficeRecords = Array.from(punchGroups.values()).map(group => {
+      // Calculate work time if both check-in and check-out exist
+      let workTime = '00:00';
+      if (group.checkin && group.checkout) {
+        const checkinTime = new Date(`2000-01-01T${group.checkin}:00`);
+        const checkoutTime = new Date(`2000-01-01T${group.checkout}:00`);
+        const diffMs = checkoutTime.getTime() - checkinTime.getTime();
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        workTime = `${diffHours.toString().padStart(2, '0')}:${diffMinutes.toString().padStart(2, '0')}`;
+      }
+      
+      return {
+        Empcode: group.empcode,
+        Name: group.name,
+        DateString: group.date,
+        INTime: group.checkin || '',
+        OUTTime: group.checkout || '',
+        WorkTime: workTime,
+        Status: 'P', // Present
+        Remark: `Check-in: ${group.checkinDevice || 'unknown'}, Check-out: ${group.checkoutDevice || 'unknown'}`,
+        DeviceID: group.checkinDevice || group.checkoutDevice
+      };
+    });
+
+    if (teamOfficeRecords.length === 0) {
+      console.log('No valid records to process');
+      return;
     }
 
-      // Track the max "LastRecord" field
+    console.log(`Processing ${teamOfficeRecords.length} records with V3 processor...`);
+    
+    // Debug logging to see check-out times
+    teamOfficeRecords.forEach(record => {
+      console.log(`Record for ${record.Empcode} (${record.Name}):`, {
+        date: record.DateString,
+        checkin: record.INTime,
+        checkout: record.OUTTime,
+        workTime: record.WorkTime,
+        hasCheckout: !!record.OUTTime
+      });
+    });
+    
+    // Process using V3 processor (now uses unified_attendance table)
+    const result = await processAndInsertAttendanceRecordsV3(teamOfficeRecords);
+    
+    if (result.success) {
+      console.log(`Successfully processed ${result.processed} records`);
+      if (result.errors.length > 0) {
+        console.warn(`Had ${result.errors.length} errors:`, result.errors);
+      }
+    } else {
+      console.error('Processing failed:', result.errors);
+    }
+
+    // Track the max "LastRecord" field
+    let maxLR = lastRecord;
+    for (const r of rows) {
       if (r.LastRecord) {
-        // lexical compare is ok because vendor encodes MMyyyy$ID; we'll split + numeric compare
         const [, , idStr] = r.LastRecord.match(/^(\d{2})(\d{4})\$(\d+)$/) || [];
         const [, , idStrMax] = maxLR.match(/^(\d{2})(\d{4})\$(\d+)$/) || [];
         const id = Number(idStr || '0');

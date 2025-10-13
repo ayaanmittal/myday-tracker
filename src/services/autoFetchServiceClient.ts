@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { getInOutRange } from './teamOfficeClient';
+import { getInOutPunchData, getRawRangeMCID } from './teamOfficeClient';
 
 export interface FetchOptions {
   startDate?: string; // YYYY-MM-DD format
@@ -73,7 +73,7 @@ export async function fetchAttendanceDataFromAPIClient(
     console.log(`🔗 API Request: ${apiStartDate} to ${apiEndDate}`);
 
     // Fetch processed attendance data from TeamOffice API
-    const attendanceData = await getInOutRange(apiStartDate, apiEndDate, 'ALL');
+    const attendanceData = await getInOutPunchData(apiStartDate, apiEndDate, 'ALL');
 
     if (!attendanceData || attendanceData.Error) {
       return {
@@ -166,18 +166,15 @@ async function processAndInsertAttendanceRecordsClient(
 
   for (const record of records) {
     try {
-      // Get user mapping using client-side query
+      // Get user mapping using employee_mappings table
       const { data: userMapping, error: mappingError } = await supabase
-        .from('profiles')
+        .from('employee_mappings')
         .select(`
-          id,
-          name,
-          teamoffice_employees!inner (
-            emp_code,
-            name
-          )
+          our_user_id,
+          our_profile_id,
+          teamoffice_name
         `)
-        .eq('teamoffice_employees.emp_code', record.Empcode)
+        .eq('teamoffice_emp_code', record.Empcode)
         .eq('is_active', true)
         .single();
 
@@ -186,71 +183,129 @@ async function processAndInsertAttendanceRecordsClient(
         continue;
       }
 
-      // Create check-in log entry
-      if (record.INTime && record.INTime !== '00:00') {
-        const { error: inLogError } = await supabase
-          .from('attendance_logs')
-          .insert({
-            employee_id: userMapping.id,
-            employee_name: userMapping.name,
-            log_time: new Date(`${record.DateString} ${record.INTime}`).toISOString(),
-            log_type: 'checkin',
-            device_id: 'teamoffice',
-            source: 'teamoffice',
-            raw_payload: record.RawRecord
-          });
-
-        if (inLogError && !inLogError.message.includes('duplicate key')) {
-          errors.push(`Check-in log error for ${record.Empcode}: ${inLogError.message}`);
-        } else {
-          processed++;
-        }
-      }
-
-      // Create check-out log entry - use smart logic to find actual out time
-      let actualOutTime = null;
+      // Create unified attendance record
+      const checkInAt = record.INTime && record.INTime !== '--:--' && record.INTime !== '00:00' 
+        ? `${record.DateString}T${record.INTime}:00+05:30` 
+        : null;
       
-      // Priority 1: Use OUTTime if it's valid and different from INTime
-      if (record.OUTTime && record.OUTTime !== '--:--' && record.OUTTime !== '00:00' && record.OUTTime !== record.INTime) {
-        actualOutTime = record.OUTTime;
-      }
-      // Priority 2: If OUTTime is invalid but Erl_Out looks like a time (HH:MM format), use it
-      else if (record.Erl_Out && record.Erl_Out !== '--:--' && record.Erl_Out !== '00:00' && 
-               record.Erl_Out.match(/^\d{1,2}:\d{2}$/) && record.Erl_Out !== record.INTime) {
-        actualOutTime = record.Erl_Out;
-        console.log(`⚠️ Using Erl_Out as actual out time for ${record.Empcode}: ${record.Erl_Out}`);
-      }
-      // Priority 3: If Erl_Out is a duration (like 05:11), calculate actual out time
-      else if (record.Erl_Out && record.Erl_Out !== '--:--' && record.Erl_Out !== '00:00' && 
-               record.Erl_Out.match(/^\d{1,2}:\d{2}$/) && record.INTime) {
-        // This is likely a duration, not a time - skip for now
-        console.log(`ℹ️ Erl_Out appears to be duration for ${record.Empcode}: ${record.Erl_Out}, skipping`);
+      const checkOutAt = record.OUTTime && record.OUTTime !== '--:--' && record.OUTTime !== '00:00' 
+        ? `${record.DateString}T${record.OUTTime}:00+05:30` 
+        : null;
+
+      // Calculate total work time in minutes
+      let totalWorkTimeMinutes = 0;
+      if (checkInAt && checkOutAt) {
+        const inTime = new Date(checkInAt);
+        const outTime = new Date(checkOutAt);
+        totalWorkTimeMinutes = Math.round((outTime.getTime() - inTime.getTime()) / (1000 * 60));
       }
 
-      if (actualOutTime) {
-        const { error: outLogError } = await supabase
-          .from('attendance_logs')
-          .insert({
-            employee_id: userMapping.id,
-            employee_name: userMapping.name,
-            log_time: new Date(`${record.DateString} ${actualOutTime}`).toISOString(),
-            log_type: 'checkout',
+      // Determine status
+      let status = 'absent';
+      if (checkInAt && checkOutAt) {
+        status = 'completed';
+      } else if (checkInAt) {
+        status = 'in_progress';
+      }
+
+      // Calculate late status based on settings
+      let isLate = false;
+      if (checkInAt) {
+        try {
+          // Get late threshold from settings
+          const { data: settings } = await supabase
+            .from('settings')
+            .select('value')
+            .eq('key', 'late_threshold_minutes')
+            .single();
+          
+          const lateThresholdMinutes = settings?.value ? parseInt(settings.value) : 15;
+          
+          // Get workday start time from settings
+          const { data: workdaySettings } = await supabase
+            .from('settings')
+            .select('value')
+            .eq('key', 'workday_start_time')
+            .single();
+          
+          const workdayStartTime = workdaySettings?.value || '09:00';
+          
+          // Parse check-in time and workday start time
+          const checkInTime = new Date(checkInAt);
+          const [startHour, startMinute] = workdayStartTime.split(':').map(Number);
+          const workdayStart = new Date(checkInTime);
+          workdayStart.setHours(startHour, startMinute, 0, 0);
+          
+          // Calculate if check-in is after the late threshold
+          const lateThresholdTime = new Date(workdayStart);
+          lateThresholdTime.setMinutes(lateThresholdTime.getMinutes() + lateThresholdMinutes);
+          
+          isLate = checkInTime > lateThresholdTime;
+        } catch (error) {
+          console.warn('Error calculating late status, defaulting to not late:', error);
+          // Fallback to not late if settings query fails
+          isLate = false;
+        }
+      }
+
+      // Check if record already exists
+      const { data: existingRecord } = await supabase
+        .from('unified_attendance')
+        .select('id')
+        .eq('user_id', userMapping.our_user_id)
+        .eq('entry_date', record.DateString)
+        .single();
+
+      if (existingRecord) {
+        // Update existing record
+        const { error: updateError } = await supabase
+          .from('unified_attendance')
+          .update({
+            check_in_at: checkInAt,
+            check_out_at: checkOutAt,
+            total_work_time_minutes: totalWorkTimeMinutes,
+            status: status,
+            is_late: isLate,
+            device_info: 'TeamOffice API',
             device_id: 'teamoffice',
             source: 'teamoffice',
-            raw_payload: {
-              ...record.RawRecord,
-              actualOutTimeUsed: actualOutTime,
-              originalOUTTime: record.OUTTime,
-              originalErlOut: record.Erl_Out
-            }
+            modification_reason: 'API Sync',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingRecord.id);
+
+        if (updateError) {
+          errors.push(`Update error for ${record.Empcode}: ${updateError.message}`);
+        } else {
+          processed++;
+        }
+      } else {
+        // Insert new record
+        const { error: insertError } = await supabase
+          .from('unified_attendance')
+          .insert({
+            user_id: userMapping.our_user_id,
+            employee_code: record.Empcode,
+            employee_name: record.Name,
+            entry_date: record.DateString,
+            check_in_at: checkInAt,
+            check_out_at: checkOutAt,
+            total_work_time_minutes: totalWorkTimeMinutes,
+            status: status,
+            is_late: isLate,
+            device_info: 'TeamOffice API',
+            device_id: 'teamoffice',
+            source: 'teamoffice',
+            modification_reason: 'API Sync'
           });
 
-        if (outLogError && !outLogError.message.includes('duplicate key')) {
-          errors.push(`Check-out log error for ${record.Empcode}: ${outLogError.message}`);
+        if (insertError) {
+          errors.push(`Insert error for ${record.Empcode}: ${insertError.message}`);
         } else {
           processed++;
         }
       }
+
 
     } catch (error) {
       errors.push(`Error processing ${record.Empcode}: ${error}`);
@@ -333,55 +388,34 @@ async function getUserAttendanceDataClient(
   };
 }> {
   try {
-    // Get attendance logs
+    // Get unified attendance records
     let attendanceQuery = supabase
-      .from('attendance_logs')
-      .select('*')
-      .eq('employee_id', userId)
-      .eq('source', 'teamoffice')
-      .order('log_time', { ascending: false });
-
-    if (startDate) {
-      attendanceQuery = attendanceQuery.gte('log_time', startDate);
-    }
-    if (endDate) {
-      attendanceQuery = attendanceQuery.lte('log_time', endDate);
-    }
-
-    const { data: attendanceLogs, error: logError } = await attendanceQuery;
-
-    if (logError) {
-      console.error('Error fetching attendance logs:', logError);
-    }
-
-    // Get day entries
-    let dayEntryQuery = supabase
-      .from('day_entries')
+      .from('unified_attendance')
       .select('*')
       .eq('user_id', userId)
       .order('entry_date', { ascending: false });
 
     if (startDate) {
-      dayEntryQuery = dayEntryQuery.gte('entry_date', startDate);
+      attendanceQuery = attendanceQuery.gte('entry_date', startDate);
     }
     if (endDate) {
-      dayEntryQuery = dayEntryQuery.lte('entry_date', endDate);
+      attendanceQuery = attendanceQuery.lte('entry_date', endDate);
     }
 
-    const { data: dayEntries, error: entryError } = await dayEntryQuery;
+    const { data: attendanceRecords, error: attendanceError } = await attendanceQuery;
 
-    if (entryError) {
-      console.error('Error fetching day entries:', entryError);
+    if (attendanceError) {
+      console.error('Error fetching attendance records:', attendanceError);
     }
 
     // Calculate summary
-    const totalDays = dayEntries?.length || 0;
-    const totalWorkMinutes = dayEntries?.reduce((sum, entry) => sum + (entry.total_work_time_minutes || 0), 0) || 0;
+    const totalDays = attendanceRecords?.length || 0;
+    const totalWorkMinutes = attendanceRecords?.reduce((sum, entry) => sum + (entry.total_work_time_minutes || 0), 0) || 0;
     const averageWorkMinutes = totalDays > 0 ? Math.round(totalWorkMinutes / totalDays) : 0;
 
     return {
-      attendanceLogs: attendanceLogs || [],
-      dayEntries: dayEntries || [],
+      attendanceLogs: attendanceRecords || [],
+      dayEntries: attendanceRecords || [],
       summary: {
         totalDays,
         totalWorkMinutes,
@@ -465,53 +499,33 @@ async function getAllAttendanceDataClient(
   };
 }> {
   try {
-    // Get attendance logs
+    // Get unified attendance records
     let attendanceQuery = supabase
-      .from('attendance_logs')
-      .select('*')
-      .eq('source', 'teamoffice')
-      .order('log_time', { ascending: false });
-
-    if (startDate) {
-      attendanceQuery = attendanceQuery.gte('log_time', startDate);
-    }
-    if (endDate) {
-      attendanceQuery = attendanceQuery.lte('log_time', endDate);
-    }
-
-    const { data: attendanceLogs, error: logError } = await attendanceQuery;
-
-    if (logError) {
-      console.error('Error fetching attendance logs:', logError);
-    }
-
-    // Get day entries
-    let dayEntryQuery = supabase
-      .from('day_entries')
+      .from('unified_attendance')
       .select('*')
       .order('entry_date', { ascending: false });
 
     if (startDate) {
-      dayEntryQuery = dayEntryQuery.gte('entry_date', startDate);
+      attendanceQuery = attendanceQuery.gte('entry_date', startDate);
     }
     if (endDate) {
-      dayEntryQuery = dayEntryQuery.lte('entry_date', endDate);
+      attendanceQuery = attendanceQuery.lte('entry_date', endDate);
     }
 
-    const { data: dayEntries, error: entryError } = await dayEntryQuery;
+    const { data: attendanceRecords, error: attendanceError } = await attendanceQuery;
 
-    if (entryError) {
-      console.error('Error fetching day entries:', entryError);
+    if (attendanceError) {
+      console.error('Error fetching attendance records:', attendanceError);
     }
 
     // Calculate summary
-    const uniqueEmployees = new Set(dayEntries?.map(entry => entry.user_id) || []).size;
-    const totalDays = dayEntries?.length || 0;
-    const totalWorkMinutes = dayEntries?.reduce((sum, entry) => sum + (entry.total_work_time_minutes || 0), 0) || 0;
+    const uniqueEmployees = new Set(attendanceRecords?.map(entry => entry.user_id) || []).size;
+    const totalDays = attendanceRecords?.length || 0;
+    const totalWorkMinutes = attendanceRecords?.reduce((sum, entry) => sum + (entry.total_work_time_minutes || 0), 0) || 0;
 
     return {
-      attendanceLogs: attendanceLogs || [],
-      dayEntries: dayEntries || [],
+      attendanceLogs: attendanceRecords || [],
+      dayEntries: attendanceRecords || [],
       summary: {
         totalEmployees: uniqueEmployees,
         totalDays,

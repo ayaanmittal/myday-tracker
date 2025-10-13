@@ -6,10 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calendar, Clock, Home, Edit, Save, X, Users, User } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Calendar, Clock, Home, Edit, Save, X, Users, User, ArrowLeft } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
-import { DatePicker } from '@/components/DatePicker';
 import { toast } from '@/hooks/use-toast';
 import {
   Dialog,
@@ -40,31 +39,81 @@ interface Employee {
   email: string;
 }
 
+interface RuleViolation {
+  id: string;
+  rule_id: string;
+  warning_level: number;
+  reason: string | null;
+  flagged_by: string;
+  flagged_at: string;
+  created_at: string;
+  office_rules: {
+    id: string;
+    title: string;
+    description: string;
+  };
+  flagged_by_profile?: {
+    id: string;
+    name: string;
+  };
+}
+
 interface HistoryEntry {
   id: string;
+  user_id: string;
+  employee_code?: string | null;
+  employee_name?: string | null;
   entry_date: string;
   check_in_at: string | null;
   check_out_at: string | null;
-  lunch_break_start: string | null;
-  lunch_break_end: string | null;
   total_work_time_minutes: number | null;
   status: string;
-  last_modified_by: string | null;
-  modification_reason: string | null;
-  updated_at: string | null;
-  day_updates: Array<{
+  is_late?: boolean;
+  device_info: string;
+  device_id?: string | null;
+  source: string;
+  modification_reason?: string | null;
+  lunch_break_start?: string | null;
+  lunch_break_end?: string | null;
+  last_modified_by?: string | null;
+  created_at: string;
+  updated_at: string;
+  day_updates?: Array<{
+    id: string;
     today_focus: string;
     progress: string;
     blockers: string | null;
+    created_at: string;
+    updated_at: string;
   }>;
-  extra_work_logs: ExtraWorkLog[];
+  extra_work_logs?: Array<{
+    id: string;
+    work_type: string;
+    hours_worked: number;
+    description: string | null;
+    logged_at: string;
+    created_at: string;
+    updated_at: string;
+  }>;
+  rule_violations?: RuleViolation[];
 }
 
 export default function History() {
   const { user } = useAuth();
   const { data: role, isLoading: roleLoading } = useUserRole();
   const navigate = useNavigate();
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [searchParams] = useSearchParams();
+  const [startDate, setStartDate] = useState<string>(() => {
+    const date = new Date();
+    date.setDate(1); // First day of current month
+    return date.toISOString().split('T')[0];
+  });
+  const [endDate, setEndDate] = useState<string>(() => {
+    const date = new Date();
+    date.setMonth(date.getMonth() + 1);
+    date.setDate(0); // Last day of current month
+    return date.toISOString().split('T')[0];
+  });
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEntry, setSelectedEntry] = useState<HistoryEntry | null>(null);
@@ -79,6 +128,7 @@ export default function History() {
   // Manager-specific state
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+  const [selectedEmployeeName, setSelectedEmployeeName] = useState<string>('');
 
   useEffect(() => {
     if (!user) {
@@ -87,19 +137,34 @@ export default function History() {
     }
 
     if (!roleLoading) {
-      if (role === 'manager') {
+      if (role === 'manager' || role === 'admin') {
         fetchEmployees();
       } else {
+        // For employees, fetch their own history immediately
         fetchHistory();
       }
     }
-  }, [user, roleLoading, navigate, selectedDate]);
+  }, [user, roleLoading, navigate, startDate, endDate]);
+
+  // Handle URL parameters after employees are loaded
+  useEffect(() => {
+    const employeeId = searchParams.get('employee');
+    
+    if (employeeId && (role === 'admin' || role === 'manager') && employees.length > 0) {
+      setSelectedEmployeeId(employeeId);
+      // Find employee name
+      const employee = employees.find(emp => emp.id === employeeId);
+      if (employee) {
+        setSelectedEmployeeName(employee.name);
+      }
+    }
+  }, [searchParams, role, employees]);
 
   useEffect(() => {
-    if (role === 'manager' && selectedEmployeeId) {
+    if (selectedEmployeeId || role === 'employee') {
       fetchHistory();
     }
-  }, [selectedEmployeeId, selectedDate]);
+  }, [selectedEmployeeId, startDate, endDate, role]);
 
   const fetchEmployees = async () => {
     try {
@@ -127,70 +192,195 @@ export default function History() {
     }
   };
 
-  const fetchHistory = async () => {
+  const fetchHistory = async (fetchAll = false) => {
     if (!user) return;
 
-    // For managers, use selectedEmployeeId; for others, use current user
-    const targetUserId = role === 'manager' ? selectedEmployeeId : user.id;
+    // Determine target user ID based on role and URL parameters
+    let targetUserId: string;
+    if (role === 'admin' || role === 'manager') {
+      // For admins and managers, use selectedEmployeeId from URL or current user
+      targetUserId = selectedEmployeeId || user.id;
+    } else {
+      // For regular employees, only show their own data
+      targetUserId = user.id;
+    }
+
     if (!targetUserId) return;
 
-    try {
-      // Get entries for the selected month
-      const startOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1);
-      const endOfMonth = new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 0);
+    setLoading(true);
+    console.log('Fetching history for user:', targetUserId, 'Date range:', startDate, 'to', endDate, 'Fetch all:', fetchAll);
 
-      const { data, error } = await supabase
-        .from('day_entries')
+    try {
+      let query = supabase
+        .from('unified_attendance')
         .select(`
           *,
           day_updates (
+            id,
             today_focus,
             progress,
-            blockers
+            blockers,
+            created_at,
+            updated_at
           ),
           extra_work_logs (
             id,
             work_type,
             hours_worked,
             description,
-            logged_at
+            logged_at,
+            created_at,
+            updated_at
           )
         `)
+        .eq('user_id', targetUserId);
+
+      // Fetch rule violations for the user separately
+      const { data: ruleViolations, error: violationsError } = await supabase
+        .from('rule_violations')
+        .select(`
+          id,
+          rule_id,
+          warning_level,
+          reason,
+          flagged_by,
+          flagged_at,
+          created_at,
+          office_rules!inner (
+            id,
+            title,
+            description
+          ),
+        `)
         .eq('user_id', targetUserId)
-        .gte('entry_date', startOfMonth.toISOString().split('T')[0])
-        .lte('entry_date', endOfMonth.toISOString().split('T')[0])
-        .order('entry_date', { ascending: false });
+        .gte('flagged_at', startDate)
+        .lte('flagged_at', endDate + 'T23:59:59')
+        .order('flagged_at', { ascending: false });
+
+      if (violationsError) {
+        console.warn('Error fetching rule violations:', violationsError);
+      } else {
+        console.log('Rule violations fetched:', ruleViolations);
+        console.log('Date range for violations:', startDate, 'to', endDate);
+        
+        // Fetch flagged_by user names separately if violations exist
+        if (ruleViolations && ruleViolations.length > 0) {
+          const flaggedByIds = [...new Set(ruleViolations.map(v => v.flagged_by))];
+          const { data: profiles, error: profilesError } = await supabase
+            .from('profiles')
+            .select('id, name')
+            .in('id', flaggedByIds);
+          
+          if (profilesError) {
+            console.warn('Error fetching flagged_by profiles:', profilesError);
+          }
+          
+          // Add profile names to violations
+          ruleViolations.forEach(violation => {
+            violation.flagged_by_profile = profiles?.find(p => p.id === violation.flagged_by) || null;
+          });
+        }
+      }
+
+      if (!fetchAll) {
+        query = query
+          .gte('entry_date', startDate)
+          .lte('entry_date', endDate);
+      }
+
+      const { data, error } = await query.order('entry_date', { ascending: false });
 
       if (error) {
-        // Check if it's a table doesn't exist error
-        if (error.message?.includes('relation "extra_work_logs" does not exist') || 
-            error.message?.includes('relation "public.extra_work_logs" does not exist')) {
-          console.log('Extra work logs table not found. Please run the database setup script.');
-          // Fetch without extra work logs
-          const { data: fallbackData, error: fallbackError } = await supabase
-            .from('day_entries')
-            .select(`
-              *,
-              day_updates (
-                today_focus,
-                progress,
-                blockers
-              )
-            `)
-            .eq('user_id', targetUserId)
-            .gte('entry_date', startOfMonth.toISOString().split('T')[0])
-            .lte('entry_date', endOfMonth.toISOString().split('T')[0])
-            .order('entry_date', { ascending: false });
-          
-          if (fallbackError) throw fallbackError;
-          setEntries(fallbackData as any || []);
-          return;
-        }
+        console.error('Database error:', error);
         throw error;
       }
-      setEntries(data as any || []);
+      console.log('Fetched entries:', data?.length || 0, 'records');
+      console.log('Fetched rule violations:', ruleViolations?.length || 0, 'violations');
+      
+      if (!ruleViolations || ruleViolations.length === 0) {
+        console.log('No rule violations found for user:', targetUserId, 'in date range:', startDate, 'to', endDate);
+      }
+      
+      // Combine attendance entries with rule violations
+      const entriesWithViolations = (data || []).map((entry: any) => {
+        // Find rule violations for this specific date
+        const entryViolations = (ruleViolations || []).filter((violation: any) => {
+          const violationDate = new Date(violation.flagged_at).toISOString().split('T')[0];
+          return violationDate === entry.entry_date;
+        });
+        
+        if (entryViolations.length > 0) {
+          console.log(`Found ${entryViolations.length} violations for ${entry.entry_date}:`, entryViolations);
+        }
+        
+        return {
+          ...entry,
+          rule_violations: entryViolations
+        };
+      });
+      
+      // Create standalone entries for rule violations that don't have attendance records
+      const violationDates = new Set((ruleViolations || []).map((violation: any) => 
+        new Date(violation.flagged_at).toISOString().split('T')[0]
+      ));
+      
+      const attendanceDates = new Set((data || []).map((entry: any) => entry.entry_date));
+      
+      const standaloneViolations = Array.from(violationDates).filter(date => !attendanceDates.has(date));
+      
+      console.log('Standalone violation dates:', standaloneViolations);
+      
+      const standaloneEntries = standaloneViolations.map((date: string) => {
+        const dateViolations = (ruleViolations || []).filter((violation: any) => {
+          const violationDate = new Date(violation.flagged_at).toISOString().split('T')[0];
+          return violationDate === date;
+        });
+        
+        console.log(`Creating standalone entry for ${date} with ${dateViolations.length} violations`);
+        
+        return {
+          id: `violation-${date}`,
+          user_id: targetUserId,
+          entry_date: date,
+          check_in_at: null,
+          check_out_at: null,
+          total_work_time_minutes: null,
+          status: 'violation_only',
+          is_late: false,
+          device_info: 'Rule Violation',
+          device_id: null,
+          source: 'rule_violation',
+          modification_reason: null,
+          lunch_break_start: null,
+          lunch_break_end: null,
+          last_modified_by: null,
+          created_at: dateViolations[0]?.flagged_at || new Date().toISOString(),
+          updated_at: dateViolations[0]?.flagged_at || new Date().toISOString(),
+          day_updates: [],
+          extra_work_logs: [],
+          rule_violations: dateViolations
+        };
+      });
+      
+      const allEntries = [...entriesWithViolations, ...standaloneEntries].sort((a, b) => 
+        new Date(b.entry_date).getTime() - new Date(a.entry_date).getTime()
+      );
+      
+      setEntries(allEntries);
+
+      // If edit mode was requested via URL, find the first entry and open its edit dialog
+      const editMode = searchParams.get('edit') === 'true';
+      if (editMode && role === 'admin' && entriesWithViolations && entriesWithViolations.length > 0) {
+        setSelectedEntry(entriesWithViolations[0] as HistoryEntry);
+        startEditing(entriesWithViolations[0] as HistoryEntry);
+      }
     } catch (error) {
       console.error('Error fetching history:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to fetch attendance history',
+        variant: 'destructive',
+      });
     } finally {
       setLoading(false);
     }
@@ -347,18 +537,19 @@ export default function History() {
         }
       }
 
-      // Update the day entry with proper error handling
+      // Update the unified attendance entry with proper error handling
+      // Note: Status will be automatically updated by database trigger based on check-in/out times
       const { data, error } = await supabase
-        .from('day_entries')
+        .from('unified_attendance')
         .update({
           check_in_at: checkInDateTime,
           check_out_at: checkOutDateTime,
           lunch_break_start: lunchStartDateTime,
           lunch_break_end: lunchEndDateTime,
-          total_work_time_minutes: newTotalMinutes > 0 ? Math.round(newTotalMinutes) : null,
+          total_work_time_minutes: newTotalMinutes > 0 ? Math.round(newTotalMinutes) : 0,
           updated_at: new Date().toISOString(),
-          last_modified_by: user.id,
-          modification_reason: 'Admin time correction'
+          modification_reason: 'Admin time correction',
+          source: 'manual' // Mark as manually edited
         })
         .eq('id', editingEntry.id)
         .select();
@@ -417,9 +608,36 @@ export default function History() {
     }
   };
 
-  const getTotalExtraHours = (extraWorkLogs: ExtraWorkLog[]) => {
+  const getTotalExtraHours = (extraWorkLogs: Array<{hours_worked: number}>) => {
     return extraWorkLogs.reduce((total, log) => total + log.hours_worked, 0);
   };
+
+  const getWarningLevelLabel = (level: number) => {
+    switch (level) {
+      case 1:
+        return 'Warning';
+      case 2:
+        return 'Serious Warning';
+      case 3:
+        return 'Final Warning';
+      default:
+        return 'Unknown';
+    }
+  };
+
+  const getWarningLevelColor = (level: number) => {
+    switch (level) {
+      case 1:
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 2:
+        return 'bg-orange-100 text-orange-800 border-orange-200';
+      case 3:
+        return 'bg-red-100 text-red-800 border-red-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
 
   if (loading || roleLoading) {
     return (
@@ -435,17 +653,97 @@ export default function History() {
     <Layout>
       <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-4 sm:space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Work History</h1>
-            <p className="text-muted-foreground text-sm sm:text-base">
-              {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-            </p>
+          <div className="flex items-center gap-4">
+            {selectedEmployeeName && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate('/employees')}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to Employees
+              </Button>
+            )}
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
+                {selectedEmployeeName ? `${selectedEmployeeName}'s Work History` : 'Work History'}
+              </h1>
+              <p className="text-muted-foreground text-sm sm:text-base">
+                {new Date(startDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} - {new Date(endDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              </p>
+            </div>
           </div>
-          <DatePicker
-            date={selectedDate}
-            onDateChange={(date) => date && setSelectedDate(date)}
-          />
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="start-date" className="text-sm font-medium">Start Date</Label>
+              <Input
+                id="start-date"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="w-full sm:w-auto"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="end-date" className="text-sm font-medium">End Date</Label>
+              <Input
+                id="end-date"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="w-full sm:w-auto"
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label className="text-sm font-medium text-transparent">Actions</Label>
+              <Button
+                variant="outline"
+                onClick={() => fetchHistory(true)}
+                disabled={loading}
+                className="w-full sm:w-auto"
+              >
+                {loading ? 'Loading...' : 'Fetch All Records'}
+              </Button>
+            </div>
+          </div>
         </div>
+
+        {/* Summary Section */}
+        {entries.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold">{entries.length}</div>
+                <p className="text-sm text-muted-foreground">Total Days</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold">
+                  {entries.filter(e => e.status === 'completed').length}
+                </div>
+                <p className="text-sm text-muted-foreground">Completed Days</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold">
+                  {entries.filter(e => e.status === 'in_progress').length}
+                </div>
+                <p className="text-sm text-muted-foreground">In Progress</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold">
+                  {Math.round(entries.reduce((sum, e) => sum + (e.total_work_time_minutes || 0), 0) / 60)}h
+                </div>
+                <p className="text-sm text-muted-foreground">Total Work Hours</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         <div className="space-y-4">
           {entries.length === 0 ? (
@@ -473,42 +771,107 @@ export default function History() {
                           day: 'numeric',
                         })}
                       </CardTitle>
-                      <CardDescription className="flex items-center gap-4 mt-2">
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {entry.check_in_at
-                            ? new Date(entry.check_in_at).toLocaleTimeString('en-US', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })
-                            : 'Not checked in'}
-                        </span>
-                        {entry.total_work_time_minutes && (
-                          <span>
-                            {Math.floor(entry.total_work_time_minutes / 60)}h{' '}
-                            {entry.total_work_time_minutes % 60}m worked
-                            {entry.extra_work_logs && entry.extra_work_logs.length > 0 && (
-                              <span className="text-success">
-                                {' '}+ {getTotalExtraHours(entry.extra_work_logs).toFixed(1)}h extra
+                      <CardDescription className="space-y-2 mt-2">
+                        <div className="flex items-center gap-4">
+                          {entry.status === 'violation_only' ? (
+                            <span className="flex items-center gap-1 text-red-600">
+                              ⚠️ Rule Violations Only
+                            </span>
+                          ) : (
+                            <>
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                {entry.check_in_at
+                                  ? new Date(entry.check_in_at).toLocaleTimeString('en-US', {
+                                      hour: '2-digit',
+                                      minute: '2-digit',
+                                    })
+                                  : 'Not checked in'}
                               </span>
-                            )}
-                          </span>
+                              {entry.check_out_at && (
+                                <span className="flex items-center gap-1">
+                                  <Clock className="h-3 w-3" />
+                                  {new Date(entry.check_out_at).toLocaleTimeString('en-US', {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })}
+                                </span>
+                              )}
+                              {entry.total_work_time_minutes && (
+                                <span>
+                                  {Math.floor(entry.total_work_time_minutes / 60)}h{' '}
+                                  {entry.total_work_time_minutes % 60}m worked
+                                  {entry.extra_work_logs && entry.extra_work_logs.length > 0 && (
+                                    <span className="text-success">
+                                      {' '}+ {getTotalExtraHours(entry.extra_work_logs).toFixed(1)}h extra
+                                    </span>
+                                  )}
+                                </span>
+                              )}
+                            </>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                          {entry.status === 'violation_only' ? (
+                            <span>Source: Rule Violation</span>
+                          ) : (
+                            <>
+                              <span>Source: {entry.source === 'teamoffice' ? 'Biometric' : 'Manual'}</span>
+                              {entry.device_info && (
+                                <span>Device: {entry.device_info}</span>
+                              )}
+                              {entry.is_late && (
+                                <span className="text-red-600 font-medium">LATE</span>
+                              )}
+                            </>
+                          )}
+                        </div>
+                        {entry.rule_violations && entry.rule_violations.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mt-2">
+                            {entry.rule_violations.map((violation) => (
+                              <span
+                                key={violation.id}
+                                className={`px-2 py-1 rounded-full text-xs font-medium border ${getWarningLevelColor(violation.warning_level)}`}
+                              >
+                                ⚠️ {getWarningLevelLabel(violation.warning_level)}: {violation.office_rules.title}
+                              </span>
+                            ))}
+                          </div>
                         )}
                       </CardDescription>
                     </div>
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        entry.status === 'completed'
-                          ? 'bg-success/10 text-success'
-                          : entry.status === 'in_progress'
-                          ? 'bg-warning/10 text-warning'
-                          : entry.status === 'unlogged'
-                          ? 'bg-destructive/10 text-destructive'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
-                    >
-                      {entry.status.replace('_', ' ')}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          entry.status === 'completed'
+                            ? 'bg-success/10 text-success'
+                            : entry.status === 'in_progress'
+                            ? 'bg-warning/10 text-warning'
+                            : entry.status === 'violation_only'
+                            ? 'bg-red-100 text-red-800'
+                            : entry.status === 'unlogged'
+                            ? 'bg-destructive/10 text-destructive'
+                            : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {entry.status === 'violation_only' ? 'Rule Violations' : entry.status.replace('_', ' ')}
+                      </span>
+                      {role === 'admin' && entry.status !== 'violation_only' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedEntry(entry);
+                            startEditing(entry);
+                          }}
+                          className="flex items-center gap-1"
+                        >
+                          <Edit className="h-3 w-3" />
+                          Edit
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 </CardHeader>
               </Card>
@@ -539,8 +902,10 @@ export default function History() {
               {/* Time tracking section */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-semibold text-sm">Time Tracking</h4>
-                  {role === 'admin' && (
+                  <h4 className="font-semibold text-sm">
+                    {selectedEntry.status === 'violation_only' ? 'Rule Violations' : 'Time Tracking'}
+                  </h4>
+                  {role === 'admin' && selectedEntry.status !== 'violation_only' && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -619,6 +984,15 @@ export default function History() {
                       </Button>
                     </div>
                   </div>
+                ) : selectedEntry.status === 'violation_only' ? (
+                  <div className="p-4 border rounded-lg bg-red-50 border-red-200">
+                    <p className="text-sm text-red-800 font-medium">
+                      ⚠️ This day has rule violations but no attendance record
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Check the Rule Violations section below for details
+                    </p>
+                  </div>
                 ) : (
                   <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
@@ -682,12 +1056,12 @@ export default function History() {
                       <p className="font-medium text-success">
                         {Math.floor(selectedEntry.total_work_time_minutes / 60)}h{' '}
                         {selectedEntry.total_work_time_minutes % 60}m
-                          {selectedEntry.extra_work_logs && selectedEntry.extra_work_logs.length > 0 && (
-                            <span className="text-success">
-                              {' '}+ {getTotalExtraHours(selectedEntry.extra_work_logs).toFixed(1)}h extra
-                            </span>
-                          )}
-                        </p>
+                        {selectedEntry.extra_work_logs && selectedEntry.extra_work_logs.length > 0 && (
+                          <span className="text-success">
+                            {' '}+ {getTotalExtraHours(selectedEntry.extra_work_logs).toFixed(1)}h extra
+                          </span>
+                        )}
+                      </p>
                       </div>
                     )}
                     {selectedEntry.last_modified_by && selectedEntry.modification_reason && (
@@ -703,7 +1077,7 @@ export default function History() {
               </div>
 
               {/* Daily updates section */}
-              {selectedEntry.day_updates?.[0] ? (
+              {selectedEntry.day_updates && selectedEntry.day_updates.length > 0 && (
                 <div className="space-y-3 border-t pt-3">
                   <h4 className="font-semibold text-sm">Daily Updates</h4>
                   
@@ -729,10 +1103,6 @@ export default function History() {
                       </p>
                     </div>
                   )}
-                </div>
-              ) : (
-                <div className="border-t pt-3">
-                  <p className="text-sm text-muted-foreground italic">No daily updates recorded</p>
                 </div>
               )}
 
@@ -766,6 +1136,42 @@ export default function History() {
                   </div>
                 </div>
               )}
+
+c              {/* Rule violations section */}
+              {selectedEntry.rule_violations && selectedEntry.rule_violations.length > 0 && (
+                <div className="space-y-3 border-t pt-3">
+                  <h4 className="font-semibold text-sm text-red-600">⚠️ Rule Violations</h4>
+                  
+                  <div className="space-y-3">
+                    {selectedEntry.rule_violations.map((violation) => (
+                      <div key={violation.id} className="p-3 border rounded-lg bg-red-50 border-red-200">
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getWarningLevelColor(violation.warning_level)}`}>
+                              {getWarningLevelLabel(violation.warning_level)}
+                            </span>
+                            <span className="text-sm font-medium text-red-800">
+                              {violation.office_rules.title}
+                            </span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(violation.flagged_at).toLocaleString()}
+                          </span>
+                        </div>
+                        
+                        <div className="text-sm text-muted-foreground mb-2">
+                          <p><strong>Rule:</strong> {violation.office_rules.description}</p>
+                          {violation.reason && (
+                            <p><strong>Reason:</strong> {violation.reason}</p>
+                          )}
+                          <p><strong>Flagged by:</strong> {violation.flagged_by_profile?.name || 'Unknown User'}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
             </div>
           )}
         </DialogContent>
@@ -773,3 +1179,5 @@ export default function History() {
     </Layout>
   );
 }
+
+

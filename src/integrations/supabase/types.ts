@@ -44,6 +44,77 @@ export type Database = {
         }
         Relationships: []
       }
+      unified_attendance: {
+        Row: {
+          id: string
+          user_id: string
+          employee_code: string | null
+          employee_name: string | null
+          entry_date: string
+          check_in_at: string | null
+          check_out_at: string | null
+          total_work_time_minutes: number
+          status: string
+          is_late: boolean
+          device_info: string
+          device_id: string | null
+          source: string
+          modification_reason: string | null
+          lunch_break_start: string | null
+          lunch_break_end: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          employee_code?: string | null
+          employee_name?: string | null
+          entry_date: string
+          check_in_at?: string | null
+          check_out_at?: string | null
+          total_work_time_minutes?: number
+          status?: string
+          is_late?: boolean
+          device_info: string
+          device_id?: string | null
+          source: string
+          modification_reason?: string | null
+          lunch_break_start?: string | null
+          lunch_break_end?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          employee_code?: string | null
+          employee_name?: string | null
+          entry_date?: string
+          check_in_at?: string | null
+          check_out_at?: string | null
+          total_work_time_minutes?: number
+          status?: string
+          is_late?: boolean
+          device_info?: string
+          device_id?: string | null
+          source?: string
+          modification_reason?: string | null
+          lunch_break_start?: string | null
+          lunch_break_end?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unified_attendance_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       day_entries: {
         Row: {
           check_in_at: string | null
@@ -770,3 +841,16 @@ export const Constants = {
     },
   },
 } as const
+
+// Additional interfaces for application use
+export interface Meeting {
+  id: string;
+  title: string;
+  meeting_date: string;
+  meeting_minutes: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  created_by_name?: string;
+  created_by_email?: string;
+}

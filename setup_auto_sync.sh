@@ -77,3 +77,5 @@ echo "   - Verify Supabase connection"
 echo "   - Check console logs for detailed error messages"
 
 
+
+

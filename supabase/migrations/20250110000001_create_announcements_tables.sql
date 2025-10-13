@@ -168,3 +168,5 @@ CREATE TRIGGER after_announcement_insert
   EXECUTE FUNCTION create_general_announcement_recipients();
 
 
+
+

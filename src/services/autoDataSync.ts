@@ -2,7 +2,7 @@ import * as cron from 'node-cron';
 import { supabaseService } from '@/integrations/supabase/service';
 import { 
   getLastRecordMCID, 
-  getInOutRange, 
+  getInOutPunchData, 
   getRawRangeMCID,
   testTeamOfficeConnection 
 } from './teamOffice';
@@ -424,5 +424,6 @@ export const autoDataSync = new AutoDataSync();
 
 // Export for manual configuration
 export { AutoDataSync, DEFAULT_CONFIG };
+
 
 

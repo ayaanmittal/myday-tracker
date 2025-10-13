@@ -84,3 +84,5 @@ WHERE de.user_id = 'USER_ID_HERE' -- Replace with actual user ID
 ORDER BY de.entry_date;
 
 
+
+

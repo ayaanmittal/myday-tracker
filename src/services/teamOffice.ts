@@ -1,8 +1,13 @@
 import axios, { AxiosError } from 'axios';
+import https from 'https';
 
 const api = axios.create({
   baseURL: 'https://api.etimeoffice.com/api',
   timeout: 60000, // Increased to 60 seconds
+  // Handle certificate issues
+  httpsAgent: new https.Agent({
+    rejectUnauthorized: false // Temporarily disable SSL verification due to expired certificate
+  })
 });
 
 function authHeader() {
@@ -85,6 +90,37 @@ export async function getRawRangeMCID(fromDDMMYYYY_HHMM: string, toDDMMYYYY_HHMM
   try {
     const { data } = await api.get('/DownloadPunchDataMCID', {
       params: { Empcode: empcode, FromDate: fromDDMMYYYY_HHMM, ToDate: toDDMMYYYY_HHMM },
+      headers: authHeader(),
+    });
+    return data;
+  } catch (e) { showErr(e); }
+}
+
+// New function using the IN/OUT API that provides INTime and OUTTime directly
+export async function getInOutPunchData(fromDDMMYYYY: string, toDDMMYYYY: string, empcode = 'ALL') {
+  try {
+    const { data } = await api.get('/DownloadInOutPunchData', {
+      params: { 
+        Empcode: empcode, 
+        FromDate: fromDDMMYYYY, 
+        ToDate: toDDMMYYYY 
+      },
+      headers: authHeader(),
+    });
+    return data;
+  } catch (e) { showErr(e); }
+}
+
+// Function for getting latest records using LastRecord API
+export async function getLastPunchData(empcode = 'ALL', lastRecord?: string) {
+  try {
+    const params: any = { Empcode: empcode };
+    if (lastRecord) {
+      params.LastRecord = lastRecord;
+    }
+    
+    const { data } = await api.get('/DownloadLastPunchData', {
+      params,
       headers: authHeader(),
     });
     return data;

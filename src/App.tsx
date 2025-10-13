@@ -34,6 +34,8 @@ import { ServerStatus } from "./pages/ServerStatus";
 import { BiometricTest } from "./pages/BiometricTest";
 import Announcements from "./pages/Announcements";
 import Notifications from "./pages/Notifications";
+import Meetings from "./pages/Meetings";
+import Violations from "./pages/Violations";
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -67,6 +69,8 @@ const App = () => (
             <Route path="/admin-tools" element={<AdminTools />} />
             <Route path="/announcements" element={<Announcements />} />
             <Route path="/notifications" element={<Notifications />} />
+            <Route path="/meetings" element={<Meetings />} />
+            <Route path="/violations" element={<Violations />} />
             <Route path="/messages" element={<Messages />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />

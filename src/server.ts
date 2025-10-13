@@ -10,7 +10,7 @@ dotenv.config();
 import { runLastRecordSync } from './jobs/teamOfficeLastRecordSync';
 import { backfillDay, backfillDateRange } from './jobs/teamOfficeBackfill';
 import { runEmployeeSync } from './jobs/teamOfficeEmployeeSync';
-import { testTeamOfficeConnection, getLastRecord, getLastRecordMCID, getInOutRange, getRawRange, getRawRangeMCID } from './services/teamOffice';
+import { testTeamOfficeConnection, getLastRecord, getLastRecordMCID, getInOutPunchData, getRawRange, getRawRangeMCID } from './services/teamOffice';
 import { syncEmployeesFromBiometric, getAllEmployeeProfiles } from './services/employeeProfileSync';
 import { supabase } from './integrations/supabase/client';
 // Import createUserAPI dynamically to ensure environment variables are loaded first
@@ -433,6 +433,58 @@ app.post('/api/users/create', async (req, res) => {
     return res.status(500).json({ 
       success: false, 
       error: error instanceof Error ? error.message : 'Internal server error' 
+    });
+  }
+});
+
+// TeamOffice API endpoints for client-side calls
+app.post('/api/teamoffice/inout-punch-data', async (req, res) => {
+  try {
+    const { fromDate, toDate, empcode } = req.body;
+    const result = await getInOutPunchData(fromDate, toDate, empcode);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch IN/OUT punch data'
+    });
+  }
+});
+
+app.post('/api/teamoffice/last-punch-data', async (req, res) => {
+  try {
+    const { empcode, lastRecord } = req.body;
+    const result = await getLastPunchData(empcode, lastRecord);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch last punch data'
+    });
+  }
+});
+
+app.post('/api/teamoffice/raw-range-mcid', async (req, res) => {
+  try {
+    const { fromDate, toDate, empcode } = req.body;
+    const result = await getRawRangeMCID(fromDate, toDate, empcode);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch raw range data'
+    });
+  }
+});
+
+app.get('/api/teamoffice/test', async (req, res) => {
+  try {
+    const result = await testTeamOfficeConnection();
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'TeamOffice connection test failed'
     });
   }
 });

@@ -34,18 +34,6 @@ CREATE TABLE public.announcements (
   CONSTRAINT announcements_pkey PRIMARY KEY (id),
   CONSTRAINT announcements_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 );
-CREATE TABLE public.attendance_logs (
-  id bigint NOT NULL DEFAULT nextval('attendance_logs_id_seq'::regclass),
-  employee_id text NOT NULL,
-  employee_name text,
-  log_time timestamp with time zone NOT NULL,
-  log_type text NOT NULL CHECK (log_type = ANY (ARRAY['checkin'::text, 'checkout'::text, 'unknown'::text])),
-  device_id text,
-  source text DEFAULT 'teamoffice'::text,
-  raw_payload jsonb,
-  created_at timestamp with time zone DEFAULT now(),
-  CONSTRAINT attendance_logs_pkey PRIMARY KEY (id)
-);
 CREATE TABLE public.attendance_sync_state (
   id integer NOT NULL DEFAULT 1,
   last_record text,
@@ -64,36 +52,16 @@ CREATE TABLE public.conversations (
   CONSTRAINT conversations_participant_1_fkey FOREIGN KEY (participant_1) REFERENCES auth.users(id),
   CONSTRAINT conversations_participant_2_fkey FOREIGN KEY (participant_2) REFERENCES auth.users(id)
 );
-CREATE TABLE public.day_entries (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL,
-  entry_date date NOT NULL,
-  check_in_at timestamp with time zone,
-  check_out_at timestamp with time zone,
-  total_work_time_minutes integer,
-  status text NOT NULL DEFAULT 'not_started'::text CHECK (status = ANY (ARRAY['not_started'::text, 'in_progress'::text, 'completed'::text, 'unlogged'::text])),
-  device_info text,
-  ip_address text,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  lunch_break_start timestamp with time zone,
-  lunch_break_end timestamp with time zone,
-  last_modified_by uuid,
-  modification_reason text,
-  CONSTRAINT day_entries_pkey PRIMARY KEY (id),
-  CONSTRAINT day_entries_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
-  CONSTRAINT day_entries_last_modified_by_fkey FOREIGN KEY (last_modified_by) REFERENCES auth.users(id)
-);
 CREATE TABLE public.day_updates (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  day_entry_id uuid NOT NULL,
   today_focus text NOT NULL,
   progress text NOT NULL,
   blockers text,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  unified_attendance_id uuid,
   CONSTRAINT day_updates_pkey PRIMARY KEY (id),
-  CONSTRAINT day_updates_day_entry_id_fkey FOREIGN KEY (day_entry_id) REFERENCES public.day_entries(id)
+  CONSTRAINT day_updates_unified_attendance_id_fkey FOREIGN KEY (unified_attendance_id) REFERENCES public.unified_attendance(id)
 );
 CREATE TABLE public.employee_mappings (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -111,7 +79,6 @@ CREATE TABLE public.employee_mappings (
 );
 CREATE TABLE public.extra_work_logs (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
-  day_entry_id uuid NOT NULL,
   user_id uuid NOT NULL,
   work_type text NOT NULL DEFAULT 'remote'::text CHECK (work_type = ANY (ARRAY['remote'::text, 'overtime'::text, 'weekend'::text, 'other'::text])),
   hours_worked numeric NOT NULL CHECK (hours_worked > 0::numeric AND hours_worked <= 24::numeric),
@@ -119,8 +86,9 @@ CREATE TABLE public.extra_work_logs (
   logged_at timestamp with time zone NOT NULL DEFAULT now(),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  unified_attendance_id uuid NOT NULL,
   CONSTRAINT extra_work_logs_pkey PRIMARY KEY (id),
-  CONSTRAINT extra_work_logs_day_entry_id_fkey FOREIGN KEY (day_entry_id) REFERENCES public.day_entries(id),
+  CONSTRAINT extra_work_logs_unified_attendance_id_fkey FOREIGN KEY (unified_attendance_id) REFERENCES public.unified_attendance(id),
   CONSTRAINT extra_work_logs_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.leave_balances (
@@ -169,6 +137,17 @@ CREATE TABLE public.leave_types (
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT leave_types_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.meetings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  title text NOT NULL,
+  meeting_date date NOT NULL,
+  meeting_minutes text NOT NULL,
+  created_by uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT meetings_pkey PRIMARY KEY (id),
+  CONSTRAINT meetings_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
+);
 CREATE TABLE public.messages (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   conversation_id uuid NOT NULL,
@@ -188,6 +167,8 @@ CREATE TABLE public.office_rules (
   is_active boolean NOT NULL DEFAULT true,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  is_newly_added boolean,
+  is_recently_updated boolean,
   CONSTRAINT office_rules_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.profiles (
@@ -201,10 +182,13 @@ CREATE TABLE public.profiles (
   designation text,
   teamoffice_employees_id uuid,
   user_roles_id uuid,
+  user_id uuid,
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
+  CONSTRAINT profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT profiles_user_roles_id_fkey FOREIGN KEY (user_roles_id) REFERENCES public.user_roles(id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
-  CONSTRAINT profiles_teamoffice_employees_id_fkey FOREIGN KEY (teamoffice_employees_id) REFERENCES public.teamoffice_employees(id)
+  CONSTRAINT profiles_teamoffice_employees_id_fkey FOREIGN KEY (teamoffice_employees_id) REFERENCES public.teamoffice_employees(id),
+  CONSTRAINT profiles_id_fkey1 FOREIGN KEY (id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.rule_acknowledgments (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -234,6 +218,20 @@ CREATE TABLE public.rule_violations (
   CONSTRAINT rule_violations_pkey PRIMARY KEY (id),
   CONSTRAINT rule_violations_rule_id_fkey FOREIGN KEY (rule_id) REFERENCES public.office_rules(id)
 );
+CREATE TABLE public.settings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  key text NOT NULL UNIQUE,
+  value text NOT NULL,
+  description text,
+  category text NOT NULL DEFAULT 'general'::text,
+  data_type text NOT NULL DEFAULT 'string'::text CHECK (data_type = ANY (ARRAY['string'::text, 'number'::text, 'boolean'::text, 'json'::text])),
+  is_public boolean NOT NULL DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_by uuid,
+  CONSTRAINT settings_pkey PRIMARY KEY (id),
+  CONSTRAINT settings_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id)
+);
 CREATE TABLE public.tasks (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   title text NOT NULL,
@@ -262,6 +260,30 @@ CREATE TABLE public.teamoffice_employees (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT teamoffice_employees_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.unified_attendance (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  employee_code text,
+  employee_name text,
+  entry_date date NOT NULL,
+  check_in_at timestamp with time zone,
+  check_out_at timestamp with time zone,
+  total_work_time_minutes integer DEFAULT 0 CHECK (total_work_time_minutes >= 0),
+  status text NOT NULL DEFAULT 'in_progress'::text CHECK (status = ANY (ARRAY['in_progress'::text, 'completed'::text, 'absent'::text])),
+  is_late boolean DEFAULT false,
+  device_info text NOT NULL,
+  device_id text,
+  source text NOT NULL,
+  modification_reason text,
+  lunch_break_start timestamp with time zone,
+  lunch_break_end timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  profile_id uuid,
+  CONSTRAINT unified_attendance_pkey PRIMARY KEY (id),
+  CONSTRAINT unified_attendance_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES public.profiles(id),
+  CONSTRAINT unified_attendance_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.user_roles (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
