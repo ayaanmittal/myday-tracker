@@ -68,6 +68,10 @@ interface HistoryEntry {
   check_out_at: string | null;
   total_work_time_minutes: number | null;
   status: string;
+  manual_status?: string | null;
+  manual_override_by?: string | null;
+  manual_override_at?: string | null;
+  manual_override_reason?: string | null;
   is_late?: boolean;
   device_info: string;
   device_id?: string | null;
@@ -123,6 +127,10 @@ export default function History() {
     check_out: '',
     lunch_start: '',
     lunch_end: ''
+  });
+  const [editOverride, setEditOverride] = useState({
+    manual_status: '',
+    manual_override_reason: ''
   });
   const [saving, setSaving] = useState(false);
   // Manager-specific state
@@ -411,6 +419,11 @@ export default function History() {
       lunch_end: formatTimeForInput(entry.lunch_break_end)
     });
 
+    setEditOverride({
+      manual_status: entry.manual_status || '',
+      manual_override_reason: entry.manual_override_reason || ''
+    });
+
     console.log('Starting edit with times:', {
       entry,
       editTimes: {
@@ -547,6 +560,10 @@ export default function History() {
           lunch_break_start: lunchStartDateTime,
           lunch_break_end: lunchEndDateTime,
           total_work_time_minutes: newTotalMinutes > 0 ? Math.round(newTotalMinutes) : 0,
+          manual_status: editOverride.manual_status || null,
+          manual_override_by: user.id,
+          manual_override_at: new Date().toISOString(),
+          manual_override_reason: editOverride.manual_override_reason || null,
           updated_at: new Date().toISOString(),
           modification_reason: 'Admin time correction',
           source: 'manual' // Mark as manually edited
@@ -856,6 +873,11 @@ export default function History() {
                       >
                         {entry.status === 'violation_only' ? 'Rule Violations' : entry.status.replace('_', ' ')}
                       </span>
+                      {entry.manual_status && (
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                          MANUAL
+                        </span>
+                      )}
                       {role === 'admin' && entry.status !== 'violation_only' && (
                         <Button
                           variant="outline"
@@ -960,6 +982,41 @@ export default function History() {
                           onChange={(e) => setEditTimes(prev => ({ ...prev, lunch_end: e.target.value }))}
                           className="text-sm"
                         />
+                      </div>
+                    </div>
+                    
+                    {/* Manual Override Fields */}
+                    <div className="space-y-4 border-t pt-4">
+                      <h5 className="font-medium text-sm text-gray-700">Manual Override</h5>
+                      <div className="grid grid-cols-1 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="manual_status" className="text-sm">Override Status</Label>
+                          <Select 
+                            value={editOverride.manual_status} 
+                            onValueChange={(value) => setEditOverride(prev => ({ ...prev, manual_status: value }))}
+                          >
+                            <SelectTrigger className="text-sm">
+                              <SelectValue placeholder="Select status override" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="">No Override (Use Original Status)</SelectItem>
+                              <SelectItem value="present">Present (No Times Required)</SelectItem>
+                              <SelectItem value="absent">Absent</SelectItem>
+                              <SelectItem value="leave_granted">Leave Granted</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="manual_override_reason" className="text-sm">Override Reason</Label>
+                          <Input
+                            id="manual_override_reason"
+                            type="text"
+                            value={editOverride.manual_override_reason}
+                            onChange={(e) => setEditOverride(prev => ({ ...prev, manual_override_reason: e.target.value }))}
+                            placeholder="Enter reason for this override..."
+                            className="text-sm"
+                          />
+                        </div>
                       </div>
                     </div>
                     <div className="flex gap-2">
@@ -1070,6 +1127,32 @@ export default function History() {
                         <p className="font-medium text-amber-600 text-xs">
                           {selectedEntry.modification_reason} • {selectedEntry.updated_at ? new Date(selectedEntry.updated_at).toLocaleString() : 'Unknown time'}
                       </p>
+                    </div>
+                  )}
+                  {selectedEntry.manual_status && (
+                    <div className="col-span-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <User className="h-4 w-4 text-yellow-600" />
+                        <span className="text-sm font-medium text-yellow-800">Manual Override Applied</span>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                        <div>
+                          <span className="text-yellow-700 font-medium">Status:</span>
+                          <p className="text-yellow-900 capitalize">{selectedEntry.manual_status}</p>
+                        </div>
+                        <div>
+                          <span className="text-yellow-700 font-medium">Override Date:</span>
+                          <p className="text-yellow-900">
+                            {selectedEntry.manual_override_at ? new Date(selectedEntry.manual_override_at).toLocaleString() : 'N/A'}
+                          </p>
+                        </div>
+                        {selectedEntry.manual_override_reason && (
+                          <div className="md:col-span-2">
+                            <span className="text-yellow-700 font-medium">Reason:</span>
+                            <p className="text-yellow-900">{selectedEntry.manual_override_reason}</p>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

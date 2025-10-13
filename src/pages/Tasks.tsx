@@ -31,6 +31,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { TaskDetailDialog } from '@/components/TaskDetailDialog';
+import { TaskNotificationBadge } from '@/components/TaskNotificationBadge';
+import { useTaskNotifications } from '@/hooks/useTaskNotifications';
 
 interface Task {
   id: string;
@@ -59,6 +62,12 @@ export default function Tasks() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
+  const { 
+    loadMultipleTaskNotifications, 
+    getTaskNotification, 
+    markTaskAsViewed 
+  } = useTaskNotifications();
 
   useEffect(() => {
     if (!user) {
@@ -106,6 +115,10 @@ export default function Tasks() {
         }));
 
         setTasks(tasksWithProfiles);
+        
+        // Load notifications for all tasks
+        const taskIds = tasksWithProfiles.map((task: Task) => task.id);
+        void loadMultipleTaskNotifications(taskIds);
       } else {
         setTasks([]);
       }
@@ -163,6 +176,8 @@ export default function Tasks() {
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);
     setDialogOpen(true);
+    // Mark task as viewed to clear notifications
+    markTaskAsViewed(task.id);
   };
 
   const getStatusIcon = (status: string) => {
@@ -331,7 +346,13 @@ export default function Tasks() {
                   <TableRow key={task.id} className="cursor-pointer hover:bg-muted/50" onClick={() => handleTaskClick(task)}>
                     <TableCell>
                       <div>
-                        <p className="font-medium">{task.title}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{task.title}</p>
+                          <TaskNotificationBadge 
+                            newComments={getTaskNotification(task.id).newComments}
+                            newAttachments={getTaskNotification(task.id).newAttachments}
+                          />
+                        </div>
                         {task.description && (
                           <p className="text-sm text-muted-foreground mt-1">
                             {task.description.length > 100
@@ -412,6 +433,7 @@ export default function Tasks() {
                           <span className="text-sm">Cancelled</span>
                         </div>
                       )}
+                      <Button size="sm" variant="ghost" className="ml-2" onClick={(e) => { e.stopPropagation(); setDetailTaskId(task.id); markTaskAsViewed(task.id); }}>Open Dialog</Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -551,6 +573,7 @@ export default function Tasks() {
           </DialogContent>
         </Dialog>
       </div>
+      <TaskDetailDialog taskId={detailTaskId} open={!!detailTaskId} onOpenChange={(open) => setDetailTaskId(open ? detailTaskId : null)} />
     </Layout>
   );
 }

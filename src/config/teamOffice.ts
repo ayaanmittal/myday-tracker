@@ -11,12 +11,14 @@ export const teamOfficeConfig = {
 };
 
 // Server API endpoints
+import { joinApiPath } from '@/config/api';
+
 export const apiEndpoints = {
-  syncStatus: '/api/sync/status',
-  runSync: '/api/sync/run',
-  backfill: '/api/sync/backfill',
-  attendance: (employeeId: string) => `/api/attendance/${employeeId}`,
-  attendanceSummary: '/api/attendance/summary'
+  syncStatus: joinApiPath('/api/sync/status'),
+  runSync: joinApiPath('/api/sync/run'),
+  backfill: joinApiPath('/api/sync/backfill'),
+  attendance: (employeeId: string) => joinApiPath(`/api/attendance/${employeeId}`),
+  attendanceSummary: joinApiPath('/api/attendance/summary')
 };
 
 // Helper function to get basic auth header

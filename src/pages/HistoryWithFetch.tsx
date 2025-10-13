@@ -94,7 +94,28 @@ export default function HistoryWithFetch() {
   useEffect(() => {
     if (user) {
       setIsAdmin(role === 'admin');
+      // Clear data immediately when user changes
+      setLoading(true);
+      setAttendanceLogs([]);
+      setDayEntries([]);
+      setSummary({
+        totalDays: 0,
+        totalWorkMinutes: 0,
+        averageWorkMinutes: 0
+      });
+      setFetchResult(null);
       loadInitialData();
+    } else {
+      // Clear data when user logs out
+      setAttendanceLogs([]);
+      setDayEntries([]);
+      setSummary({
+        totalDays: 0,
+        totalWorkMinutes: 0,
+        averageWorkMinutes: 0
+      });
+      setFetchResult(null);
+      setLoading(false);
     }
   }, [user, role]);
 
@@ -103,6 +124,20 @@ export default function HistoryWithFetch() {
       loadAttendanceData();
     }
   }, [startDate, endDate]);
+
+  // Cleanup effect to clear data when component unmounts
+  useEffect(() => {
+    return () => {
+      setAttendanceLogs([]);
+      setDayEntries([]);
+      setSummary({
+        totalDays: 0,
+        totalWorkMinutes: 0,
+        averageWorkMinutes: 0
+      });
+      setFetchResult(null);
+    };
+  }, []);
 
   const loadInitialData = async () => {
     setLoading(true);
@@ -134,6 +169,16 @@ export default function HistoryWithFetch() {
     if (!user) return;
 
     setFetching(true);
+    
+    // Clear existing data to prevent showing cached data
+    setAttendanceLogs([]);
+    setDayEntries([]);
+    setSummary({
+      totalDays: 0,
+      totalWorkMinutes: 0,
+      averageWorkMinutes: 0
+    });
+    
     try {
       const options = {
         startDate: startDate || undefined,
@@ -256,7 +301,7 @@ export default function HistoryWithFetch() {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div key={`${user?.id}-${startDate}-${endDate}`} className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">

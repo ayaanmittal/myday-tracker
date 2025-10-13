@@ -36,6 +36,7 @@ import Announcements from "./pages/Announcements";
 import Notifications from "./pages/Notifications";
 import Meetings from "./pages/Meetings";
 import Violations from "./pages/Violations";
+import WorkDaysSettings from "./pages/WorkDaysSettings";
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -73,6 +74,7 @@ const App = () => (
             <Route path="/violations" element={<Violations />} />
             <Route path="/messages" element={<Messages />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/work-days-settings" element={<WorkDaysSettings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

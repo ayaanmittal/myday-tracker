@@ -15,10 +15,11 @@ export function ServerStatus() {
 
   const fetchStatus = async () => {
     try {
+      const { joinApiPath } = await import('@/config/api');
       const [healthRes, syncRes, teamOfficeRes] = await Promise.allSettled([
-        fetch('/api/health').then(r => r.json()),
-        fetch('/api/sync/status').then(r => r.json()),
-        fetch('/api/test/teamoffice').then(r => r.json())
+        fetch(joinApiPath('/api/health')).then(r => r.json()),
+        fetch(joinApiPath('/api/sync/status')).then(r => r.json()),
+        fetch(joinApiPath('/api/test/teamoffice')).then(r => r.json())
       ]);
 
       setStatus({

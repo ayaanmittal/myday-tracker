@@ -38,7 +38,9 @@ export async function getRawRangeMCID(fromDDMMYYYY_HHMM: string, toDDMMYYYY_HHMM
 // New function using the IN/OUT API that provides INTime and OUTTime directly
 export async function getInOutPunchData(fromDDMMYYYY: string, toDDMMYYYY: string, empcode = 'ALL') {
   try {
-    const response = await fetch('/api/teamoffice/inout-punch-data', {
+    const { joinApiPath } = await import('@/config/api');
+    const url = joinApiPath('/api/teamoffice/inout-punch-data');
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -49,11 +51,15 @@ export async function getInOutPunchData(fromDDMMYYYY: string, toDDMMYYYY: string
         empcode: empcode
       })
     });
-    
+    // Detect HTML fallback (e.g., 200 with index.html)
+    const contentType = response.headers.get('content-type') || '';
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    
+    if (!contentType.includes('application/json')) {
+      const snippet = (await response.text()).slice(0, 200);
+      throw new Error(`Unexpected non-JSON response from API. Content-Type: ${contentType}. Snippet: ${snippet}`);
+    }
     const data = await response.json();
     return data;
   } catch (error) {

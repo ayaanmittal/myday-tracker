@@ -2,8 +2,8 @@ import { Layout } from '@/components/Layout';
 import { AdminRefreshApiButton } from '@/components/AdminRefreshApiButton';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useUserRole } from '@/hooks/useUserRole';
-import { Navigate } from 'react-router-dom';
-import { Settings, RefreshCw, Database, Users, Calendar } from 'lucide-react';
+import { Navigate, Link } from 'react-router-dom';
+import { Settings, RefreshCw, Database, Users, Calendar, Clock } from 'lucide-react';
 
 export default function AdminTools() {
   const { data: role } = useUserRole();
@@ -29,7 +29,7 @@ export default function AdminTools() {
         <AdminRefreshApiButton />
 
         {/* Admin Information Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="flex items-center gap-2 text-lg">
@@ -69,6 +69,26 @@ export default function AdminTools() {
               <CardDescription>
                 Manage employee mappings and team member information.
               </CardDescription>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <Clock className="h-5 w-5" />
+                Work Days Settings
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CardDescription>
+                Configure work days for each employee to calculate accurate attendance metrics.
+              </CardDescription>
+              <Link 
+                to="/work-days-settings" 
+                className="inline-flex items-center text-sm font-medium text-primary hover:text-primary/80 mt-2"
+              >
+                Configure Work Days →
+              </Link>
             </CardContent>
           </Card>
         </div>

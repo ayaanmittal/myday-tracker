@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calendar, Clock, Home, Edit, Save, X, Users, TrendingUp } from 'lucide-react';
+import { Calendar, Clock, Home, Edit, Save, X, Users, TrendingUp, UserCog } from 'lucide-react';
+import { WorkHistoryEditDialog } from '@/components/WorkHistoryEditDialog';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { DatePicker } from '@/components/DatePicker';
@@ -51,6 +52,7 @@ interface AttendanceSummary {
   totalDays: number;
   totalWorkMinutes: number;
   averageWorkMinutes: number;
+  daysAbsent: number;
 }
 
 export default function HistoryV2() {
@@ -70,18 +72,66 @@ export default function HistoryV2() {
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
   const [isAdmin, setIsAdmin] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<DayEntry | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
 
   useEffect(() => {
     if (user) {
       setIsAdmin(role === 'admin');
+      // Clear data immediately when user changes
+      setLoading(true);
+      setAttendanceLogs([]);
+      setDayEntries([]);
+      setSummary({
+        totalDays: 0,
+        totalWorkMinutes: 0,
+        averageWorkMinutes: 0,
+        daysAbsent: 0
+      });
       loadAttendanceData();
+    } else {
+      // Clear data when user logs out
+      setAttendanceLogs([]);
+      setDayEntries([]);
+      setSummary({
+        totalDays: 0,
+        totalWorkMinutes: 0,
+        averageWorkMinutes: 0,
+        daysAbsent: 0
+      });
+      setLoading(false);
     }
   }, [user, role, startDate, endDate]);
+
+  // Cleanup effect to clear data when component unmounts
+  useEffect(() => {
+    return () => {
+      setAttendanceLogs([]);
+      setDayEntries([]);
+      setSummary({
+        totalDays: 0,
+        totalWorkMinutes: 0,
+        averageWorkMinutes: 0,
+        daysAbsent: 0
+      });
+    };
+  }, []);
 
   const loadAttendanceData = async () => {
     if (!user) return;
 
     setLoading(true);
+    
+    // Clear existing data to prevent showing cached data
+    setAttendanceLogs([]);
+    setDayEntries([]);
+    setSummary({
+      totalDays: 0,
+      totalWorkMinutes: 0,
+      averageWorkMinutes: 0,
+      daysAbsent: 0
+    });
+    
     try {
       if (isAdmin) {
         // Admin view - show all data
@@ -91,12 +141,20 @@ export default function HistoryV2() {
         );
         setAttendanceLogs(data.dayEntries); // Now using dayEntries as the main data source
         setDayEntries(data.dayEntries);
+        // Calculate days absent for each employee
+        const daysAbsentPromises = data.dayEntries.map(async (entry: any) => {
+          return calculateDaysAbsent(entry.user_id, startDate, endDate);
+        });
+        const daysAbsentResults = await Promise.all(daysAbsentPromises);
+        const totalDaysAbsent = daysAbsentResults.reduce((sum, days) => sum + days, 0);
+
         setSummary({
           totalDays: data.summary.totalDays,
           totalWorkMinutes: data.summary.totalWorkMinutes,
           averageWorkMinutes: data.summary.totalDays > 0 
             ? Math.round(data.summary.totalWorkMinutes / data.summary.totalDays) 
-            : 0
+            : 0,
+          daysAbsent: totalDaysAbsent
         });
       } else {
         // User view - show only their data
@@ -107,7 +165,14 @@ export default function HistoryV2() {
         );
         setAttendanceLogs(data.dayEntries); // Now using dayEntries as the main data source
         setDayEntries(data.dayEntries);
-        setSummary(data.summary);
+        
+        // Calculate days absent for the user
+        const daysAbsent = await calculateDaysAbsent(user.id, startDate, endDate);
+        
+        setSummary({
+          ...data.summary,
+          daysAbsent
+        });
       }
     } catch (error) {
       console.error('Error loading attendance data:', error);
@@ -144,6 +209,26 @@ export default function HistoryV2() {
     return `${hours}h ${mins}m`;
   };
 
+  const calculateDaysAbsent = async (userId: string, startDate: string, endDate: string) => {
+    try {
+      const { data, error } = await supabase.rpc('calculate_days_absent', {
+        employee_user_id: userId,
+        start_date: startDate,
+        end_date: endDate
+      });
+      
+      if (error) {
+        console.error('Error calculating days absent:', error);
+        return 0;
+      }
+      
+      return data || 0;
+    } catch (error) {
+      console.error('Error calculating days absent:', error);
+      return 0;
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'completed': return 'text-green-600 bg-green-100';
@@ -161,6 +246,15 @@ export default function HistoryV2() {
     }
   };
 
+  const handleEditEntry = (entry: DayEntry) => {
+    setEditingEntry(entry);
+    setEditDialogOpen(true);
+  };
+
+  const handleEditSave = () => {
+    void loadAttendanceData();
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -176,7 +270,7 @@ export default function HistoryV2() {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div key={`${user?.id}-${startDate}-${endDate}`} className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
@@ -192,7 +286,7 @@ export default function HistoryV2() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center">
@@ -227,6 +321,20 @@ export default function HistoryV2() {
                   <p className="text-sm font-medium text-gray-600">Average Daily</p>
                   <p className="text-2xl font-bold text-gray-900">
                     {formatWorkTime(summary.averageWorkMinutes)}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <Users className="h-8 w-8 text-red-600" />
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Days Absent</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {summary.daysAbsent}
                   </p>
                 </div>
               </div>
@@ -303,16 +411,32 @@ export default function HistoryV2() {
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(entry.status)}`}>
                           {entry.status}
                         </span>
+                        {entry.manual_status && (
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            MANUAL
+                          </span>
+                        )}
                         {entry.is_late && (
                           <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
                             LATE
                           </span>
                         )}
                       </div>
-                      <div className="text-right">
+                      <div className="flex items-center gap-2">
                         <p className="text-sm text-gray-600">
                           {formatWorkTime(entry.total_work_time_minutes)}
                         </p>
+                        {isAdmin && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleEditEntry(entry)}
+                            className="h-8 w-8 p-0"
+                            title="Edit entry"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                     
@@ -364,6 +488,11 @@ export default function HistoryV2() {
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(entry.status)}`}>
                           {entry.status}
                         </span>
+                        {entry.manual_status && (
+                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            MANUAL
+                          </span>
+                        )}
                         {entry.is_late && (
                           <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
                             LATE
@@ -396,6 +525,14 @@ export default function HistoryV2() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit Dialog */}
+      <WorkHistoryEditDialog
+        entry={editingEntry}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        onSave={handleEditSave}
+      />
     </Layout>
   );
 }

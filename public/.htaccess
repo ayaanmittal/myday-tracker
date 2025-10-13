@@ -1,0 +1,15 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Allow direct access to existing files and directories
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
+
+  # Rewrite all other requests to index.html (Vite SPA)
+  RewriteRule ^ index.html [L]
+</IfModule>
+
+# Fallback if mod_rewrite is not available
+DirectoryIndex index.html
+

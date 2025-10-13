@@ -10,7 +10,8 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Layout } from '@/components/Layout';
 import { toast } from '@/hooks/use-toast';
-import { Settings as SettingsIcon, Clock, Bell, Users, Edit, Save, X } from 'lucide-react';
+import { Settings as SettingsIcon, Clock, Bell, Users, Edit, Save, X, Calendar } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import {
   Table,
   TableBody,
@@ -175,6 +176,31 @@ export default function Settings() {
             </Select>
           </div>
         </div>
+
+        {/* Admin Quick Actions */}
+        {(role === 'admin' || role === 'manager') && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Calendar className="h-5 w-5" />
+                  Work Days Settings
+                </CardTitle>
+                <CardDescription>
+                  Configure work days for each employee to calculate accurate attendance metrics
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Link 
+                  to="/work-days-settings" 
+                  className="inline-flex items-center text-sm font-medium text-primary hover:text-primary/80"
+                >
+                  Configure Work Days →
+                </Link>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         <Card>
           <CardHeader>

@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Layout } from '@/components/Layout';
 import { toast } from '@/hooks/use-toast';
-import { Plus, Edit, Trash2, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, CheckCircle, Clock, AlertCircle, Paperclip } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -36,6 +36,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
+import { TaskDetailDialog } from '@/components/TaskDetailDialog';
+import { TaskNotificationBadge } from '@/components/TaskNotificationBadge';
+import { useTaskNotifications } from '@/hooks/useTaskNotifications';
 
 interface Task {
   id: string;
@@ -75,16 +78,25 @@ export default function TaskManager() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [detailTaskId, setDetailTaskId] = useState<string | null>(null);
+  const { 
+    loadMultipleTaskNotifications, 
+    getTaskNotification, 
+    markTaskAsViewed 
+  } = useTaskNotifications();
 
   // Form state
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     assigned_to: '',
+    selectedAssignees: [] as string[],
     priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
     due_date: '',
     assignToAll: false,
   });
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -142,6 +154,10 @@ export default function TaskManager() {
         }));
 
         setTasks(tasksWithProfiles);
+        
+        // Load notifications for all tasks
+        const taskIds = tasksWithProfiles.map((task: Task) => task.id);
+        void loadMultipleTaskNotifications(taskIds);
       } else {
         setTasks([]);
       }
@@ -181,10 +197,10 @@ export default function TaskManager() {
     setLoading(true);
 
     // Validate form
-    if (!formData.assignToAll && !formData.assigned_to) {
+    if (!formData.assignToAll && formData.selectedAssignees.length === 0) {
       toast({
         title: 'Validation Error',
-        description: 'Please select an employee or check "Assign to all employees".',
+        description: 'Please select at least one employee or check "Assign to all employees".',
         variant: 'destructive',
       });
       setLoading(false);
@@ -199,7 +215,7 @@ export default function TaskManager() {
           .update({
             title: formData.title,
             description: formData.description || null,
-            assigned_to: formData.assigned_to,
+            assigned_to: formData.selectedAssignees[0] || formData.assigned_to, // Keep first assignee as primary
             priority: formData.priority,
             due_date: formData.due_date || null,
             updated_at: new Date().toISOString(),
@@ -208,51 +224,112 @@ export default function TaskManager() {
 
         if (error) throw error;
 
+        // Update task_assignees
+        if (formData.selectedAssignees.length > 0) {
+          // Remove existing assignees
+          await (supabase as any).from('task_assignees').delete().eq('task_id', editingTask.id);
+          
+          // Add new assignees
+          const assigneeData = formData.selectedAssignees.map(userId => ({
+            task_id: editingTask.id,
+            user_id: userId
+          }));
+          
+          const { error: assigneeError } = await (supabase as any)
+            .from('task_assignees')
+            .insert(assigneeData);
+          
+          if (assigneeError) throw assigneeError;
+        }
+
         toast({
           title: 'Task updated',
           description: 'Task has been updated successfully.',
         });
       } else {
         // Create new task(s)
-        if (formData.assignToAll) {
-          // Create task for all employees
-          const taskData = employees.map(employee => ({
+        const assignees = formData.assignToAll ? employees.map(e => e.id) : formData.selectedAssignees;
+        
+        if (assignees.length === 1) {
+          // Create single task with multiple assignees
+          const { data: taskData, error: taskError } = await supabase
+            .from('tasks')
+            .insert({
+              title: formData.title,
+              description: formData.description || null,
+              assigned_to: assignees[0], // Primary assignee
+              assigned_by: user?.id,
+              priority: formData.priority,
+              due_date: formData.due_date || null,
+            })
+            .select()
+            .single();
+
+          if (taskError) throw taskError;
+
+          // Add all assignees to task_assignees table
+          const assigneeData = assignees.map(userId => ({
+            task_id: taskData.id,
+            user_id: userId
+          }));
+          
+          const { error: assigneeError } = await (supabase as any)
+            .from('task_assignees')
+            .insert(assigneeData);
+          
+          if (assigneeError) throw assigneeError;
+
+          // Upload files if any were selected
+          if (selectedFiles.length > 0) {
+            await uploadFilesToTask(taskData.id);
+          }
+
+          toast({
+            title: 'Task created',
+            description: `Task has been created with ${assignees.length} assignee(s).`,
+          });
+        } else {
+          // Create separate task for each assignee (legacy behavior for "assign to all")
+          const taskData = assignees.map(assigneeId => ({
             title: formData.title,
             description: formData.description || null,
-            assigned_to: employee.id,
+            assigned_to: assigneeId,
             assigned_by: user?.id,
             priority: formData.priority,
             due_date: formData.due_date || null,
           }));
 
-          const { error } = await supabase
+          const { data: createdTasks, error: taskError } = await supabase
             .from('tasks')
-            .insert(taskData);
+            .insert(taskData)
+            .select();
 
-          if (error) throw error;
+          if (taskError) throw taskError;
+
+          // Add assignees to task_assignees table for each task
+          const assigneeData = createdTasks.flatMap(task => 
+            assignees.map(userId => ({
+              task_id: task.id,
+              user_id: userId
+            }))
+          );
+          
+          const { error: assigneeError } = await (supabase as any)
+            .from('task_assignees')
+            .insert(assigneeData);
+          
+          if (assigneeError) throw assigneeError;
+
+          // Upload files to all created tasks if any were selected
+          if (selectedFiles.length > 0) {
+            for (const task of createdTasks) {
+              await uploadFilesToTask(task.id);
+            }
+          }
 
           toast({
             title: 'Tasks created',
-            description: `Task has been created for all ${employees.length} employees.`,
-          });
-        } else {
-          // Create task for single employee
-          const { error } = await supabase
-            .from('tasks')
-            .insert({
-              title: formData.title,
-              description: formData.description || null,
-              assigned_to: formData.assigned_to,
-              assigned_by: user?.id,
-              priority: formData.priority,
-              due_date: formData.due_date || null,
-            });
-
-          if (error) throw error;
-
-          toast({
-            title: 'Task created',
-            description: 'New task has been created successfully.',
+            description: `Task has been created for ${assignees.length} employees.`,
           });
         }
       }
@@ -261,6 +338,7 @@ export default function TaskManager() {
       resetForm();
       fetchTasks();
     } catch (error: any) {
+      console.error('Error in handleSubmit:', error);
       toast({
         title: 'Error',
         description: error.message,
@@ -271,14 +349,25 @@ export default function TaskManager() {
     }
   };
 
-  const handleEdit = (task: Task) => {
+  const handleEdit = async (task: Task) => {
     setEditingTask(task);
+    
+    // Load existing assignees for this task
+    const { data: assignees } = await (supabase as any)
+      .from('task_assignees')
+      .select('user_id')
+      .eq('task_id', task.id);
+    
+    const assigneeIds = assignees?.map((a: any) => a.user_id) || [task.assigned_to];
+    
     setFormData({
       title: task.title,
       description: task.description || '',
       assigned_to: task.assigned_to,
+      selectedAssignees: assigneeIds,
       priority: task.priority,
       due_date: task.due_date || '',
+      assignToAll: false,
     });
     setDialogOpen(true);
   };
@@ -342,11 +431,75 @@ export default function TaskManager() {
       title: '',
       description: '',
       assigned_to: '',
+      selectedAssignees: [],
       priority: 'medium',
       due_date: '',
       assignToAll: false,
     });
+    setSelectedFiles([]);
     setEditingTask(null);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    setSelectedFiles(prev => [...prev, ...files]);
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadFilesToTask = async (taskId: string) => {
+    if (selectedFiles.length === 0) return;
+
+    setUploadingFiles(true);
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user?.user) {
+        throw new Error('User not authenticated');
+      }
+
+      for (const file of selectedFiles) {
+        const path = `${user.user.id}/${taskId}/${Date.now()}_${file.name}`;
+        
+        // Upload to storage
+        const { error: uploadError } = await supabase.storage
+          .from('task-attachments')
+          .upload(path, file, {
+            upsert: false,
+            contentType: file.type,
+            cacheControl: '3600'
+          });
+
+        if (uploadError) {
+          console.error('Error uploading file:', file.name, uploadError);
+          continue;
+        }
+
+        // Save to database
+        const { error: dbError } = await (supabase as any).from('task_attachments').insert({
+          task_id: taskId,
+          uploaded_by: user.user.id,
+          file_name: file.name,
+          file_path: path,
+          mime_type: file.type,
+          size_bytes: file.size,
+        });
+
+        if (dbError) {
+          console.error('Error saving file info:', file.name, dbError);
+        }
+      }
+    } catch (error) {
+      console.error('Error uploading files:', error);
+      toast({
+        title: 'Error',
+        description: 'Some files failed to upload. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setUploadingFiles(false);
+    }
   };
 
   if (roleLoading || loading) {
@@ -420,7 +573,7 @@ export default function TaskManager() {
                       setFormData({ 
                         ...formData, 
                         assignToAll: checked as boolean,
-                        assigned_to: checked ? '' : formData.assigned_to // Clear assigned_to when checking assignToAll
+                        selectedAssignees: checked ? employees.map(e => e.id) : [] // Select all employees when checked
                       });
                     }}
                   />
@@ -429,28 +582,48 @@ export default function TaskManager() {
                   </Label>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="assigned_to">
-                      Assign To {formData.assignToAll && <span className="text-muted-foreground">(disabled - assigning to all)</span>}
-                    </Label>
-                    <Select
-                      value={formData.assigned_to}
-                      onValueChange={(value) => setFormData({ ...formData, assigned_to: value })}
-                      disabled={formData.assignToAll}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select employee" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {employees.map((employee) => (
-                          <SelectItem key={employee.id} value={employee.id}>
-                            {employee.name} {employee.designation && `(${employee.designation})`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                <div className="space-y-2">
+                  <Label htmlFor="assignees">
+                    Select Assignees {formData.assignToAll && <span className="text-muted-foreground">(all selected)</span>}
+                  </Label>
+                  <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded p-2">
+                    {employees.map((employee) => (
+                      <div key={employee.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`assignee-${employee.id}`}
+                          checked={formData.selectedAssignees.includes(employee.id)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setFormData({
+                                ...formData,
+                                selectedAssignees: [...formData.selectedAssignees, employee.id]
+                              });
+                            } else {
+                              setFormData({
+                                ...formData,
+                                selectedAssignees: formData.selectedAssignees.filter(id => id !== employee.id)
+                              });
+                            }
+                          }}
+                          disabled={formData.assignToAll}
+                        />
+                        <Label 
+                          htmlFor={`assignee-${employee.id}`} 
+                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                        >
+                          {employee.name} {employee.designation && `(${employee.designation})`}
+                        </Label>
+                      </div>
+                    ))}
                   </div>
+                  {formData.selectedAssignees.length > 0 && (
+                    <p className="text-sm text-muted-foreground">
+                      {formData.selectedAssignees.length} assignee(s) selected
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 gap-4">
 
                   <div className="space-y-2">
                     <Label htmlFor="priority">Priority</Label>
@@ -483,6 +656,47 @@ export default function TaskManager() {
                   />
                 </div>
 
+                {/* File Upload Section */}
+                <div className="space-y-2">
+                  <Label htmlFor="attachments">Attachments (optional)</Label>
+                  <div className="space-y-3">
+                    <Input
+                      id="attachments"
+                      type="file"
+                      multiple
+                      onChange={handleFileSelect}
+                      className="cursor-pointer"
+                      accept="image/*,application/pdf,text/*,application/*,video/*,audio/*"
+                    />
+                    
+                    {selectedFiles.length > 0 && (
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium">Selected Files:</Label>
+                        <div className="space-y-1 max-h-32 overflow-y-auto border rounded p-2 bg-gray-50">
+                          {selectedFiles.map((file, index) => (
+                            <div key={index} className="flex items-center justify-between text-sm">
+                              <div className="flex items-center gap-2">
+                                <Paperclip className="h-4 w-4 text-gray-500" />
+                                <span className="truncate">{file.name}</span>
+                                <span className="text-gray-500">({(file.size / 1024).toFixed(1)} KB)</span>
+                              </div>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => removeFile(index)}
+                                className="h-6 w-6 p-0 text-red-600 hover:text-red-800"
+                              >
+                                ×
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 <div className="flex justify-end gap-3 pt-4">
                   <Button
                     type="button"
@@ -491,14 +705,16 @@ export default function TaskManager() {
                   >
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={loading}>
-                    {loading 
-                      ? 'Saving...' 
-                      : editingTask 
-                        ? 'Update Task' 
-                        : formData.assignToAll 
-                          ? `Create Tasks for All (${employees.length})` 
-                          : 'Create Task'
+                  <Button type="submit" disabled={loading || uploadingFiles}>
+                    {uploadingFiles 
+                      ? 'Uploading files...' 
+                      : loading 
+                        ? 'Saving...' 
+                        : editingTask 
+                          ? 'Update Task' 
+                          : formData.assignToAll 
+                            ? `Create Tasks for All (${employees.length})` 
+                            : 'Create Task'
                     }
                   </Button>
                 </div>
@@ -527,10 +743,16 @@ export default function TaskManager() {
               </TableHeader>
               <TableBody>
                 {tasks.map((task) => (
-                  <TableRow key={task.id}>
+                  <TableRow key={task.id} className="cursor-pointer hover:bg-muted/50" onClick={() => { setDetailTaskId(task.id); markTaskAsViewed(task.id); }}>
                     <TableCell>
                       <div>
-                        <p className="font-medium">{task.title}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{task.title}</p>
+                          <TaskNotificationBadge 
+                            newComments={getTaskNotification(task.id).newComments}
+                            newAttachments={getTaskNotification(task.id).newAttachments}
+                          />
+                        </div>
                         {task.description && (
                           <p className="text-sm text-muted-foreground mt-1">
                             {task.description.length > 100
@@ -565,7 +787,7 @@ export default function TaskManager() {
                     <TableCell>
                       {task.due_date ? new Date(task.due_date).toLocaleDateString() : '-'}
                     </TableCell>
-                    <TableCell className="text-right space-x-2">
+                    <TableCell className="text-right space-x-2" onClick={(e) => e.stopPropagation()}>
                       <Button
                         size="sm"
                         variant="ghost"
@@ -597,6 +819,19 @@ export default function TaskManager() {
           </CardContent>
         </Card>
       </div>
+      <TaskDetailDialog
+        taskId={detailTaskId}
+        open={!!detailTaskId}
+        onOpenChange={(open) => setDetailTaskId(open ? detailTaskId : null)}
+      />
     </Layout>
   );
+}
+
+
+// Dialog mount
+// Placed after main return to avoid large diff; using portal via Dialog
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function TaskDetailDialogMount({ taskId, onClose }: { taskId: string | null; onClose: () => void }) {
+  return null;
 }

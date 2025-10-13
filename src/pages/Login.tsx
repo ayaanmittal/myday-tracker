@@ -52,66 +52,72 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary p-4">
-      <Card className="w-full max-w-md elegant-card elegant-shadow-lg">
-        <CardHeader className="space-y-1 text-center pb-4 sm:pb-6 p-4 sm:p-6">
-          <div className="flex justify-center mb-6">
-            <img src={logo} alt="Logo" className="h-16 w-auto object-contain" />
-          </div>
-          <CardTitle className="font-heading text-3xl font-bold gradient-text">MyDay</CardTitle>
-          <CardDescription className="text-lg text-muted-foreground">
-            Sign in to your account
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleAuth} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-semibold">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="elegant-input"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-semibold">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-                className="elegant-input"
-              />
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="stay-signed-in"
-                checked={staySignedIn}
-                onCheckedChange={(checked) => setStaySignedIn(checked as boolean)}
-              />
-              <label
-                htmlFor="stay-signed-in"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-              >
-                Stay signed in
-              </label>
-            </div>
-            <Button type="submit" className="w-full elegant-button text-lg py-6" disabled={loading}>
-              {loading ? 'Loading...' : 'Sign In'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-      <footer className="fixed bottom-4 text-center w-full text-sm text-muted-foreground">
-        © MyDay Systems
-      </footer>
+    <div className="min-h-screen flex items-center justify-center bg-muted/20 p-6">
+      <div className="w-full max-w-md">
+        <div className="flex flex-col items-center text-center mb-6">
+          <img src={logo} alt="Logo" className="h-16 w-auto object-contain mb-4" />
+          <h1 className="text-2xl font-bold">Login</h1>
+          <p className="text-sm text-muted-foreground">Welcome, please sign in to your dashboard</p>
+        </div>
+        <Card className="w-full">
+          <CardHeader className="pb-2">
+            <CardTitle className="sr-only">Sign In</CardTitle>
+            <CardDescription className="sr-only">Use your email and password</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleAuth} className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="email" className="text-sm font-medium">Email Address</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="test@mail.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password" className="text-sm font-medium">Password</Label>
+                  <button
+                    type="button"
+                    className="text-sm text-primary hover:underline"
+                    onClick={() => navigate('/forgot-password')}
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength={6}
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="remember-me"
+                  checked={staySignedIn}
+                  onCheckedChange={(checked) => setStaySignedIn(checked as boolean)}
+                />
+                <label
+                  htmlFor="remember-me"
+                  className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Remember me
+                </label>
+              </div>
+              <Button type="submit" className="w-full text-base py-6" disabled={loading}>
+                {loading ? 'Loading...' : 'Login'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
