@@ -129,7 +129,7 @@ export default function History() {
     lunch_end: ''
   });
   const [editOverride, setEditOverride] = useState({
-    manual_status: '',
+    manual_status: 'none',
     manual_override_reason: ''
   });
   const [saving, setSaving] = useState(false);
@@ -152,7 +152,7 @@ export default function History() {
         fetchHistory();
       }
     }
-  }, [user, roleLoading, navigate, startDate, endDate]);
+  }, [user, roleLoading, navigate]);
 
   // Handle URL parameters after employees are loaded
   useEffect(() => {
@@ -168,11 +168,19 @@ export default function History() {
     }
   }, [searchParams, role, employees]);
 
+  // Fetch history when employee is selected or dates change
   useEffect(() => {
     if (selectedEmployeeId || role === 'employee') {
       fetchHistory();
     }
   }, [selectedEmployeeId, startDate, endDate, role]);
+
+  // Separate effect to handle date changes for employees
+  useEffect(() => {
+    if (role === 'employee' && user) {
+      fetchHistory();
+    }
+  }, [startDate, endDate, role, user]);
 
   const fetchEmployees = async () => {
     try {
@@ -186,9 +194,14 @@ export default function History() {
 
       setEmployees(employeesData || []);
       
-      // Set current user as default selected employee
-      if (user) {
+      // Set current user as default selected employee only if no employee is already selected
+      if (user && !selectedEmployeeId) {
         setSelectedEmployeeId(user.id);
+        // Find and set the current user's name
+        const currentUser = employeesData?.find(emp => emp.id === user.id);
+        if (currentUser) {
+          setSelectedEmployeeName(currentUser.name);
+        }
       }
     } catch (error) {
       console.error('Error fetching employees:', error);
@@ -420,7 +433,7 @@ export default function History() {
     });
 
     setEditOverride({
-      manual_status: entry.manual_status || '',
+      manual_status: entry.manual_status || 'none',
       manual_override_reason: entry.manual_override_reason || ''
     });
 
@@ -560,7 +573,7 @@ export default function History() {
           lunch_break_start: lunchStartDateTime,
           lunch_break_end: lunchEndDateTime,
           total_work_time_minutes: newTotalMinutes > 0 ? Math.round(newTotalMinutes) : 0,
-          manual_status: editOverride.manual_status || null,
+          manual_status: editOverride.manual_status === 'none' ? null : editOverride.manual_status || null,
           manual_override_by: user.id,
           manual_override_at: new Date().toISOString(),
           manual_override_reason: editOverride.manual_override_reason || null,
@@ -669,26 +682,34 @@ export default function History() {
   return (
     <Layout>
       <div className="p-4 sm:p-6 max-w-4xl mx-auto space-y-4 sm:space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            {selectedEmployeeName && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/employees')}
-                className="flex items-center gap-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back to Employees
-              </Button>
-            )}
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
-                {selectedEmployeeName ? `${selectedEmployeeName}'s Work History` : 'Work History'}
-              </h1>
-              <p className="text-muted-foreground text-sm sm:text-base">
-                {new Date(startDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} - {new Date(endDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-              </p>
+        <div className="space-y-6">
+          {/* Header Section */}
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-100">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                {selectedEmployeeName && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => navigate('/employees')}
+                    className="flex items-center gap-2 hover:bg-white/50 transition-colors"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Back to Employees
+                  </Button>
+                )}
+                <div className="space-y-2">
+                  <h1 className="text-3xl sm:text-4xl font-bold tracking-tight bg-gradient-to-r from-gray-900 to-gray-700 bg-clip-text text-transparent">
+                    {selectedEmployeeName ? `${selectedEmployeeName}'s Work History` : 'Work History'}
+                  </h1>
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Calendar className="h-4 w-4" />
+                    <p className="text-sm sm:text-base font-medium">
+                      {new Date(startDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} - {new Date(endDate).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
           <div className="flex flex-col sm:flex-row gap-4">
@@ -712,6 +733,32 @@ export default function History() {
                 className="w-full sm:w-auto"
               />
             </div>
+            {(role === 'admin' || role === 'manager') && (
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="employee-select" className="text-sm font-medium">Employee</Label>
+                <Select
+                  value={selectedEmployeeId}
+                  onValueChange={(value) => {
+                    setSelectedEmployeeId(value);
+                    const employee = employees.find(emp => emp.id === value);
+                    if (employee) {
+                      setSelectedEmployeeName(employee.name);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="w-full sm:w-auto">
+                    <SelectValue placeholder="Select employee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {employees.map((employee) => (
+                      <SelectItem key={employee.id} value={employee.id}>
+                        {employee.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="flex flex-col gap-2">
               <Label className="text-sm font-medium text-transparent">Actions</Label>
               <Button
@@ -728,32 +775,56 @@ export default function History() {
 
         {/* Summary Section */}
         {entries.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <Card>
+          <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
+            <Card className="border-gray-200 hover:shadow-md transition-shadow">
               <CardContent className="p-4">
-                <div className="text-2xl font-bold">{entries.length}</div>
+                <div className="text-2xl font-bold text-gray-900">{entries.length}</div>
                 <p className="text-sm text-muted-foreground">Total Days</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="border-green-200 hover:shadow-md transition-shadow">
               <CardContent className="p-4">
-                <div className="text-2xl font-bold">
+                <div className="text-2xl font-bold text-green-600">
                   {entries.filter(e => e.status === 'completed').length}
                 </div>
                 <p className="text-sm text-muted-foreground">Completed Days</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="border-amber-200 hover:shadow-md transition-shadow">
               <CardContent className="p-4">
-                <div className="text-2xl font-bold">
+                <div className="text-2xl font-bold text-amber-600">
                   {entries.filter(e => e.status === 'in_progress').length}
                 </div>
                 <p className="text-sm text-muted-foreground">In Progress</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="border-red-200 hover:shadow-md transition-shadow">
               <CardContent className="p-4">
-                <div className="text-2xl font-bold">
+                <div className="text-2xl font-bold text-red-600">
+                  {entries.filter(e => e.status === 'absent').length}
+                </div>
+                <p className="text-sm text-muted-foreground">Absent Days</p>
+              </CardContent>
+            </Card>
+            <Card className="border-blue-200 hover:shadow-md transition-shadow">
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-blue-600">
+                  {entries.filter(e => e.status === 'holiday').length}
+                </div>
+                <p className="text-sm text-muted-foreground">Holiday Days</p>
+              </CardContent>
+            </Card>
+            <Card className="border-orange-200 hover:shadow-md transition-shadow">
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-orange-600">
+                  {entries.filter(e => e.is_late).length}
+                </div>
+                <p className="text-sm text-muted-foreground">Late Entries</p>
+              </CardContent>
+            </Card>
+            <Card className="border-indigo-200 hover:shadow-md transition-shadow">
+              <CardContent className="p-4">
+                <div className="text-2xl font-bold text-indigo-600">
                   {Math.round(entries.reduce((sum, e) => sum + (e.total_work_time_minutes || 0), 0) / 60)}h
                 </div>
                 <p className="text-sm text-muted-foreground">Total Work Hours</p>
@@ -814,7 +885,7 @@ export default function History() {
                                   })}
                                 </span>
                               )}
-                              {entry.total_work_time_minutes && (
+                              {entry.total_work_time_minutes > 0 && (
                                 <span>
                                   {Math.floor(entry.total_work_time_minutes / 60)}h{' '}
                                   {entry.total_work_time_minutes % 60}m worked
@@ -999,9 +1070,10 @@ export default function History() {
                               <SelectValue placeholder="Select status override" />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="">No Override (Use Original Status)</SelectItem>
+                              <SelectItem value="none">No Override (Use Original Status)</SelectItem>
                               <SelectItem value="present">Present (No Times Required)</SelectItem>
                               <SelectItem value="absent">Absent</SelectItem>
+                              <SelectItem value="holiday">Holiday</SelectItem>
                               <SelectItem value="leave_granted">Leave Granted</SelectItem>
                             </SelectContent>
                           </Select>
@@ -1107,20 +1179,36 @@ export default function History() {
                       </div>
                     </>
                   )}
-                  {selectedEntry.total_work_time_minutes && (
-                    <div>
-                      <span className="text-muted-foreground">Total work time:</span>
-                      <p className="font-medium text-success">
-                        {Math.floor(selectedEntry.total_work_time_minutes / 60)}h{' '}
-                        {selectedEntry.total_work_time_minutes % 60}m
-                        {selectedEntry.extra_work_logs && selectedEntry.extra_work_logs.length > 0 && (
-                          <span className="text-success">
-                            {' '}+ {getTotalExtraHours(selectedEntry.extra_work_logs).toFixed(1)}h extra
-                          </span>
-                        )}
-                      </p>
-                      </div>
-                    )}
+                  <div>
+                    <span className="text-muted-foreground">Total work time:</span>
+                    <p className="font-medium text-success">
+                      {selectedEntry.total_work_time_minutes > 0 ? (
+                        <>
+                          {Math.floor(selectedEntry.total_work_time_minutes / 60)}h{' '}
+                          {selectedEntry.total_work_time_minutes % 60}m
+                          {selectedEntry.extra_work_logs && selectedEntry.extra_work_logs.length > 0 && (
+                            <span className="text-success">
+                              {' '}+ {getTotalExtraHours(selectedEntry.extra_work_logs).toFixed(1)}h extra
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        'No work time recorded'
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Status:</span>
+                    <p className="font-medium">
+                      {selectedEntry.status === 'completed' ? 'Completed' :
+                       selectedEntry.status === 'in_progress' ? 'In Progress' :
+                       selectedEntry.status === 'absent' ? 'Absent' :
+                       selectedEntry.status === 'holiday' ? 'Holiday' :
+                       selectedEntry.status === 'leave_granted' ? 'Leave Granted' :
+                       selectedEntry.status === 'violation_only' ? 'Rule Violations Only' :
+                       selectedEntry.status.replace('_', ' ')}
+                    </p>
+                  </div>
                     {selectedEntry.last_modified_by && selectedEntry.modification_reason && (
                       <div className="col-span-2">
                         <span className="text-muted-foreground">Last modified:</span>

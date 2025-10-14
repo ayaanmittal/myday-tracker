@@ -82,11 +82,43 @@ export default function Tasks() {
 
   const fetchTasks = async () => {
     try {
-      // First, fetch tasks without the profile join
+      // First, get all task IDs where the user is either the primary assignee or an additional assignee
+      const { data: primaryTasks, error: primaryError } = await supabase
+        .from('tasks')
+        .select('id')
+        .eq('assigned_to', user?.id);
+
+      if (primaryError) {
+        throw primaryError;
+      }
+
+      const { data: additionalTasks, error: additionalError } = await supabase
+        .from('task_assignees')
+        .select('task_id')
+        .eq('user_id', user?.id);
+
+      if (additionalError) {
+        throw additionalError;
+      }
+
+      // Combine all task IDs (remove duplicates)
+      const allTaskIds = [
+        ...(primaryTasks?.map(t => t.id) || []),
+        ...(additionalTasks?.map(t => t.task_id) || [])
+      ];
+      const uniqueTaskIds = [...new Set(allTaskIds)];
+
+      if (uniqueTaskIds.length === 0) {
+        setTasks([]);
+        setLoading(false);
+        return;
+      }
+
+      // Now fetch the full task data for all these tasks
       const { data: tasksData, error: tasksError } = await supabase
         .from('tasks')
         .select('*')
-        .eq('assigned_to', user?.id)
+        .in('id', uniqueTaskIds)
         .order('created_at', { ascending: false });
 
       if (tasksError) {

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Holiday Status</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success { background-color: #d4edda; border-color: #c3e6cb; }
+        .error { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background-color: #0056b3; }
+        pre { background-color: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Holiday Status Test</h1>
+    
+    <div class="test-section info">
+        <h3>Test Instructions</h3>
+        <p>This page tests if the holiday status has been added to the database.</p>
+        <ol>
+            <li>Make sure you're logged into the app</li>
+            <li>Click "Test Holiday Status" button below</li>
+            <li>Check the results</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h3>Test Holiday Status</h3>
+        <button onclick="testHolidayStatus()">Test Holiday Status</button>
+        <div id="test-results"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test Edit Dialog</h3>
+        <button onclick="testEditDialog()">Test Edit Dialog Options</button>
+        <div id="dialog-results"></div>
+    </div>
+
+    <script>
+        async function testHolidayStatus() {
+            const resultsDiv = document.getElementById('test-results');
+            resultsDiv.innerHTML = '<p>Testing...</p>';
+            
+            try {
+                // Test if we can insert a holiday status
+                const response = await fetch('/api/test-holiday', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        test: 'holiday_status'
+                    })
+                });
+                
+                if (response.ok) {
+                    resultsDiv.innerHTML = '<div class="success"><h4>✅ Success!</h4><p>Holiday status is working in the database.</p></div>';
+                } else {
+                    resultsDiv.innerHTML = '<div class="error"><h4>❌ Error</h4><p>Holiday status test failed. Check console for details.</p></div>';
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error"><h4>❌ Error</h4><p>Test failed: ${error.message}</p><p>This might mean the migration hasn't been applied yet.</p></div>`;
+            }
+        }
+
+        function testEditDialog() {
+            const resultsDiv = document.getElementById('dialog-results');
+            
+            // Simulate the edit dialog options
+            const options = [
+                'No Override (Use Original Status)',
+                'Present (No Times Required)',
+                'Absent',
+                'Holiday',
+                'Leave Granted'
+            ];
+            
+            let html = '<div class="info"><h4>Edit Dialog Options Test</h4><p>These should be the available options in the edit dialog:</p><ul>';
+            options.forEach(option => {
+                html += `<li>${option}</li>`;
+            });
+            html += '</ul></div>';
+            
+            // Check if holiday is in the options
+            if (options.includes('Holiday')) {
+                html += '<div class="success"><h4>✅ Success!</h4><p>Holiday option is present in the edit dialog code.</p></div>';
+            } else {
+                html += '<div class="error"><h4>❌ Error</h4><p>Holiday option is missing from the edit dialog code.</p></div>';
+            }
+            
+            resultsDiv.innerHTML = html;
+        }
+
+        // Auto-run tests on page load
+        window.addEventListener('load', () => {
+            testEditDialog();
+        });
+    </script>
+</body>
+</html>

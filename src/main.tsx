@@ -12,10 +12,33 @@ console.log('Is mobile device:', isMobile);
 // Enhanced error handling for mobile
 window.addEventListener('error', (event) => {
   console.error('JavaScript error in main.tsx:', event.error);
+  console.error('Error details:', {
+    message: event.message,
+    filename: event.filename,
+    lineno: event.lineno,
+    colno: event.colno,
+    error: event.error
+  });
   
-  // Show user-friendly error on mobile
-  if (isMobile) {
+  // Only show error UI for critical errors, not minor issues
+  const isCriticalError = event.error && (
+    event.error.message?.includes('Cannot read properties') ||
+    event.error.message?.includes('Cannot access') ||
+    event.error.message?.includes('is not defined') ||
+    event.error.message?.includes('is not a function') ||
+    event.error.message?.includes('NetworkError') ||
+    event.error.message?.includes('Failed to fetch')
+  );
+  
+  // Show user-friendly error on mobile for critical errors only
+  if (isMobile && isCriticalError) {
+    // Check if error UI is already shown
+    if (document.querySelector('.mobile-error-overlay')) {
+      return;
+    }
+    
     const errorDiv = document.createElement('div');
+    errorDiv.className = 'mobile-error-overlay';
     errorDiv.innerHTML = `
       <div style="
         position: fixed;
@@ -32,8 +55,71 @@ window.addEventListener('error', (event) => {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       ">
         <div style="text-align: center; max-width: 300px;">
-          <h2 style="color: #dc2626; margin-bottom: 16px;">App Error</h2>
-          <p style="color: #7f1d1d; margin-bottom: 16px;">Something went wrong. Please try refreshing the page.</p>
+          <h2 style="color: #dc2626; margin-bottom: 16px;">Mobile Error</h2>
+          <p style="color: #7f1d1d; margin-bottom: 16px;">There was an error loading the app on mobile. Please try refreshing the page.</p>
+          <div style="background: #f3f4f6; padding: 10px; border-radius: 4px; margin: 10px 0; font-size: 12px; text-align: left;">
+            <strong>Error:</strong> ${event.message}<br>
+            <strong>File:</strong> ${event.filename}<br>
+            <strong>Line:</strong> ${event.lineno}
+          </div>
+          <button onclick="window.location.reload()" style="
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 14px;
+            cursor: pointer;
+          ">Refresh Page</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(errorDiv);
+  }
+});
+
+// Handle unhandled promise rejections
+window.addEventListener('unhandledrejection', (event) => {
+  console.error('Unhandled promise rejection:', event.reason);
+  
+  // Only show error UI for critical promise rejections
+  const isCriticalRejection = event.reason && (
+    event.reason.message?.includes('NetworkError') ||
+    event.reason.message?.includes('Failed to fetch') ||
+    event.reason.message?.includes('Cannot read properties') ||
+    event.reason.message?.includes('Cannot access') ||
+    event.reason.message?.includes('is not defined')
+  );
+  
+  if (isMobile && isCriticalRejection) {
+    // Check if error UI is already shown
+    if (document.querySelector('.mobile-error-overlay')) {
+      return;
+    }
+    
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'mobile-error-overlay';
+    errorDiv.innerHTML = `
+      <div style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: #fef2f2;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+        padding: 20px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      ">
+        <div style="text-align: center; max-width: 300px;">
+          <h2 style="color: #dc2626; margin-bottom: 16px;">Mobile Error</h2>
+          <p style="color: #7f1d1d; margin-bottom: 16px;">There was an error loading the app on mobile. Please try refreshing the page.</p>
+          <div style="background: #f3f4f6; padding: 10px; border-radius: 4px; margin: 10px 0; font-size: 12px; text-align: left;">
+            <strong>Promise Error:</strong> ${event.reason}
+          </div>
           <button onclick="window.location.reload()" style="
             background: #3b82f6;
             color: white;

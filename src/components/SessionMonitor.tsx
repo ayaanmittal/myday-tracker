@@ -50,15 +50,20 @@ export function SessionMonitor() {
         
         if (error) {
           console.error('Failed to refresh session:', error);
+          // Don't force logout on refresh error, let the session manager handle it
         } else {
           console.log('Session refreshed successfully');
         }
       } catch (error) {
         console.error('Error refreshing session:', error);
+        // Don't force logout on refresh error, let the session manager handle it
       }
     };
 
-    refreshSession();
+    // Only refresh if session is actually expired and user wants to stay signed in
+    if (sessionInfo.isExpired && isStaySignedIn) {
+      refreshSession();
+    }
   }, [sessionInfo.isExpired, isStaySignedIn, session]);
 
   // Only show in development

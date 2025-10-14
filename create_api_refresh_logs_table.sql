@@ -40,3 +40,4 @@ CREATE INDEX IF NOT EXISTS idx_api_refresh_logs_admin_user_id ON public.api_refr
 GRANT ALL ON public.api_refresh_logs TO authenticated;
 GRANT ALL ON public.api_refresh_logs TO service_role;
 
+

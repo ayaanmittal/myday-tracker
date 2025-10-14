@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 export class SessionManager {
   private static instance: SessionManager;
   private refreshInterval: NodeJS.Timeout | null = null;
-  private readonly REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
+  private readonly REFRESH_INTERVAL = 15 * 60 * 1000; // 15 minutes
 
   static getInstance(): SessionManager {
     if (!SessionManager.instance) {
@@ -27,7 +27,10 @@ export class SessionManager {
 
       if (session) {
         console.log('Found existing session for:', session.user.email);
-        this.startSessionRefresh();
+        // Only start refresh if user wants to stay signed in
+        if (this.isStaySignedIn()) {
+          this.startSessionRefresh();
+        }
       }
     } catch (error) {
       console.error('Error initializing session manager:', error);
@@ -38,23 +41,40 @@ export class SessionManager {
    * Start automatic session refresh
    */
   startSessionRefresh(): void {
+    // Don't start if already running
     if (this.refreshInterval) {
-      clearInterval(this.refreshInterval);
+      console.log('Session refresh already running');
+      return;
     }
 
+    // Don't start if user doesn't want to stay signed in
+    if (!this.isStaySignedIn()) {
+      console.log('User not opted for stay signed in, skipping session refresh');
+      return;
+    }
+
+    console.log('Starting session refresh with interval:', this.REFRESH_INTERVAL / 1000 / 60, 'minutes');
+    
     this.refreshInterval = setInterval(async () => {
       try {
+        // Check if user still wants to stay signed in
+        if (!this.isStaySignedIn()) {
+          console.log('User no longer wants to stay signed in, stopping refresh');
+          this.stopSessionRefresh();
+          return;
+        }
+
         const { data: { session }, error } = await supabase.auth.refreshSession();
         
         if (error) {
           console.error('Error refreshing session:', error);
-          this.stopSessionRefresh();
+          // Don't stop refresh on single error, let it retry
         } else if (session) {
           console.log('Session refreshed successfully for:', session.user.email);
         }
       } catch (error) {
         console.error('Error in session refresh:', error);
-        this.stopSessionRefresh();
+        // Don't stop refresh on single error, let it retry
       }
     }, this.REFRESH_INTERVAL);
   }
@@ -117,6 +137,13 @@ export class SessionManager {
       console.error('Error checking session validity:', error);
       return false;
     }
+  }
+
+  /**
+   * Check if session refresh is currently running
+   */
+  isRefreshRunning(): boolean {
+    return this.refreshInterval !== null;
   }
 }
 

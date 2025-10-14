@@ -34,3 +34,4 @@ CREATE POLICY "Admins can insert API refresh logs"
 CREATE INDEX idx_api_refresh_logs_created_at ON public.api_refresh_logs(created_at DESC);
 CREATE INDEX idx_api_refresh_logs_admin_user_id ON public.api_refresh_logs(admin_user_id);
 
+

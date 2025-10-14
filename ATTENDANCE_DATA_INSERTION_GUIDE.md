@@ -349,3 +349,5 @@ AND log_time >= NOW() - INTERVAL '24 hours';
 
 
 
+
+

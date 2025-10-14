@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
+import { useToast } from '@/hooks/use-toast';
 import {
   Plus, Edit, Trash2, CheckCircle, Clock, AlertCircle, User, Calendar, Paperclip, MessageSquare, Bell, ListChecks, Play, StopCircle, ArrowUp, ArrowDown
 } from 'lucide-react';
@@ -30,6 +31,16 @@ interface Task {
   last_updated: string;
   assigned_to: string;
   assigned_by: string;
+  assigned_user?: {
+    id: string;
+    name: string;
+    email: string;
+  };
+  assigned_by_user?: {
+    id: string;
+    name: string;
+    email: string;
+  };
 }
 
 interface Comment {
@@ -93,19 +104,57 @@ interface Timer {
 export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialogProps) {
   const { user } = useAuth();
   const { data: role } = useUserRole();
+  const { toast } = useToast();
   const isAdminOrManager = role === 'admin' || role === 'manager';
 
   const [task, setTask] = useState<Task | null>(null);
+  const [assignees, setAssignees] = useState<Assignee[]>([]);
+  
+  // Check if current user is assigned to this task (primary or additional assignee)
+  const isAssignedToTask = task && user && (
+    task.assigned_to === user.id || 
+    (assignees && assignees.some(a => a.user_id === user.id))
+  );
+  
+  // Check if current user can manage this task (admin, manager, or assigned to task)
+  const canManageTask = isAdminOrManager || isAssignedToTask;
+  
+  // Check if current user can view this task (admin, manager, assigned to task, or follower)
+  const canViewTask = isAdminOrManager || isAssignedToTask || (followers && followers.some(f => f.user_id === user?.id));
+  
+  // For now, let's make comments and attachments visible to everyone who can see the task
+  // This ensures additional assignees can see them even if the assignees array isn't loaded yet
+  const canSeeCommentsAndAttachments = isAdminOrManager || (task && user && task.assigned_to === user.id) || (assignees && assignees.some(a => a.user_id === user?.id)) || (followers && followers.some(f => f.user_id === user?.id));
+  
+  // Debug logging
+  useEffect(() => {
+    if (task && user) {
+      console.log('TaskDetailDialog Access Debug:', {
+        userId: user.id,
+        taskAssignedTo: task.assigned_to,
+        isPrimaryAssignee: task.assigned_to === user.id,
+        assignees: assignees.map(a => a.user_id),
+        isAdditionalAssignee: assignees.some(a => a.user_id === user.id),
+        isAssignedToTask,
+        canManageTask,
+        canViewTask,
+        isAdminOrManager
+      });
+    }
+  }, [task, user, assignees, isAssignedToTask, canManageTask, canViewTask, isAdminOrManager]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [commentAssignee, setCommentAssignee] = useState<string>('ALL');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [generatingZip, setGeneratingZip] = useState(false);
-  const [assignees, setAssignees] = useState<Assignee[]>([]);
   const [followers, setFollowers] = useState<Follower[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
+  const [editingChecklistItem, setEditingChecklistItem] = useState<string | null>(null);
+  const [editingChecklistContent, setEditingChecklistContent] = useState<string>('');
+  const [reminders, setReminders] = useState<any[]>([]);
+  const [newReminder, setNewReminder] = useState<string>('');
   const [userSeconds, setUserSeconds] = useState<number>(0);
   const [runningTimer, setRunningTimer] = useState<Timer | null>(null);
   const [loadingComments, setLoadingComments] = useState(false);
@@ -120,6 +169,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
     void loadFollowers();
     void loadUsers();
     void loadChecklist();
+    void loadReminders();
     void loadUserTime();
     void loadRunningTimer();
   }, [taskId, open]);
@@ -131,15 +181,43 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
 
   async function loadTask() {
     try {
-      const { data, error } = await supabase.from('tasks').select('*').eq('id', taskId).single();
-      if (error) {
-        console.error('Error loading task:', error);
-      } else {
-        console.log('Task loaded:', data);
+      const { data: taskData, error: taskError } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('id', taskId)
+        .single();
+      
+      if (taskError) {
+        console.error('Error loading task:', taskError);
+        setTask(null);
+        return;
       }
-      setTask(data);
+
+      // Get assigned user details
+      const { data: assignedUser } = await supabase
+        .from('profiles')
+        .select('id, name, email')
+        .eq('id', taskData.assigned_to)
+        .single();
+
+      // Get assigned by user details
+      const { data: assignedByUser } = await supabase
+        .from('profiles')
+        .select('id, name, email')
+        .eq('id', taskData.assigned_by)
+        .single();
+
+      const taskWithUsers = {
+        ...taskData,
+        assigned_user: assignedUser,
+        assigned_by_user: assignedByUser
+      };
+
+      console.log('Task loaded:', taskWithUsers);
+      setTask(taskWithUsers);
     } catch (err) {
       console.error('Error in loadTask:', err);
+      setTask(null);
     }
   }
 
@@ -152,16 +230,24 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
   async function loadUserTime() {
     if (!taskId) return;
     try {
-      const { data } = await supabase
-        .from('v_task_time_by_user')
-        .select('total_minutes, seconds_spent')
+      const { data: user } = await supabase.auth.getUser();
+      if (!user?.user?.id) return;
+
+      const { data, error } = await supabase
+        .from('task_timers')
+        .select('duration_minutes')
         .eq('task_id', taskId)
-        .eq('user_id', (await supabase.auth.getUser()).data.user?.id || '')
-        .single();
-      
-      // Handle both column names for backward compatibility
-      const minutes = data?.total_minutes || (data?.seconds_spent ? Math.floor(data.seconds_spent / 60) : 0);
-      setUserSeconds(minutes * 60);
+        .eq('user_id', user.user.id);
+
+      if (error) {
+        console.error('Error loading user time:', error);
+        setUserSeconds(0);
+        return;
+      }
+
+      // Calculate total seconds from all timer records
+      const totalMinutes = data?.reduce((sum, timer) => sum + (timer.duration_minutes || 0), 0) || 0;
+      setUserSeconds(totalMinutes * 60);
     } catch (err) {
       console.error('Error loading user time:', err);
       setUserSeconds(0);
@@ -369,21 +455,104 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
   }
 
   async function loadAssignees() {
-    const { data } = await supabase
-      .from('task_assignees')
-      .select('id, user_id, user: user_id (id, name, email)')
-      .eq('task_id', taskId)
-      .order('assigned_at', { ascending: false });
-    setAssignees(data || []);
+    try {
+      console.log('Loading assignees for task:', taskId);
+      const { data, error } = await supabase
+        .from('task_assignees')
+        .select('id, user_id, assigned_at')
+        .eq('task_id', taskId)
+        .order('assigned_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error loading assignees:', error);
+        setAssignees([]);
+        return;
+      }
+      
+      console.log('Raw assignees data from DB:', data);
+
+      // Get user details for each assignee
+      const assigneesWithUsers = await Promise.all(
+        (data || []).map(async (assignee) => {
+          const { data: user } = await supabase
+            .from('profiles')
+            .select('id, name, email')
+            .eq('id', assignee.user_id)
+            .single();
+          
+          return {
+            ...assignee,
+            user
+          };
+        })
+      );
+
+      // Ensure primary assignee is in the list
+      if (task?.assigned_to) {
+        const primaryAssigneeExists = assigneesWithUsers.some(a => a.user_id === task.assigned_to);
+        if (!primaryAssigneeExists) {
+          // Add primary assignee to the list
+          const { data: primaryUser } = await supabase
+            .from('profiles')
+            .select('id, name, email')
+            .eq('id', task.assigned_to)
+            .single();
+          
+          if (primaryUser) {
+            assigneesWithUsers.unshift({
+              id: `primary-${task.assigned_to}`,
+              user_id: task.assigned_to,
+              assigned_at: task.created_at,
+              user: primaryUser
+            });
+          }
+        }
+      }
+      
+      console.log('Loaded assignees:', assigneesWithUsers);
+
+      setAssignees(assigneesWithUsers);
+    } catch (err) {
+      console.error('Error in loadAssignees:', err);
+      setAssignees([]);
+    }
   }
 
   async function loadFollowers() {
-    const { data } = await supabase
-      .from('task_followers')
-      .select('id, user_id, user: user_id (id, name, email)')
-      .eq('task_id', taskId)
-      .order('followed_at', { ascending: false });
-    setFollowers(data || []);
+    try {
+      const { data, error } = await supabase
+        .from('task_followers')
+        .select('id, user_id, followed_at')
+        .eq('task_id', taskId)
+        .order('followed_at', { ascending: false });
+      
+      if (error) {
+        console.error('Error loading followers:', error);
+        setFollowers([]);
+        return;
+      }
+
+      // Get user details for each follower
+      const followersWithUsers = await Promise.all(
+        (data || []).map(async (follower) => {
+          const { data: user } = await supabase
+            .from('profiles')
+            .select('id, name, email')
+            .eq('id', follower.user_id)
+            .single();
+          
+          return {
+            ...follower,
+            user
+          };
+        })
+      );
+
+      setFollowers(followersWithUsers);
+    } catch (err) {
+      console.error('Error in loadFollowers:', err);
+      setFollowers([]);
+    }
   }
 
   async function loadUsers() {
@@ -398,6 +567,66 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
       .eq('task_id', taskId)
       .order('sort_order', { ascending: true });
     setChecklist(data || []);
+  }
+
+  async function loadReminders() {
+    const { data } = await supabase
+      .from('task_reminders')
+      .select('*')
+      .eq('task_id', taskId)
+      .order('remind_at', { ascending: true });
+    setReminders(data || []);
+  }
+
+  async function addReminder() {
+    if (!taskId || !newReminder.trim()) return;
+    
+    const { error } = await supabase
+      .from('task_reminders')
+      .insert({
+        task_id: taskId,
+        note: newReminder.trim(),
+        remind_at: new Date().toISOString(),
+        created_by: user?.id
+      });
+    
+    if (error) {
+      console.error('Error adding reminder:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to add reminder',
+        variant: 'destructive',
+      });
+    } else {
+      setNewReminder('');
+      void loadReminders();
+      toast({
+        title: 'Success',
+        description: 'Reminder added successfully',
+      });
+    }
+  }
+
+  async function removeReminder(id: string) {
+    const { error } = await supabase
+      .from('task_reminders')
+      .delete()
+      .eq('id', id);
+    
+    if (error) {
+      console.error('Error removing reminder:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to remove reminder',
+        variant: 'destructive',
+      });
+    } else {
+      void loadReminders();
+      toast({
+        title: 'Success',
+        description: 'Reminder removed successfully',
+      });
+    }
   }
 
   async function addChecklistItem() {
@@ -437,6 +666,45 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
     const { error } = await supabase.from('task_checklist').delete().eq('id', id);
     if (error) console.error('Error deleting checklist item:', error);
     else void loadChecklist();
+  }
+
+  function startEditingChecklistItem(item: ChecklistItem) {
+    setEditingChecklistItem(item.id);
+    setEditingChecklistContent(item.content);
+  }
+
+  function cancelEditingChecklistItem() {
+    setEditingChecklistItem(null);
+    setEditingChecklistContent('');
+  }
+
+  async function saveChecklistItemEdit(itemId: string) {
+    if (!editingChecklistContent.trim()) {
+      cancelEditingChecklistItem();
+      return;
+    }
+
+    const { error } = await supabase
+      .from('task_checklist')
+      .update({ content: editingChecklistContent.trim() })
+      .eq('id', itemId);
+    
+    if (error) {
+      console.error('Error updating checklist item:', error);
+    } else {
+      void loadChecklist();
+    }
+    
+    cancelEditingChecklistItem();
+  }
+
+  function handleChecklistKeyDown(e: React.KeyboardEvent, itemId: string) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      void saveChecklistItemEdit(itemId);
+    } else if (e.key === 'Escape') {
+      cancelEditingChecklistItem();
+    }
   }
 
   async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -536,15 +804,71 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
 
   async function addAssignee(userId: string) {
     if (!taskId) return;
+    
+    // Don't add if it's the primary assignee (already in the list)
+    if (userId === task?.assigned_to) {
+      toast({
+        title: 'Info',
+        description: 'This person is already the primary assignee',
+        variant: 'default',
+      });
+      return;
+    }
+    
+    // Don't add if already in assignees list
+    if (assignees.some(a => a.user_id === userId)) {
+      toast({
+        title: 'Info',
+        description: 'This person is already assigned to this task',
+        variant: 'default',
+      });
+      return;
+    }
+    
     const { error } = await supabase.from('task_assignees').insert({ task_id: taskId, user_id: userId });
-    if (error) console.error('Error adding assignee:', error);
-    else void loadAssignees();
+    if (error) {
+      console.error('Error adding assignee:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to add assignee',
+        variant: 'destructive',
+      });
+    } else {
+      void loadAssignees();
+      toast({
+        title: 'Success',
+        description: 'Assignee added successfully',
+      });
+    }
   }
 
   async function removeAssignee(id: string) {
+    // Find the assignee to check if it's the primary assignee
+    const assigneeToRemove = assignees.find(a => a.id === id);
+    if (assigneeToRemove && assigneeToRemove.user_id === task?.assigned_to) {
+      toast({
+        title: 'Cannot Remove',
+        description: 'Cannot remove the primary assignee from this task',
+        variant: 'destructive',
+      });
+      return;
+    }
+    
     const { error } = await supabase.from('task_assignees').delete().eq('id', id);
-    if (error) console.error('Error removing assignee:', error);
-    else void loadAssignees();
+    if (error) {
+      console.error('Error removing assignee:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to remove assignee',
+        variant: 'destructive',
+      });
+    } else {
+      void loadAssignees();
+      toast({
+        title: 'Success',
+        description: 'Assignee removed successfully',
+      });
+    }
   }
 
   async function addFollower(userId: string) {
@@ -561,8 +885,12 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
   }
 
   async function removeAttachment(attachmentId: string, filePath: string) {
-    if (!isAdminOrManager) {
-      alert('Only admins and managers can remove attachments');
+    if (!canManageTask) {
+      toast({
+        title: 'Access Denied',
+        description: 'Only admins, managers, or assigned users can remove attachments',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -609,7 +937,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
   if (!task) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-5xl p-0 overflow-hidden">
+        <DialogContent className="max-w-4xl max-h-[90vh] w-[95vw] p-0 overflow-hidden">
           <div className="p-6">Loading...</div>
         </DialogContent>
       </Dialog>
@@ -618,16 +946,22 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl p-0 overflow-hidden">
-        <div className="grid grid-cols-1 lg:grid-cols-[1.8fr_1fr]">
+      <DialogContent className="max-w-4xl max-h-[90vh] w-[95vw] p-0 overflow-hidden flex flex-col">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.8fr_1fr] flex-1 overflow-hidden min-h-0">
           {/* Left: main content */}
-          <div className="p-6">
+          <div className="p-6 overflow-y-auto">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">{task.title}</h2>
               <Badge className="text-xs capitalize">{(task.status || '').replace('_',' ') || 'in progress'}</Badge>
             </div>
             <div className="mt-3 flex items-center gap-3 text-sm">
               <div className="text-muted-foreground">Created • {new Date(task.created_at).toLocaleString()}</div>
+              {task.assigned_user && (
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <User className="h-3 w-3" />
+                  <span>Assigned to {task.assigned_user.name || task.assigned_user.email}</span>
+                </div>
+              )}
               <div className="ml-auto flex items-center gap-2">
                 <Button
                   size="sm" 
@@ -660,12 +994,58 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                 )}
                 {checklist.map((item, i) => (
                   <div key={item.id} className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={!!item.is_done} onChange={() => void toggleChecklist(item)} />
-                    <span className={item.is_done ? 'line-through text-muted-foreground' : ''}>{item.content}</span>
+                    <input 
+                      type="checkbox" 
+                      checked={!!item.is_done} 
+                      onChange={() => void toggleChecklist(item)} 
+                      className="flex-shrink-0"
+                    />
+                    <div className="flex-1 min-w-0">
+                      {editingChecklistItem === item.id ? (
+                        <Input
+                          value={editingChecklistContent}
+                          onChange={(e) => setEditingChecklistContent(e.target.value)}
+                          onKeyDown={(e) => handleChecklistKeyDown(e, item.id)}
+                          onBlur={() => void saveChecklistItemEdit(item.id)}
+                          className="h-6 text-sm"
+                          autoFocus
+                        />
+                      ) : (
+                        <span 
+                          className={`cursor-pointer hover:bg-gray-50 px-1 py-0.5 rounded ${item.is_done ? 'line-through text-muted-foreground' : ''}`}
+                          onClick={() => startEditingChecklistItem(item)}
+                        >
+                          {item.content}
+                        </span>
+                      )}
+                    </div>
                     <div className="ml-auto flex items-center gap-1">
-                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => void moveChecklist(item, 'up')} disabled={i===0}>↑</Button>
-                      <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => void moveChecklist(item, 'down')} disabled={i===checklist.length-1}>↓</Button>
-                      <Button size="icon" variant="ghost" className="h-6 w-6 text-red-600" onClick={() => void deleteChecklist(item.id)}>✕</Button>
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="h-6 w-6 p-0" 
+                        onClick={() => void moveChecklist(item, 'up')} 
+                        disabled={i === 0}
+                      >
+                        <ArrowUp className="h-3 w-3" />
+                      </Button>
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="h-6 w-6 p-0" 
+                        onClick={() => void moveChecklist(item, 'down')} 
+                        disabled={i === checklist.length - 1}
+                      >
+                        <ArrowDown className="h-3 w-3" />
+                      </Button>
+                      <Button 
+                        size="icon" 
+                        variant="ghost" 
+                        className="h-6 w-6 p-0 text-red-600 hover:text-red-700" 
+                        onClick={() => void deleteChecklist(item.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -691,7 +1071,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                         </div>
                         <div className="flex items-center gap-2">
                           <AttachmentLink fileName={a.file_name} filePath={a.file_path} />
-                          {isAdminOrManager && (
+                          {canManageTask && (
                             <Button 
                               size="sm" 
                               variant="ghost" 
@@ -863,7 +1243,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
           </div>
 
           {/* Right: sidebar */}
-          <div className="border-l p-6 bg-background/50">
+          <div className="border-l p-6 bg-background/50 overflow-y-auto">
             <h4 className="text-sm font-semibold mb-1">Task Info</h4>
             <div className="space-y-2 text-sm">
               <div className="flex items-center justify-between"><span className="text-muted-foreground">Status:</span> <span className="capitalize">{(task.status || '').replace('_',' ')}</span></div>
@@ -874,52 +1254,170 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
 
             {/* Reminders */}
             <div className="mt-5">
-              <h4 className="text-sm font-semibold">Reminders</h4>
-              <div className="text-xs text-muted-foreground">No reminders for this task</div>
+              <h4 className="text-sm font-semibold mb-2">Reminders</h4>
+              <div className="space-y-2">
+                {reminders.length === 0 ? (
+                  <div className="text-xs text-muted-foreground">No reminders for this task</div>
+                ) : (
+                  reminders.map((reminder) => (
+                    <div key={reminder.id} className="flex items-center justify-between text-xs bg-yellow-50 border border-yellow-200 rounded p-2">
+                      <div className="flex-1">
+                        <div className="font-medium">{reminder.note}</div>
+                        <div className="text-muted-foreground">
+                          {new Date(reminder.remind_at).toLocaleString()}
+                        </div>
+                      </div>
+                      {canManageTask && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
+                          onClick={() => void removeReminder(reminder.id)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                  ))
+                )}
+                {canManageTask && (
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Add a reminder..."
+                      value={newReminder}
+                      onChange={(e) => setNewReminder(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          void addReminder();
+                        }
+                      }}
+                      className="text-xs h-8"
+                    />
+                    <Button
+                      size="sm"
+                      onClick={() => void addReminder()}
+                      disabled={!newReminder.trim()}
+                      className="h-8 px-3"
+                    >
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Assignees */}
             <div className="mt-5">
-              <h4 className="text-sm font-semibold mb-2">Assignees</h4>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {assignees.map(a => (
-                  <div key={a.id} className="text-xs border rounded px-2 py-1 flex items-center gap-2">
-                    <span>{a.user?.name || a.user?.email}</span>
-                    {isAdminOrManager && (
-                      <button type="button" className="text-red-600" onClick={() => void removeAssignee(a.id)}>×</button>
-                    )}
-                  </div>
-                ))}
-                {assignees.length === 0 && (<div className="text-xs text-muted-foreground">No assignees</div>)}
+              <div className="flex items-center gap-2 mb-2">
+                <h4 className="text-sm font-semibold">Assignees</h4>
+                <span className="text-xs text-muted-foreground">(Who is working on this task)</span>
               </div>
-              {isAdminOrManager && (
-              <select className="border rounded px-2 py-1 text-sm w-full" onChange={(e) => { const v = e.target.value; if (v) void addAssignee(v); e.currentTarget.selectedIndex = 0; }}>
-                <option value="">Add assignee…</option>
-                {allUsers.map((u:any) => (<option key={u.id} value={u.id}>{u.name || u.email}</option>))}
-              </select>
-              )}
+              <div className="space-y-2">
+                {assignees.length === 0 ? (
+                  <div className="text-xs text-muted-foreground">No one assigned to this task</div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {assignees.map(a => {
+                      const isPrimaryAssignee = a.user_id === task.assigned_to;
+                      return (
+                        <div key={a.id} className={`text-xs border rounded px-2 py-1 flex items-center gap-2 ${
+                          isPrimaryAssignee 
+                            ? 'bg-blue-100 border-blue-300' 
+                            : 'bg-blue-50 border-blue-200'
+                        }`}>
+                          <User className={`h-3 w-3 ${isPrimaryAssignee ? 'text-blue-700' : 'text-blue-600'}`} />
+                          <span className={`font-medium ${isPrimaryAssignee ? 'text-blue-900' : 'text-blue-900'}`}>
+                            {a.user?.name || a.user?.email}
+                            {isPrimaryAssignee && <span className="text-xs text-blue-600 ml-1">(Primary)</span>}
+                          </span>
+                          {canManageTask && !isPrimaryAssignee && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-4 w-4 p-0 text-red-600 hover:text-red-700"
+                              onClick={() => void removeAssignee(a.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {canManageTask && (
+                  <div className="space-y-1">
+                    <select 
+                      className="border rounded px-2 py-1 text-xs w-full h-8" 
+                      onChange={(e) => { 
+                        const v = e.target.value; 
+                        if (v) void addAssignee(v); 
+                        e.currentTarget.selectedIndex = 0; 
+                      }}
+                    >
+                      <option value="">Add additional assignee…</option>
+                      {allUsers.filter(u => 
+                        !assignees.some(a => a.user_id === u.id) && 
+                        u.id !== task?.assigned_to
+                      ).map((u:any) => (
+                        <option key={u.id} value={u.id}>{u.name || u.email}</option>
+                      ))}
+                    </select>
+                    <div className="text-xs text-muted-foreground">Assignees can work on and update this task</div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Followers */}
             <div className="mt-5">
-              <h4 className="text-sm font-semibold mb-2">Followers</h4>
-              <div className="flex flex-wrap gap-2 mb-2">
-                {followers.map(f => (
-                  <div key={f.id} className="text-xs border rounded px-2 py-1 flex items-center gap-2">
-                    <span>{f.user?.name || f.user?.email}</span>
-                    {isAdminOrManager && (
-                      <button type="button" className="text-red-600" onClick={() => void removeFollower(f.id)}>×</button>
-                    )}
-                  </div>
-                ))}
-                {followers.length === 0 && (<div className="text-xs text-muted-foreground">No followers for this task</div>)}
+              <div className="flex items-center gap-2 mb-2">
+                <h4 className="text-sm font-semibold">Followers</h4>
+                <span className="text-xs text-muted-foreground">(Who can track progress)</span>
               </div>
-              {isAdminOrManager && (
-              <select className="border rounded px-2 py-1 text-sm w-full" onChange={(e) => { const v = e.target.value; if (v) void addFollower(v); e.currentTarget.selectedIndex = 0; }}>
-                <option value="">Add follower…</option>
-                {allUsers.map((u:any) => (<option key={u.id} value={u.id}>{u.name || u.email}</option>))}
-              </select>
-              )}
+              <div className="space-y-2">
+                {followers.length === 0 ? (
+                  <div className="text-xs text-muted-foreground">No one following this task</div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {followers.map(f => (
+                      <div key={f.id} className="text-xs bg-green-50 border border-green-200 rounded px-2 py-1 flex items-center gap-2">
+                        <Bell className="h-3 w-3 text-green-600" />
+                        <span className="font-medium text-green-900">{f.user?.name || f.user?.email}</span>
+                        {canManageTask && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-4 w-4 p-0 text-red-600 hover:text-red-700"
+                            onClick={() => void removeFollower(f.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {canManageTask && (
+                  <div className="space-y-1">
+                    <select 
+                      className="border rounded px-2 py-1 text-xs w-full h-8" 
+                      onChange={(e) => { 
+                        const v = e.target.value; 
+                        if (v) void addFollower(v); 
+                        e.currentTarget.selectedIndex = 0; 
+                      }}
+                    >
+                      <option value="">Add someone to track this task…</option>
+                      {allUsers.filter(u => !followers.some(f => f.user_id === u.id)).map((u:any) => (
+                        <option key={u.id} value={u.id}>{u.name || u.email}</option>
+                      ))}
+                    </select>
+                    <div className="text-xs text-muted-foreground">Followers can view this task and track its progress</div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* File Upload Dropzone */}

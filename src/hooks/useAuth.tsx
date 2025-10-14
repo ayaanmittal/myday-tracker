@@ -41,6 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Handle different auth events
         if (event === 'SIGNED_IN' && session) {
           console.log('User signed in:', session.user.email);
+          console.log('User ID:', session.user.id);
           // Start session refresh if user wants to stay signed in
           if (sessionManager.isStaySignedIn()) {
             sessionManager.startSessionRefresh();
@@ -69,6 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (session) {
           console.log('Found existing session for:', session.user.email);
+          console.log('User ID:', session.user.id);
           setSession(session);
           setUser(session.user);
           

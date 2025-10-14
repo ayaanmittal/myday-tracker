@@ -37,6 +37,16 @@ import Notifications from "./pages/Notifications";
 import Meetings from "./pages/Meetings";
 import Violations from "./pages/Violations";
 import WorkDaysSettings from "./pages/WorkDaysSettings";
+import WorkDaysSettingsSimple from "./pages/WorkDaysSettingsSimple";
+import WorkDaysSettingsBypass from "./pages/WorkDaysSettingsBypass";
+import WorkDaysSettingsTemp from "./pages/WorkDaysSettingsTemp";
+import WorkDaysSettingsTest from "./pages/WorkDaysSettingsTest";
+import RoleManager from "./pages/RoleManager";
+import DebugRole from "./pages/DebugRole";
+import AttendanceHolidayManager from "./pages/AttendanceHolidayManager";
+import AutoCheckout from "./pages/AutoCheckout";
+import { MobileDebug } from "./pages/MobileDebug";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -74,7 +84,47 @@ const App = () => (
             <Route path="/violations" element={<Violations />} />
             <Route path="/messages" element={<Messages />} />
             <Route path="/settings" element={<Settings />} />
-            <Route path="/work-days-settings" element={<WorkDaysSettings />} />
+            <Route path="/work-days-settings" element={
+              <ErrorBoundary>
+                <WorkDaysSettingsTemp />
+              </ErrorBoundary>
+            } />
+            <Route path="/work-days-settings-simple" element={
+              <ErrorBoundary>
+                <WorkDaysSettingsSimple />
+              </ErrorBoundary>
+            } />
+            <Route path="/work-days-settings-original" element={
+              <ErrorBoundary>
+                <WorkDaysSettings />
+              </ErrorBoundary>
+            } />
+            <Route path="/work-days-settings-test" element={
+              <ErrorBoundary>
+                <WorkDaysSettingsTest />
+              </ErrorBoundary>
+            } />
+            <Route path="/role-manager" element={
+              <ErrorBoundary>
+                <RoleManager />
+              </ErrorBoundary>
+            } />
+            <Route path="/debug-role" element={
+              <ErrorBoundary>
+                <DebugRole />
+              </ErrorBoundary>
+            } />
+            <Route path="/attendance-holiday-manager" element={
+              <ErrorBoundary>
+                <AttendanceHolidayManager />
+              </ErrorBoundary>
+            } />
+            <Route path="/auto-checkout" element={
+              <ErrorBoundary>
+                <AutoCheckout />
+              </ErrorBoundary>
+            } />
+            <Route path="/mobile-debug" element={<MobileDebug />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

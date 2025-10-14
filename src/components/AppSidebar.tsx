@@ -1,4 +1,4 @@
-import { Home, Calendar, Users, MessageSquare, Settings, LogOut, UserCog, FileText, Shield, BarChart3, LineChart, CheckSquare, ClipboardList, Plane, Megaphone, Bell, Wrench, Users2, AlertTriangle, Clock } from 'lucide-react';
+import { Home, Calendar, Users, MessageSquare, Settings, LogOut, UserCog, FileText, Shield, BarChart3, LineChart, CheckSquare, ClipboardList, Plane, Megaphone, Bell, Wrench, Users2, AlertTriangle, Clock, CalendarDays, Timer } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import {
   Sidebar,
@@ -136,6 +136,8 @@ export function AppSidebar() {
     { title: 'Announcements', url: '/announcements', icon: Megaphone, badge: unreadAnnouncementCount },
     { title: 'Manage Rules', url: '/manage-rules', icon: Shield },
     { title: 'Work Days Settings', url: '/work-days-settings', icon: Clock },
+    { title: 'Holiday Manager', url: '/attendance-holiday-manager', icon: CalendarDays },
+    { title: 'Auto Checkout', url: '/auto-checkout', icon: Timer },
     { title: 'Messages', url: '/messages', icon: MessageSquare, badge: unreadCount },
     { title: 'Settings', url: '/settings', icon: Settings },
   ];
@@ -156,7 +158,6 @@ export function AppSidebar() {
     // Admin features
     { title: 'Employees', url: '/employees', icon: Users, badge: employeeCount },
     { title: 'Announcements', url: '/announcements', icon: Megaphone, badge: unreadAnnouncementCount },
-    { title: 'Work Days Settings', url: '/work-days-settings', icon: Clock },
     { title: 'Settings', url: '/settings', icon: Settings },
   ];
 

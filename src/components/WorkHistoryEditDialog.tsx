@@ -45,7 +45,7 @@ export function WorkHistoryEditDialog({ entry, open, onOpenChange, onSave }: Wor
   const [loading, setLoading] = useState(false);
   const [overrideUser, setOverrideUser] = useState<OverrideUser | null>(null);
   const [formData, setFormData] = useState({
-    manual_status: '',
+    manual_status: 'none',
     manual_override_reason: '',
     check_in_at: '',
     check_out_at: '',
@@ -75,7 +75,7 @@ export function WorkHistoryEditDialog({ entry, open, onOpenChange, onSave }: Wor
   useEffect(() => {
     if (entry) {
       setFormData({
-        manual_status: entry.manual_status || '',
+        manual_status: entry.manual_status || 'none',
         manual_override_reason: entry.manual_override_reason || '',
         check_in_at: entry.check_in_at ? new Date(entry.check_in_at).toISOString().slice(0, 16) : '',
         check_out_at: entry.check_out_at ? new Date(entry.check_out_at).toISOString().slice(0, 16) : '',
@@ -109,20 +109,20 @@ export function WorkHistoryEditDialog({ entry, open, onOpenChange, onSave }: Wor
       }
 
       const updateData: any = {
-        manual_status: formData.manual_status || null,
+        manual_status: formData.manual_status === 'none' ? null : formData.manual_status || null,
         manual_override_by: user.user.id,
         manual_override_at: new Date().toISOString(),
         manual_override_reason: formData.manual_override_reason || null,
         updated_at: new Date().toISOString()
       };
 
-      // Only update time fields if manual_status is not set to absent or leave_granted
-      if (formData.manual_status !== 'absent' && formData.manual_status !== 'leave_granted') {
+      // Only update time fields if manual_status is not set to absent, holiday, or leave_granted
+      if (formData.manual_status !== 'absent' && formData.manual_status !== 'holiday' && formData.manual_status !== 'leave_granted') {
         updateData.check_in_at = formData.check_in_at ? new Date(formData.check_in_at).toISOString() : null;
         updateData.check_out_at = formData.check_out_at ? new Date(formData.check_out_at).toISOString() : null;
         updateData.total_work_time_minutes = formData.total_work_time_minutes;
       } else {
-        // Clear time fields for absent/leave_granted
+        // Clear time fields for absent/holiday/leave_granted
         updateData.check_in_at = null;
         updateData.check_out_at = null;
         updateData.total_work_time_minutes = null;
@@ -247,9 +247,10 @@ export function WorkHistoryEditDialog({ entry, open, onOpenChange, onSave }: Wor
                 <SelectValue placeholder="Select status override" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No Override (Use Original Status)</SelectItem>
+                <SelectItem value="none">No Override (Use Original Status)</SelectItem>
                 <SelectItem value="present">Present (No Times Required)</SelectItem>
                 <SelectItem value="absent">Absent</SelectItem>
+                <SelectItem value="holiday">Holiday</SelectItem>
                 <SelectItem value="leave_granted">Leave Granted</SelectItem>
               </SelectContent>
             </Select>
@@ -258,8 +259,8 @@ export function WorkHistoryEditDialog({ entry, open, onOpenChange, onSave }: Wor
             </p>
           </div>
 
-          {/* Time Fields - Only show if not absent or leave_granted */}
-          {formData.manual_status !== 'absent' && formData.manual_status !== 'leave_granted' && (
+          {/* Time Fields - Only show if not absent, holiday, or leave_granted */}
+          {formData.manual_status !== 'absent' && formData.manual_status !== 'holiday' && formData.manual_status !== 'leave_granted' && (
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="check_in_at">Check In Time</Label>
@@ -289,7 +290,7 @@ export function WorkHistoryEditDialog({ entry, open, onOpenChange, onSave }: Wor
           )}
 
           {/* Work Time Display */}
-          {formData.manual_status !== 'absent' && formData.manual_status !== 'leave_granted' && (
+          {formData.manual_status !== 'absent' && formData.manual_status !== 'holiday' && formData.manual_status !== 'leave_granted' && (
             <div className="space-y-2">
               <Label>Total Work Time</Label>
               <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg">

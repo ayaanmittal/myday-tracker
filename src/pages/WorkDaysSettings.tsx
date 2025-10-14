@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
-import { Save, Users, Calendar } from 'lucide-react';
+import { Save, Users, Calendar, Loader2 } from 'lucide-react';
 
 interface Employee {
   id: string;
@@ -41,23 +41,41 @@ const DAYS = [
 
 export default function WorkDaysSettings() {
   const { user } = useAuth();
-  const { role, loading: roleLoading } = useUserRole();
+  const { role, loading: roleLoading, error: roleError } = useUserRole();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [workDays, setWorkDays] = useState<Record<string, WorkDays>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  // Handle role errors
   useEffect(() => {
-    if (!user) return;
-    if (!roleLoading && role !== 'admin' && role !== 'manager') {
-      window.location.href = '/today';
+    if (roleError) {
+      console.error('Role error:', roleError);
+      setError('Failed to load user permissions. Please try again.');
+      setLoading(false);
+    }
+  }, [roleError]);
+
+  // Load data when user and role are available
+  useEffect(() => {
+    if (!user || roleLoading) return;
+    
+    if (role !== 'admin' && role !== 'manager') {
+      setError('Access denied. You need admin or manager permissions.');
+      setLoading(false);
       return;
     }
-    void loadData();
+
+    loadData();
   }, [user, role, roleLoading]);
 
   const loadData = async () => {
+    if (!user) return;
+    
     setLoading(true);
+    setError(null);
+    
     try {
       // Load employees
       const { data: employeesData, error: employeesError } = await supabase
@@ -67,9 +85,9 @@ export default function WorkDaysSettings() {
         .order('name');
 
       if (employeesError) {
-        console.error('Error loading employees:', employeesError);
-        throw employeesError;
+        throw new Error(`Failed to load employees: ${employeesError.message}`);
       }
+
       setEmployees(employeesData || []);
 
       // Load work days configurations
@@ -78,8 +96,7 @@ export default function WorkDaysSettings() {
         .select('*');
 
       if (workDaysError) {
-        console.error('Error loading work days:', workDaysError);
-        throw workDaysError;
+        throw new Error(`Failed to load work days: ${workDaysError.message}`);
       }
 
       // Convert to record format
@@ -89,7 +106,7 @@ export default function WorkDaysSettings() {
       });
 
       // Create default work days for employees without configuration
-      employeesData?.forEach(emp => {
+      (employeesData || []).forEach(emp => {
         if (!workDaysRecord[emp.id]) {
           workDaysRecord[emp.id] = {
             user_id: emp.id,
@@ -105,13 +122,9 @@ export default function WorkDaysSettings() {
       });
 
       setWorkDays(workDaysRecord);
-    } catch (error) {
-      console.error('Error loading data:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load work days settings',
-        variant: 'destructive',
-      });
+    } catch (err) {
+      console.error('Error loading data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load data');
     } finally {
       setLoading(false);
     }
@@ -128,7 +141,11 @@ export default function WorkDaysSettings() {
   };
 
   const saveWorkDays = async () => {
+    if (!user) return;
+    
     setSaving(true);
+    setError(null);
+    
     try {
       const updates = Object.values(workDays).map(wd => ({
         user_id: wd.user_id,
@@ -141,22 +158,21 @@ export default function WorkDaysSettings() {
         sunday: wd.sunday
       }));
 
-      // Use upsert to insert or update
       const { error } = await supabase
         .from('employee_work_days')
         .upsert(updates, { onConflict: 'user_id' });
 
       if (error) {
-        console.error('Error saving work days:', error);
-        throw error;
+        throw new Error(`Failed to save work days: ${error.message}`);
       }
 
       toast({
         title: 'Success',
         description: 'Work days settings saved successfully',
       });
-    } catch (error) {
-      console.error('Error saving work days:', error);
+    } catch (err) {
+      console.error('Error saving work days:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save work days');
       toast({
         title: 'Error',
         description: 'Failed to save work days settings',
@@ -178,19 +194,38 @@ export default function WorkDaysSettings() {
     setWorkDays(newWorkDays);
   };
 
+  // Loading state
   if (roleLoading || loading) {
     return (
       <Layout>
         <div className="flex items-center justify-center h-full">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-            <p className="mt-2 text-sm text-muted-foreground">Loading work days settings...</p>
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+            <p className="text-sm text-muted-foreground">Loading work days settings...</p>
           </div>
         </div>
       </Layout>
     );
   }
 
+  // Error state
+  if (error) {
+    return (
+      <Layout>
+        <div className="flex items-center justify-center h-full">
+          <div className="text-center">
+            <p className="text-lg font-medium text-red-600 mb-2">Error</p>
+            <p className="text-sm text-muted-foreground mb-4">{error}</p>
+            <Button onClick={loadData} variant="outline">
+              Try Again
+            </Button>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  // Access denied
   if (role !== 'admin' && role !== 'manager') {
     return (
       <Layout>
@@ -218,7 +253,11 @@ export default function WorkDaysSettings() {
             </p>
           </div>
           <Button onClick={saveWorkDays} disabled={saving} className="flex items-center gap-2">
-            <Save className="h-4 w-4" />
+            {saving ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
             {saving ? 'Saving...' : 'Save Changes'}
           </Button>
         </div>
