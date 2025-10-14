@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useToast } from '@/hooks/use-toast';
@@ -109,6 +110,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
 
   const [task, setTask] = useState<Task | null>(null);
   const [assignees, setAssignees] = useState<Assignee[]>([]);
+  const [followers, setFollowers] = useState<Follower[]>([]);
   
   // Check if current user is assigned to this task (primary or additional assignee)
   const isAssignedToTask = task && user && (
@@ -117,7 +119,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
   );
   
   // Check if current user can manage this task (admin, manager, or assigned to task)
-  const canManageTask = isAdminOrManager || isAssignedToTask;
+  const canManageTask = isAdminOrManager || isAssignedToTask || (task && user && task.assigned_by === user.id);
   
   // Check if current user can view this task (admin, manager, assigned to task, or follower)
   const canViewTask = isAdminOrManager || isAssignedToTask || (followers && followers.some(f => f.user_id === user?.id));
@@ -148,7 +150,6 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [uploading, setUploading] = useState(false);
   const [generatingZip, setGeneratingZip] = useState(false);
-  const [followers, setFollowers] = useState<Follower[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [editingChecklistItem, setEditingChecklistItem] = useState<string | null>(null);
@@ -185,30 +186,38 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
         .from('tasks')
         .select('*')
         .eq('id', taskId)
-        .single();
+        .maybeSingle();
       
       if (taskError) {
         console.error('Error loading task:', taskError);
-        setTask(null);
-        return;
+      }
+      let effectiveTask = taskData;
+      // Fallback for followers: try RPC if direct select returned null due to RLS or timing
+      if (!effectiveTask) {
+        const { data: followed } = await supabase.rpc('get_followed_tasks');
+        effectiveTask = (followed as any[])?.find((t: any) => t.id === taskId) as any;
+        if (!effectiveTask) {
+          setTask(null);
+          return;
+        }
       }
 
       // Get assigned user details
       const { data: assignedUser } = await supabase
         .from('profiles')
         .select('id, name, email')
-        .eq('id', taskData.assigned_to)
+        .eq('id', effectiveTask.assigned_to)
         .single();
 
       // Get assigned by user details
       const { data: assignedByUser } = await supabase
         .from('profiles')
         .select('id, name, email')
-        .eq('id', taskData.assigned_by)
+        .eq('id', effectiveTask.assigned_by)
         .single();
 
       const taskWithUsers = {
-        ...taskData,
+        ...effectiveTask,
         assigned_user: assignedUser,
         assigned_by_user: assignedByUser
       };
@@ -218,6 +227,27 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
     } catch (err) {
       console.error('Error in loadTask:', err);
       setTask(null);
+    }
+  }
+
+  async function updateTaskStatus(newStatus: 'pending' | 'in_progress' | 'completed' | 'cancelled') {
+    if (!task || !canManageTask) return;
+    try {
+      const update: any = { status: newStatus, updated_at: new Date().toISOString() };
+      if (newStatus === 'completed') {
+        update.completed_at = new Date().toISOString();
+      } else if (task.completed_at) {
+        update.completed_at = null;
+      }
+      const { error } = await supabase.from('tasks').update(update).eq('id', task.id);
+      if (error) {
+        console.error('Error updating task status:', error);
+        alert('Failed to update status');
+        return;
+      }
+      await loadTask();
+    } catch (e) {
+      console.error('Error in updateTaskStatus:', e);
     }
   }
 
@@ -1246,7 +1276,24 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
           <div className="border-l p-6 bg-background/50 overflow-y-auto">
             <h4 className="text-sm font-semibold mb-1">Task Info</h4>
             <div className="space-y-2 text-sm">
-              <div className="flex items-center justify-between"><span className="text-muted-foreground">Status:</span> <span className="capitalize">{(task.status || '').replace('_',' ')}</span></div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Status:</span>
+                {canManageTask ? (
+                  <Select value={task.status} onValueChange={(v) => void updateTaskStatus(v as any)}>
+                    <SelectTrigger className="w-40">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <span className="capitalize">{(task.status || '').replace('_',' ')}</span>
+                )}
+              </div>
               <div className="flex items-center justify-between"><span className="text-muted-foreground">Start Date:</span> <span>{task.created_at ? new Date(task.created_at).toLocaleDateString() : '-'}</span></div>
               <div className="flex items-center justify-between"><span className="text-muted-foreground">Priority:</span> <span className="capitalize">{task.priority || 'medium'}</span></div>
               <div className="flex items-center justify-between"><span className="text-muted-foreground">Your logged time:</span> <span>{formatSeconds(userSeconds)}</span></div>

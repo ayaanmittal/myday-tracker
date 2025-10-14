@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Layout } from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calendar, Clock, Users, CheckCircle, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
+import { Calendar, Clock, Users, CheckCircle, AlertCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { 
   processAttendanceHolidays, 
@@ -13,16 +13,30 @@ import {
   UpdatedRecord,
   AttendanceSummary 
 } from '@/services/attendanceHolidayService';
+import { supabase } from '@/integrations/supabase/client';
+import { markUsersHolidayRange } from '@/services/attendanceHolidayService';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 export default function AttendanceHolidayManager() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [employees, setEmployees] = useState<{ id: string; name: string; email: string }[]>([]);
+  const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [processing, setProcessing] = useState(false);
   const [summary, setSummary] = useState<AttendanceSummary | null>(null);
   const [updatedRecords, setUpdatedRecords] = useState<UpdatedRecord[]>([]);
   const [generatedRecords, setGeneratedRecords] = useState<GeneratedRecord[]>([]);
   const [totalUpdated, setTotalUpdated] = useState(0);
   const [totalGenerated, setTotalGenerated] = useState(0);
+  const [approvedLeaves, setApprovedLeaves] = useState<{ user_id: string; start_date: string; end_date: string; approved_by: string | null; reason: string | null; user_name?: string; user_email?: string; approver_name?: string }[]>([]);
+  const [selectedApproved, setSelectedApproved] = useState<{ user_id: string; start_date: string; end_date: string }[]>([]);
 
   // Set default date range (last 30 days)
   const setDefaultDateRange = () => {
@@ -33,6 +47,20 @@ export default function AttendanceHolidayManager() {
     setEndDate(end.toISOString().split('T')[0]);
     setStartDate(start.toISOString().split('T')[0]);
   };
+
+  // Load employees for selection
+  const loadEmployees = async () => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, name, email')
+      .eq('is_active', true)
+      .order('name');
+    if (!error) setEmployees(data || []);
+  };
+
+  if (employees.length === 0) {
+    void loadEmployees();
+  }
 
   const processHolidays = async () => {
     if (!startDate || !endDate) {
@@ -61,24 +89,15 @@ export default function AttendanceHolidayManager() {
     setTotalGenerated(0);
 
     try {
-      const result = await processAttendanceHolidays(startDate, endDate);
-      
-      if (result.success) {
-        setUpdatedRecords(result.updatedRecords);
-        setGeneratedRecords(result.generatedRecords);
-        setTotalUpdated(result.totalUpdated);
-        setTotalGenerated(result.totalGenerated);
-        
+      // Use bulk RPC to upsert unified_attendance for ALL active employees
+      const res = await markUsersHolidayRange(startDate, endDate, []);
+      if (res.success) {
         toast({
-          title: 'Success',
-          description: `Processed ${result.totalUpdated} updated records and ${result.totalGenerated} generated records`,
+          title: 'Holidays processed',
+          description: `Inserted ${res.inserted}, Updated ${res.updated}`,
         });
       } else {
-        toast({
-          title: 'Error',
-          description: `Failed to process holidays: ${result.errors.join(', ')}`,
-          variant: 'destructive',
-        });
+        toast({ title: 'Error', description: res.errors.join(', '), variant: 'destructive' });
       }
     } catch (error) {
       console.error('Error processing holidays:', error);
@@ -87,6 +106,24 @@ export default function AttendanceHolidayManager() {
         description: 'Failed to process holidays',
         variant: 'destructive',
       });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const markBulkLeave = async () => {
+    if (!startDate || !endDate || selectedEmployees.length === 0) {
+      toast({ title: 'Error', description: 'Select dates and at least one employee', variant: 'destructive' });
+      return;
+    }
+    setProcessing(true);
+    try {
+      const res = await markUsersHolidayRange(startDate, endDate, selectedEmployees);
+      if (res.success) {
+        toast({ title: 'Leave processed', description: `Inserted ${res.inserted}, Updated ${res.updated}` });
+      } else {
+        toast({ title: 'Error', description: res.errors.join(', '), variant: 'destructive' });
+      }
     } finally {
       setProcessing(false);
     }
@@ -122,6 +159,78 @@ export default function AttendanceHolidayManager() {
         description: 'Failed to get attendance summary',
         variant: 'destructive',
       });
+    }
+  };
+
+  const loadApprovedLeaves = async () => {
+    const todayStr = new Date().toISOString().split('T')[0];
+    // Fetch future approved leave requests
+    const { data, error } = await supabase
+      .from('leave_requests')
+      .select('user_id, start_date, end_date, approved_by, reason')
+      .eq('status', 'approved')
+      .gte('end_date', todayStr)
+      .order('start_date');
+    if (error) return;
+    const rows = data || [];
+    const userIds = Array.from(new Set(rows.map(r => r.user_id)));
+    const approverIds = Array.from(new Set(rows.map(r => r.approved_by).filter(Boolean) as string[]));
+    let profiles: any[] | null = [];
+    let approvers: any[] | null = [];
+    if (userIds.length > 0) {
+      const res1 = await supabase.from('profiles').select('id, name, email').in('id', userIds);
+      profiles = res1.data as any[] | null;
+    }
+    if (approverIds.length > 0) {
+      const res2 = await supabase.from('profiles').select('id, name').in('id', approverIds);
+      approvers = res2.data as any[] | null;
+    }
+    const withDetails = rows.map(r => {
+      const p = profiles?.find(pr => pr.id === r.user_id);
+      const a = approvers?.find(ap => ap.id === r.approved_by);
+      return {
+        ...r,
+        user_name: p?.name,
+        user_email: p?.email,
+        approver_name: a?.name || null,
+      };
+    });
+    setApprovedLeaves(withDetails);
+  };
+
+  useEffect(() => {
+    void loadApprovedLeaves();
+  }, []);
+
+  const toggleApprovedSelection = (row: { user_id: string; start_date: string; end_date: string }) => {
+    setSelectedApproved(prev => {
+      const key = `${row.user_id}-${row.start_date}-${row.end_date}`;
+      const exists = prev.some(r => `${r.user_id}-${r.start_date}-${r.end_date}` === key);
+      if (exists) {
+        return prev.filter(r => `${r.user_id}-${r.start_date}-${r.end_date}` !== key);
+      }
+      return [...prev, row];
+    });
+  };
+
+  const applySelectedApprovedLeaves = async () => {
+    if (selectedApproved.length === 0) return;
+    setProcessing(true);
+    try {
+      const results = await Promise.all(selectedApproved.map(async (r) => {
+        const res = await markUsersHolidayRange(r.start_date, r.end_date, [r.user_id]);
+        return res;
+      }));
+      const inserted = results.reduce((sum, r) => sum + (r.success ? (r.inserted || 0) : 0), 0);
+      const updated = results.reduce((sum, r) => sum + (r.success ? (r.updated || 0) : 0), 0);
+      const failed = results.filter(r => !r.success).length;
+      toast({ title: 'Processed approved leaves', description: `Updated ${updated}, Inserted ${inserted}${failed ? `, Failed ${failed}` : ''}` });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message || 'Failed to apply approved leaves', variant: 'destructive' });
+    } finally {
+      setProcessing(false);
+      setSelectedApproved([]);
+      void loadApprovedLeaves();
     }
   };
 
@@ -180,6 +289,41 @@ export default function AttendanceHolidayManager() {
           </CardContent>
         </Card>
 
+        {/* Employee Selection */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Select Employees</CardTitle>
+            <CardDescription>Choose employees to mark as on leave for the selected range</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-h-72 overflow-y-auto">
+              {employees.map(emp => {
+                const checked = selectedEmployees.includes(emp.id);
+                return (
+                  <label key={emp.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) => {
+                        setSelectedEmployees(prev => e.target.checked
+                          ? [...prev, emp.id]
+                          : prev.filter(id => id !== emp.id)
+                        );
+                      }}
+                    />
+                    <span>{emp.name || emp.email}</span>
+                  </label>
+                );
+              })}
+            </div>
+            {employees.length > 0 && (
+              <div className="mt-3 text-xs text-muted-foreground">
+                Selected: {selectedEmployees.length} / {employees.length}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Action Buttons */}
         <Card>
           <CardHeader>
@@ -187,19 +331,8 @@ export default function AttendanceHolidayManager() {
             <CardDescription>Process attendance records and view summaries</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-4">
-              <Button 
-                onClick={processHolidays} 
-                disabled={processing || !startDate || !endDate}
-                className="flex items-center gap-2"
-              >
-                {processing ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="h-4 w-4" />
-                )}
-                {processing ? 'Processing...' : 'Process Holidays'}
-              </Button>
+            <div className="flex gap-4 flex-wrap">
+              {/* Process Holidays button removed as requested */}
               <Button 
                 onClick={getSummary} 
                 variant="outline"
@@ -208,6 +341,13 @@ export default function AttendanceHolidayManager() {
               >
                 <Users className="h-4 w-4" />
                 Get Summary
+              </Button>
+              <Button
+                onClick={markBulkLeave}
+                disabled={processing || !startDate || !endDate || selectedEmployees.length === 0}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                Mark Selected Employees Leave (Not Absent)
               </Button>
             </div>
           </CardContent>
@@ -255,6 +395,65 @@ export default function AttendanceHolidayManager() {
             </CardContent>
           </Card>
         )}
+
+        {/* Approved Leaves (future) */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">Approved Leaves (Upcoming)</CardTitle>
+            <CardDescription>All approved future leaves across employees</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="mb-3">
+              <Button
+                onClick={applySelectedApprovedLeaves}
+                disabled={processing || selectedApproved.length === 0}
+                variant="secondary"
+              >
+                Process Leave
+              </Button>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead></TableHead>
+                  <TableHead>Employee</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Start Date</TableHead>
+                  <TableHead>End Date</TableHead>
+                  <TableHead>Approved By</TableHead>
+                  <TableHead>Reason</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {approvedLeaves.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                      No upcoming approved leaves
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  approvedLeaves.map((row, idx) => (
+                    <TableRow key={`${row.user_id}-${row.start_date}-${row.end_date}-${idx}`}>
+                      <TableCell className="w-10">
+                        <input
+                          type="checkbox"
+                          checked={selectedApproved.some(r => r.user_id === row.user_id && r.start_date === row.start_date && r.end_date === row.end_date)}
+                          onChange={() => toggleApprovedSelection({ user_id: row.user_id, start_date: row.start_date, end_date: row.end_date })}
+                        />
+                      </TableCell>
+                      <TableCell>{row.user_name || row.user_id}</TableCell>
+                      <TableCell className="text-muted-foreground">{row.user_email || '-'}</TableCell>
+                      <TableCell>{new Date(row.start_date).toLocaleDateString()}</TableCell>
+                      <TableCell>{new Date(row.end_date).toLocaleDateString()}</TableCell>
+                      <TableCell>{row.approver_name || row.approved_by || '-'}</TableCell>
+                      <TableCell className="max-w-[260px] truncate" title={row.reason || ''}>{row.reason || '-'}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
 
         {/* Results */}
         {(totalUpdated > 0 || totalGenerated > 0) && (

@@ -57,7 +57,7 @@ export function EmployeeMappingManager() {
     setIsLoading(true);
     try {
       // This would call your API endpoint
-      const response = await fetch('/api/employees/unmapped');
+      const response = await fetch(joinApiPath('/api/employees/unmapped'));
       const data = await response.json();
       setUnmappedEmployees(data);
     } catch (error) {
@@ -74,7 +74,7 @@ export function EmployeeMappingManager() {
   }) => {
     setIsProcessing(true);
     try {
-      const response = await fetch('/api/employees/bulk-mapping', {
+      const response = await fetch(joinApiPath('/api/employees/bulk-mapping'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config)
@@ -91,7 +91,7 @@ export function EmployeeMappingManager() {
 
   const approveMapping = async (empCode: string, userId: string) => {
     try {
-      const response = await fetch('/api/employees/approve-mapping', {
+      const response = await fetch(joinApiPath('/api/employees/approve-mapping'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ empCode, userId })

@@ -1,9 +1,12 @@
 import { AutoCheckoutManager } from '@/components/AutoCheckoutManager';
+import { Layout } from '@/components/Layout';
 
 export default function AutoCheckout() {
   return (
-    <div className="container mx-auto p-6">
-      <AutoCheckoutManager />
-    </div>
+    <Layout>
+      <div className="p-6">
+        <AutoCheckoutManager />
+      </div>
+    </Layout>
   );
 }

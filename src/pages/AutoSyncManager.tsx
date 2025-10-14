@@ -62,7 +62,7 @@ export function AutoSyncManager() {
 
   const loadSyncStatus = async () => {
     try {
-      const response = await fetch('/api/sync/status');
+      const response = await fetch(joinApiPath('/api/sync/status'));
       const status = await response.json();
       setSyncStatus(status);
     } catch (error) {
@@ -72,7 +72,7 @@ export function AutoSyncManager() {
 
   const loadConfig = async () => {
     try {
-      const response = await fetch('/api/sync/config');
+      const response = await fetch(joinApiPath('/api/sync/config'));
       const configData = await response.json();
       setConfig(configData);
     } catch (error) {
@@ -83,7 +83,7 @@ export function AutoSyncManager() {
   const startSync = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/sync/start', {
+      const response = await fetch(joinApiPath('/api/sync/start'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config)
@@ -103,7 +103,7 @@ export function AutoSyncManager() {
   const stopSync = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/sync/stop', { method: 'POST' });
+      const response = await fetch(joinApiPath('/api/sync/stop'), { method: 'POST' });
       
       if (response.ok) {
         setIsRunning(false);
@@ -119,7 +119,7 @@ export function AutoSyncManager() {
   const runEmployeeSync = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/sync/employees', { method: 'POST' });
+      const response = await fetch(joinApiPath('/api/sync/employees'), { method: 'POST' });
       const result = await response.json();
       
       setLastSync(prev => ({
@@ -149,7 +149,7 @@ export function AutoSyncManager() {
   const runAttendanceSync = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/sync/attendance', { method: 'POST' });
+      const response = await fetch(joinApiPath('/api/sync/attendance'), { method: 'POST' });
       const result = await response.json();
       
       setLastSync(prev => ({
@@ -178,7 +178,7 @@ export function AutoSyncManager() {
 
   const updateConfig = async () => {
     try {
-      const response = await fetch('/api/sync/config', {
+      const response = await fetch(joinApiPath('/api/sync/config'), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config)

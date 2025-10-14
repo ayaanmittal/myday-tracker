@@ -138,7 +138,7 @@ export default function ManageEmployees() {
         });
       } else {
         // Create new employee using server API (doesn't auto-login)
-        const response = await fetch('/api/users/create', {
+        const response = await fetch(joinApiPath('/api/users/create'), {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

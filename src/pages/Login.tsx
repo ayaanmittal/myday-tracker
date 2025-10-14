@@ -29,8 +29,11 @@ export default function Login() {
 
       if (error) throw error;
       
-      // Store preference using session manager
+      // Store preference using session manager and start refresh immediately if opted in
       sessionManager.setStaySignedIn(staySignedIn);
+      if (staySignedIn) {
+        sessionManager.startSessionRefresh();
+      }
       console.log('Stay signed in preference saved:', staySignedIn);
 
       toast({

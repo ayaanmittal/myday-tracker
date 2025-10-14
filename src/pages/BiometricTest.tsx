@@ -112,7 +112,7 @@ export function BiometricTest() {
 
   const fetchRecentLogs = async () => {
     try {
-      const response = await fetch('/api/attendance/recent');
+      const response = await fetch(joinApiPath('/api/attendance/recent'));
       const data = await response.json();
       
       if (data.success && data.data) {

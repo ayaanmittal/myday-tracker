@@ -24,6 +24,40 @@ export interface UpdatedRecord {
   updated_count: number;
 }
 
+export interface BulkLeaveResult {
+  success: boolean;
+  inserted: number;
+  updated: number;
+  errors: string[];
+}
+
+export async function markUsersHolidayRange(
+  startDate: string,
+  endDate: string,
+  userIds: string[],
+): Promise<BulkLeaveResult> {
+  try {
+    const { data, error } = await supabase.rpc('mark_users_holiday_range', {
+      start_date: startDate,
+      end_date: endDate,
+      user_ids: userIds && userIds.length > 0 ? userIds : null,
+    });
+
+    if (error) {
+      return { success: false, inserted: 0, updated: 0, errors: [error.message] };
+    }
+
+    return {
+      success: true,
+      inserted: Number(data?.inserted || 0),
+      updated: Number(data?.updated || 0),
+      errors: []
+    };
+  } catch (e: any) {
+    return { success: false, inserted: 0, updated: 0, errors: [e?.message || 'Unknown error'] };
+  }
+}
+
 /**
  * Generate missing attendance records for a date range
  * This will create records for days when employees didn't check in/out

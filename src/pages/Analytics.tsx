@@ -59,9 +59,14 @@ export default function Analytics() {
       }
 
       const { data: entries, error } = await supabase
-        .from('day_entries')
+        .from('unified_attendance')
         .select(`
-          *,
+          id,
+          user_id,
+          entry_date,
+          total_work_time_minutes,
+          status,
+          manual_status,
           day_updates (
             today_focus,
             progress,
@@ -79,11 +84,11 @@ export default function Analytics() {
       const completedDays = entries?.filter(e => e.status === 'completed').length || 0;
       const unloggedDays = entries?.filter(e => e.status === 'unlogged').length || 0;
       
-      const totalMinutes = entries?.reduce((sum, e) => sum + (e.total_work_time_minutes || 0), 0) || 0;
+      const totalMinutes = entries?.reduce((sum: number, e: any) => sum + (e.total_work_time_minutes || 0), 0) || 0;
       const avgWorkHours = completedDays > 0 ? totalMinutes / completedDays / 60 : 0;
 
       // Weekly data for chart
-      const last7Days = entries?.slice(0, 7).reverse().map(e => ({
+      const last7Days = (entries || []).slice(0, 7).reverse().map((e: any) => ({
         day: new Date(e.entry_date).toLocaleDateString('en-US', { weekday: 'short' }),
         hours: (e.total_work_time_minutes || 0) / 60,
       })) || [];
@@ -91,12 +96,12 @@ export default function Analytics() {
       // Status breakdown
       const statusBreakdown = [
         { name: 'Completed', value: completedDays },
-        { name: 'In Progress', value: entries?.filter(e => e.status === 'in_progress').length || 0 },
+        { name: 'In Progress', value: (entries || []).filter((e: any) => e.status === 'in_progress').length || 0 },
         { name: 'Unlogged', value: unloggedDays },
-      ].filter(s => s.value > 0);
+      ].filter((s: any) => s.value > 0);
 
       // Recent updates with details
-      const recentUpdates = entries?.slice(0, 10).map(e => ({
+      const recentUpdates = (entries || []).slice(0, 10).map((e: any) => ({
         date: new Date(e.entry_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         focus: e.day_updates?.[0]?.today_focus || 'No update',
         progress: e.day_updates?.[0]?.progress || 'No progress',

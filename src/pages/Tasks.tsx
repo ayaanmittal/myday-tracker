@@ -58,6 +58,7 @@ export default function Tasks() {
   const { data: role, isLoading: roleLoading } = useUserRole();
   const navigate = useNavigate();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [followingTasks, setFollowingTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -108,18 +109,18 @@ export default function Tasks() {
       ];
       const uniqueTaskIds = [...new Set(allTaskIds)];
 
-      if (uniqueTaskIds.length === 0) {
-        setTasks([]);
-        setLoading(false);
-        return;
-      }
-
       // Now fetch the full task data for all these tasks
-      const { data: tasksData, error: tasksError } = await supabase
-        .from('tasks')
-        .select('*')
-        .in('id', uniqueTaskIds)
-        .order('created_at', { ascending: false });
+      let tasksData: any[] | null = [];
+      let tasksError: any = null;
+      if (uniqueTaskIds.length > 0) {
+        const res = await supabase
+          .from('tasks')
+          .select('*')
+          .in('id', uniqueTaskIds)
+          .order('created_at', { ascending: false });
+        tasksData = res.data as any[] | null;
+        tasksError = res.error;
+      }
 
       if (tasksError) {
         // Check if it's a table doesn't exist error
@@ -153,6 +154,32 @@ export default function Tasks() {
         void loadMultipleTaskNotifications(taskIds);
       } else {
         setTasks([]);
+      }
+
+      // Use RPC to fetch followed tasks with RLS-friendly function
+      const { data: rpcFollowed, error: rpcErr } = await supabase.rpc('get_followed_tasks');
+      let followingData: any[] = (rpcFollowed as any[]) || [];
+      if (rpcErr) {
+        console.warn('get_followed_tasks RPC error:', rpcErr);
+        followingData = [];
+      }
+      // Exclude tasks the user is assigned to
+      followingData = followingData.filter((t: any) => !uniqueTaskIds.includes(t.id));
+
+      if (followingData.length > 0) {
+        const userIds2 = [...new Set((followingData || []).flatMap((t: any) => [t.assigned_by, t.assigned_to]))];
+        const { data: profiles2 } = await supabase
+          .from('profiles')
+          .select('id, name, email')
+          .in('id', userIds2);
+        const followingWithProfiles = (followingData || []).map((t: any) => ({
+          ...t,
+          assigned_by_profile: profiles2?.find((p: any) => p.id === t.assigned_by),
+          assigned_to_profile: profiles2?.find((p: any) => p.id === t.assigned_to),
+        }));
+        setFollowingTasks(followingWithProfiles);
+      } else {
+        setFollowingTasks([]);
       }
     } catch (error: any) {
       console.error('Error fetching tasks:', error);
@@ -207,8 +234,7 @@ export default function Tasks() {
 
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);
-    setDialogOpen(true);
-    // Mark task as viewed to clear notifications
+    setDetailTaskId(task.id);
     markTaskAsViewed(task.id);
   };
 
@@ -465,7 +491,7 @@ export default function Tasks() {
                           <span className="text-sm">Cancelled</span>
                         </div>
                       )}
-                      <Button size="sm" variant="ghost" className="ml-2" onClick={(e) => { e.stopPropagation(); setDetailTaskId(task.id); markTaskAsViewed(task.id); }}>Open Dialog</Button>
+                      
                     </TableCell>
                   </TableRow>
                 ))}
@@ -481,129 +507,109 @@ export default function Tasks() {
             )}
           </CardContent>
         </Card>
-
-        {/* Task Detail Dialog */}
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle className="text-xl font-semibold">
-                {selectedTask?.title}
-              </DialogTitle>
-              <DialogDescription>
-                Task Details
-              </DialogDescription>
-            </DialogHeader>
-            
-            {selectedTask && (
-              <div className="space-y-6">
-                {/* Task Description */}
-                {selectedTask.description && (
-                  <div>
-                    <h4 className="font-medium text-sm text-muted-foreground mb-2">Description</h4>
-                    <p className="text-sm leading-relaxed">{selectedTask.description}</p>
-                  </div>
-                )}
-
-                {/* Task Information Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <h4 className="font-medium text-sm text-muted-foreground mb-2">Status</h4>
-                    <div className="flex items-center gap-2">
-                      {getStatusIcon(selectedTask.status)}
-                      <Badge className={getStatusColor(selectedTask.status)}>
-                        {selectedTask.status.replace('_', ' ')}
-                      </Badge>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="font-medium text-sm text-muted-foreground mb-2">Priority</h4>
-                    <Badge className={getPriorityColor(selectedTask.priority)}>
-                      {selectedTask.priority}
-                    </Badge>
-                  </div>
-
-                  <div>
-                    <h4 className="font-medium text-sm text-muted-foreground mb-2">Assigned By</h4>
-                    <div className="flex items-center gap-2">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium text-sm">{selectedTask.assigned_by_profile?.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {selectedTask.assigned_by_profile?.email}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="font-medium text-sm text-muted-foreground mb-2">Due Date</h4>
-                    <p className="text-sm">
-                      {selectedTask.due_date 
-                        ? new Date(selectedTask.due_date).toLocaleDateString('en-US', {
-                            year: 'numeric',
-                            month: 'long',
-                            day: 'numeric'
-                          })
-                        : 'No due date'
-                      }
-                    </p>
-                  </div>
-
-                  <div>
-                    <h4 className="font-medium text-sm text-muted-foreground mb-2">Created</h4>
-                    <p className="text-sm">
-                      {new Date(selectedTask.created_at).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </p>
-                  </div>
-
-                  {selectedTask.completed_at && (
-                    <div>
-                      <h4 className="font-medium text-sm text-muted-foreground mb-2">Completed</h4>
-                      <p className="text-sm">
-                        {new Date(selectedTask.completed_at).toLocaleDateString('en-US', {
-                          year: 'numeric',
-                          month: 'long',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Status Update Section */}
-                <div className="border-t pt-4">
-                  <h4 className="font-medium text-sm text-muted-foreground mb-3">Update Status</h4>
-                  <Select
-                    value={selectedTask.status}
-                    onValueChange={(value) => {
-                      handleStatusChange(selectedTask.id, value);
-                      setDialogOpen(false);
-                    }}
-                  >
-                    <SelectTrigger className="w-48">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
+        <Card>
+            <CardHeader>
+              <CardTitle>Following</CardTitle>
+              <CardDescription>Tasks you follow (not directly assigned)</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Task</TableHead>
+                    <TableHead>Assigned By</TableHead>
+                    <TableHead>Assigned To</TableHead>
+                    <TableHead>Priority</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Date Assigned</TableHead>
+                    <TableHead>Due Date</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {followingTasks.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-muted-foreground">
+                        You are not following any tasks yet
+                      </TableCell>
+                    </TableRow>
+                  ) : followingTasks.map((task) => (
+                    <TableRow key={task.id} className="cursor-pointer hover:bg-muted/50" onClick={() => handleTaskClick(task)}>
+                      <TableCell>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{task.title}</p>
+                            <TaskNotificationBadge 
+                              newComments={getTaskNotification(task.id).newComments}
+                              newAttachments={getTaskNotification(task.id).newAttachments}
+                            />
+                          </div>
+                          {task.description && (
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {task.description.length > 100
+                                ? `${task.description.substring(0, 100)}...`
+                                : task.description}
+                            </p>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <p className="font-medium">{(task as any).assigned_by_profile?.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {(task as any).assigned_by_profile?.email}
+                            </p>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{(task as any).assigned_to_profile?.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {(task as any).assigned_to_profile?.email}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={getPriorityColor(task.priority)}>
+                          {task.priority}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {getStatusIcon(task.status)}
+                          <Badge className={getStatusColor(task.status)}>
+                            {task.status.replace('_', ' ')}
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <span>{new Date(task.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {task.due_date ? (
+                          <div className="flex items-center gap-2">
+                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            <span>{new Date(task.due_date).toLocaleDateString()}</span>
+                          </div>
+                        ) : (
+                          '-'
+                        )}
+                      </TableCell>
+                      <TableCell></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        
+         
       </div>
       <TaskDetailDialog taskId={detailTaskId} open={!!detailTaskId} onOpenChange={(open) => setDetailTaskId(open ? detailTaskId : null)} />
     </Layout>

@@ -1,0 +1,76 @@
+-- Fix potential ambiguous user_id references in holiday processing
+-- Recreate the function with more explicit table aliases
+
+create or replace function public.mark_users_holiday_range(
+  start_date date,
+  end_date date,
+  user_ids uuid[]
+) returns json language plpgsql security definer set search_path = public as $$
+declare
+  v_uid uuid := auth.uid();
+  v_is_admin_or_manager boolean;
+  v_date date;
+  v_user uuid;
+  v_inserted integer := 0;
+  v_updated integer := 0;
+begin
+  -- Authorization: only admins/managers may run
+  select exists (
+    select 1 from public.user_roles ur
+    where ur.user_id = v_uid and ur.role in ('admin','manager')
+  ) into v_is_admin_or_manager;
+
+  if not coalesce(v_is_admin_or_manager, false) then
+    raise exception 'Not authorized';
+  end if;
+
+  if start_date is null or end_date is null or start_date > end_date then
+    raise exception 'Invalid date range';
+  end if;
+
+  if user_ids is null or array_length(user_ids, 1) is null or array_length(user_ids, 1) = 0 then
+    raise exception 'No users provided';
+  end if;
+
+  -- Insert missing rows for each (user, date)
+  insert into public.unified_attendance (
+    user_id, entry_date, device_info, source, status, manual_status, modification_reason, manual_override_by, manual_override_at
+  )
+  select u_id as user_id,
+         d as entry_date,
+         'System Override' as device_info,
+         'manual' as source,
+         'completed' as status,
+         'leave_granted'::varchar as manual_status,
+         'Bulk holiday override' as modification_reason,
+         v_uid as manual_override_by,
+         now() as manual_override_at
+  from unnest(user_ids) as u_id
+  cross join generate_series(start_date, end_date, interval '1 day') as g(d)
+  where not exists (
+    select 1 from public.unified_attendance ua
+    where ua.user_id = u_id and ua.entry_date = g.d::date
+  );
+
+  get diagnostics v_inserted = row_count;
+
+  -- Update existing rows to reflect leave status
+  update public.unified_attendance ua
+  set manual_status = 'leave_granted',
+      status = 'completed',
+      modification_reason = 'Bulk holiday override',
+      manual_override_by = v_uid,
+      manual_override_at = now(),
+      updated_at = now()
+  where ua.user_id = any(user_ids)
+    and ua.entry_date between start_date and end_date
+    and (ua.manual_status is distinct from 'leave_granted' or ua.status is distinct from 'completed');
+
+  get diagnostics v_updated = row_count;
+
+  return json_build_object(
+    'inserted', v_inserted,
+    'updated', v_updated
+  );
+end;
+$$;

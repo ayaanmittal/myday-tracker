@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
+import { sessionManager } from '@/lib/sessionManager';
 
 export function SessionMonitor() {
   const { user, session, isStaySignedIn } = useAuth();
+  const [staySignedIn, setStaySignedIn] = useState<boolean>(sessionManager.isStaySignedIn());
   const [sessionInfo, setSessionInfo] = useState<{
     expiresAt: string | null;
     timeUntilExpiry: string | null;
@@ -39,9 +41,21 @@ export function SessionMonitor() {
     return () => clearInterval(interval);
   }, [session]);
 
+  // Keep local staySignedIn in sync with storage changes
+  useEffect(() => {
+    const updateStay = () => setStaySignedIn(sessionManager.isStaySignedIn());
+    updateStay();
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'stay_signed_in') updateStay();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
   // Auto-refresh session if it's about to expire and user wants to stay signed in
   useEffect(() => {
-    if (!isStaySignedIn || !session || !sessionInfo.isExpired) return;
+    const wantStay = isStaySignedIn || staySignedIn;
+    if (!wantStay || !session || !sessionInfo.isExpired) return;
 
     const refreshSession = async () => {
       try {
@@ -61,10 +75,10 @@ export function SessionMonitor() {
     };
 
     // Only refresh if session is actually expired and user wants to stay signed in
-    if (sessionInfo.isExpired && isStaySignedIn) {
+    if (sessionInfo.isExpired && (isStaySignedIn || staySignedIn)) {
       refreshSession();
     }
-  }, [sessionInfo.isExpired, isStaySignedIn, session]);
+  }, [sessionInfo.isExpired, isStaySignedIn, staySignedIn, session]);
 
   // Only show in development
   if (process.env.NODE_ENV !== 'development') return null;
@@ -73,7 +87,7 @@ export function SessionMonitor() {
     <div className="fixed bottom-4 right-4 bg-card border border-border rounded-lg p-3 text-xs max-w-xs">
       <div className="font-semibold mb-1">Session Monitor</div>
       <div>User: {user?.email || 'Not signed in'}</div>
-      <div>Stay signed in: {isStaySignedIn ? 'Yes' : 'No'}</div>
+      <div>Stay signed in: {(isStaySignedIn || staySignedIn) ? 'Yes' : 'No'}</div>
       <div>Expires: {sessionInfo.expiresAt || 'Unknown'}</div>
       <div>Time left: {sessionInfo.timeUntilExpiry || 'Unknown'}</div>
       <div className={`text-xs ${sessionInfo.isExpired ? 'text-destructive' : 'text-success'}`}>

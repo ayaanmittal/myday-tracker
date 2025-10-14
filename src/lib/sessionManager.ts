@@ -3,7 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 export class SessionManager {
   private static instance: SessionManager;
   private refreshInterval: NodeJS.Timeout | null = null;
-  private readonly REFRESH_INTERVAL = 15 * 60 * 1000; // 15 minutes
+  private readonly REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
+  private readonly REFRESH_THRESHOLD_MS = 10 * 60 * 1000; // 10 minutes before expiry
 
   static getInstance(): SessionManager {
     if (!SessionManager.instance) {
@@ -64,13 +65,23 @@ export class SessionManager {
           return;
         }
 
-        const { data: { session }, error } = await supabase.auth.refreshSession();
-        
-        if (error) {
-          console.error('Error refreshing session:', error);
-          // Don't stop refresh on single error, let it retry
-        } else if (session) {
-          console.log('Session refreshed successfully for:', session.user.email);
+        // Get current session to see remaining time
+        const current = await supabase.auth.getSession();
+        const session = current.data.session;
+        if (!session) {
+          console.warn('No active session found during refresh tick');
+          return;
+        }
+        const expiresAtMs = (session.expires_at || 0) * 1000;
+        const msLeft = expiresAtMs - Date.now();
+        // Refresh only when close to expiry to avoid unnecessary calls
+        if (msLeft <= this.REFRESH_THRESHOLD_MS) {
+          const { data, error } = await supabase.auth.refreshSession();
+          if (error) {
+            console.error('Error refreshing session:', error);
+          } else if (data.session) {
+            console.log('Session refreshed successfully for:', data.session.user.email);
+          }
         }
       } catch (error) {
         console.error('Error in session refresh:', error);

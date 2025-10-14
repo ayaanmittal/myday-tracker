@@ -541,10 +541,11 @@ export default function Today() {
                     </div>
                     <div className="text-center p-4 border rounded-lg">
                       <div className="text-2xl font-bold text-primary">
-                        {entry.check_out_at ? new Date(entry.check_out_at).toLocaleTimeString('en-US', { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        }) : 'Still working'}
+                        {entry.check_out_at
+                          ? new Date(entry.check_out_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+                          : entry.check_in_at
+                            ? 'Still working'
+                            : '—'}
                       </div>
                       <div className="text-sm text-muted-foreground">Check Out</div>
                       {entry.check_out_at && (
@@ -757,10 +758,11 @@ export default function Today() {
                 </div>
                     <div className="text-center p-4 border rounded-lg">
                       <div className="text-2xl font-bold text-primary">
-                        {entry.check_out_at ? new Date(entry.check_out_at).toLocaleTimeString('en-US', { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        }) : 'Still working'}
+                        {entry.check_out_at
+                          ? new Date(entry.check_out_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+                          : entry.check_in_at
+                            ? 'Still working'
+                            : '—'}
               </div>
                       <div className="text-sm text-muted-foreground">Check Out</div>
                       {entry.check_out_at && (
@@ -969,10 +971,11 @@ export default function Today() {
                   </div>
                   <div className="text-center p-4 border rounded-lg">
                     <div className="text-2xl font-bold text-primary">
-                      {entry.check_out_at ? new Date(entry.check_out_at).toLocaleTimeString('en-US', { 
-                        hour: '2-digit', 
-                        minute: '2-digit' 
-                      }) : 'Still working'}
+                      {entry.check_out_at
+                        ? new Date(entry.check_out_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+                        : entry.check_in_at
+                          ? 'Still working'
+                          : '—'}
                     </div>
                     <div className="text-sm text-muted-foreground">Check Out</div>
                     {entry.check_out_at && (

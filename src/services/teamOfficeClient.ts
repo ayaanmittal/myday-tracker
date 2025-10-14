@@ -1,6 +1,6 @@
 export async function testTeamOfficeConnection() {
   try {
-    const response = await fetch('/api/teamoffice/test');
+    const response = await fetch(joinApiPath('/api/teamoffice/test'));
     const data = await response.json();
     return data;
   } catch (error) {
@@ -11,7 +11,7 @@ export async function testTeamOfficeConnection() {
 
 export async function getRawRangeMCID(fromDDMMYYYY_HHMM: string, toDDMMYYYY_HHMM: string, empcode = 'ALL') {
   try {
-    const response = await fetch('/api/teamoffice/raw-range-mcid', {
+    const response = await fetch(joinApiPath('/api/teamoffice/raw-range-mcid'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -71,7 +71,7 @@ export async function getInOutPunchData(fromDDMMYYYY: string, toDDMMYYYY: string
 // Function for getting latest records using LastRecord API
 export async function getLastPunchData(empcode = 'ALL', lastRecord?: string) {
   try {
-    const response = await fetch('/api/teamoffice/last-punch-data', {
+    const response = await fetch(joinApiPath('/api/teamoffice/last-punch-data'), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

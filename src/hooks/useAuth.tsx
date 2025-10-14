@@ -43,7 +43,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.log('User signed in:', session.user.email);
           console.log('User ID:', session.user.id);
           // Start session refresh if user wants to stay signed in
-          if (sessionManager.isStaySignedIn()) {
+          const stay = sessionManager.isStaySignedIn();
+          setIsStaySignedIn(stay);
+          if (stay) {
             sessionManager.startSessionRefresh();
           }
         } else if (event === 'SIGNED_OUT') {
@@ -75,7 +77,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(session.user);
           
           // Start session refresh if user wants to stay signed in
-          if (sessionManager.isStaySignedIn()) {
+          const stay = sessionManager.isStaySignedIn();
+          setIsStaySignedIn(stay);
+          if (stay) {
             sessionManager.startSessionRefresh();
           }
         } else {

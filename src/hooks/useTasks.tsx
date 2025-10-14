@@ -48,7 +48,7 @@ export function useTasks() {
     setError(null);
 
     try {
-      // First, get all task IDs where the user is either the primary assignee or an additional assignee
+      // First, get all task IDs where the user is either the primary assignee, an additional assignee, or a follower
       const { data: primaryTasks, error: primaryError } = await supabase
         .from('tasks')
         .select('id')
@@ -67,10 +67,21 @@ export function useTasks() {
         throw additionalError;
       }
 
+      // Get tasks where user is a follower
+      const { data: followerTasks, error: followerError } = await supabase
+        .from('task_followers')
+        .select('task_id')
+        .eq('user_id', user.id);
+
+      if (followerError) {
+        throw followerError;
+      }
+
       // Combine all task IDs (remove duplicates)
       const allTaskIds = [
         ...(primaryTasks?.map(t => t.id) || []),
-        ...(additionalTasks?.map(t => t.task_id) || [])
+        ...(additionalTasks?.map(t => t.task_id) || []),
+        ...(followerTasks?.map(t => t.task_id) || [])
       ];
       const uniqueTaskIds = [...new Set(allTaskIds)];
 

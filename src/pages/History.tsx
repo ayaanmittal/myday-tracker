@@ -801,7 +801,7 @@ export default function History() {
             <Card className="border-red-200 hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="text-2xl font-bold text-red-600">
-                  {entries.filter(e => e.status === 'absent').length}
+                  {entries.filter(e => e.status === 'absent' && e.manual_status !== 'leave_granted').length}
                 </div>
                 <p className="text-sm text-muted-foreground">Absent Days</p>
               </CardContent>
@@ -809,7 +809,13 @@ export default function History() {
             <Card className="border-blue-200 hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="text-2xl font-bold text-blue-600">
-                  {entries.filter(e => e.status === 'holiday').length}
+                  {entries.filter(e => {
+                    const isHolidayLike = e.status === 'holiday' || e.manual_status === 'leave_granted';
+                    if (!isHolidayLike) return false;
+                    const d = new Date(e.entry_date);
+                    const isSunday = d.getDay() === 0; // 0 = Sunday
+                    return !isSunday;
+                  }).length}
                 </div>
                 <p className="text-sm text-muted-foreground">Holiday Days</p>
               </CardContent>
@@ -929,21 +935,34 @@ export default function History() {
                       </CardDescription>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          entry.status === 'completed'
+                      {(() => {
+                        const isSunday = new Date(entry.entry_date).getDay() === 0;
+                        const effectiveStatus = entry.manual_status === 'leave_granted' ? 'leave_granted' : entry.status;
+                        const badgeClass =
+                          (isSunday && effectiveStatus !== 'violation_only')
+                            ? 'bg-blue-100 text-blue-800'
+                            : effectiveStatus === 'completed'
                             ? 'bg-success/10 text-success'
-                            : entry.status === 'in_progress'
+                            : effectiveStatus === 'in_progress'
                             ? 'bg-warning/10 text-warning'
-                            : entry.status === 'violation_only'
+                            : effectiveStatus === 'violation_only'
                             ? 'bg-red-100 text-red-800'
-                            : entry.status === 'unlogged'
+                            : effectiveStatus === 'unlogged'
                             ? 'bg-destructive/10 text-destructive'
-                            : 'bg-muted text-muted-foreground'
-                        }`}
-                      >
-                        {entry.status === 'violation_only' ? 'Rule Violations' : entry.status.replace('_', ' ')}
-                      </span>
+                            : effectiveStatus === 'leave_granted'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-muted text-muted-foreground';
+                        const label = effectiveStatus === 'violation_only'
+                          ? 'Rule Violations'
+                          : isSunday
+                          ? 'Office Holiday'
+                          : effectiveStatus.replace('_', ' ');
+                        return (
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${badgeClass}`}>
+                            {label}
+                          </span>
+                        );
+                      })()}
                       {entry.manual_status && (
                         <span className="px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                           MANUAL
