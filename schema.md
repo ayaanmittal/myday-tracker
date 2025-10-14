@@ -40,6 +40,15 @@ CREATE TABLE public.attendance_sync_state (
   last_sync_at timestamp with time zone,
   CONSTRAINT attendance_sync_state_pkey PRIMARY KEY (id)
 );
+CREATE TABLE public.company_holidays (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  holiday_date date NOT NULL UNIQUE,
+  title text NOT NULL,
+  created_by uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT company_holidays_pkey PRIMARY KEY (id),
+  CONSTRAINT company_holidays_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
+);
 CREATE TABLE public.conversations (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   participant_1 uuid NOT NULL,
@@ -76,6 +85,21 @@ CREATE TABLE public.employee_mappings (
   CONSTRAINT employee_mappings_pkey PRIMARY KEY (id),
   CONSTRAINT employee_mappings_our_user_id_fkey FOREIGN KEY (our_user_id) REFERENCES auth.users(id),
   CONSTRAINT employee_mappings_our_profile_id_fkey FOREIGN KEY (our_profile_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.employee_work_days (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL UNIQUE,
+  monday boolean DEFAULT true,
+  tuesday boolean DEFAULT true,
+  wednesday boolean DEFAULT true,
+  thursday boolean DEFAULT true,
+  friday boolean DEFAULT true,
+  saturday boolean DEFAULT false,
+  sunday boolean DEFAULT false,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT employee_work_days_pkey PRIMARY KEY (id),
+  CONSTRAINT employee_work_days_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.extra_work_logs (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -232,6 +256,86 @@ CREATE TABLE public.settings (
   CONSTRAINT settings_pkey PRIMARY KEY (id),
   CONSTRAINT settings_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id)
 );
+CREATE TABLE public.task_assignees (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  task_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  assigned_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT task_assignees_pkey PRIMARY KEY (id),
+  CONSTRAINT task_assignees_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id),
+  CONSTRAINT task_assignees_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.task_attachments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  task_id uuid NOT NULL,
+  uploaded_by uuid NOT NULL,
+  file_name text NOT NULL,
+  file_path text NOT NULL,
+  mime_type text,
+  size_bytes bigint,
+  assignee_user_id uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT task_attachments_pkey PRIMARY KEY (id),
+  CONSTRAINT task_attachments_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id),
+  CONSTRAINT task_attachments_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES auth.users(id),
+  CONSTRAINT task_attachments_assignee_user_id_fkey FOREIGN KEY (assignee_user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.task_checklist (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  task_id uuid NOT NULL,
+  content text NOT NULL,
+  is_done boolean NOT NULL DEFAULT false,
+  created_by uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  sort_order integer NOT NULL DEFAULT 0,
+  CONSTRAINT task_checklist_pkey PRIMARY KEY (id),
+  CONSTRAINT task_checklist_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id),
+  CONSTRAINT task_checklist_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id)
+);
+CREATE TABLE public.task_comments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  task_id uuid NOT NULL,
+  author_id uuid NOT NULL,
+  content text NOT NULL,
+  assignee_user_id uuid,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT task_comments_pkey PRIMARY KEY (id),
+  CONSTRAINT task_comments_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id),
+  CONSTRAINT task_comments_author_id_fkey FOREIGN KEY (author_id) REFERENCES auth.users(id),
+  CONSTRAINT task_comments_assignee_user_id_fkey FOREIGN KEY (assignee_user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.task_followers (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  task_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  followed_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT task_followers_pkey PRIMARY KEY (id),
+  CONSTRAINT task_followers_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT task_followers_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id)
+);
+CREATE TABLE public.task_reminders (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  task_id uuid NOT NULL,
+  remind_at timestamp with time zone NOT NULL,
+  note text,
+  created_by uuid NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT task_reminders_pkey PRIMARY KEY (id),
+  CONSTRAINT task_reminders_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id),
+  CONSTRAINT task_reminders_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id)
+);
+CREATE TABLE public.task_timers (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  task_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  start_time timestamp with time zone NOT NULL DEFAULT now(),
+  end_time timestamp with time zone,
+  duration_minutes integer,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT task_timers_pkey PRIMARY KEY (id),
+  CONSTRAINT task_timers_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT task_timers_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.tasks(id)
+);
 CREATE TABLE public.tasks (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   title text NOT NULL,
@@ -244,6 +348,7 @@ CREATE TABLE public.tasks (
   completed_at timestamp with time zone,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  last_updated timestamp with time zone DEFAULT now(),
   CONSTRAINT tasks_pkey PRIMARY KEY (id),
   CONSTRAINT tasks_assigned_to_fkey FOREIGN KEY (assigned_to) REFERENCES auth.users(id),
   CONSTRAINT tasks_assigned_by_fkey FOREIGN KEY (assigned_by) REFERENCES auth.users(id)
@@ -270,7 +375,7 @@ CREATE TABLE public.unified_attendance (
   check_in_at timestamp with time zone,
   check_out_at timestamp with time zone,
   total_work_time_minutes integer DEFAULT 0 CHECK (total_work_time_minutes >= 0),
-  status text NOT NULL DEFAULT 'in_progress'::text CHECK (status = ANY (ARRAY['in_progress'::text, 'completed'::text, 'absent'::text])),
+  status text NOT NULL DEFAULT 'in_progress'::text CHECK (status = ANY (ARRAY['in_progress'::text, 'completed'::text, 'absent'::text, 'holiday'::text])),
   is_late boolean DEFAULT false,
   device_info text NOT NULL,
   device_id text,
@@ -281,8 +386,13 @@ CREATE TABLE public.unified_attendance (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   profile_id uuid,
+  manual_status character varying DEFAULT NULL::character varying CHECK (manual_status IS NULL OR (manual_status::text = ANY (ARRAY['present'::character varying, 'absent'::character varying, 'leave_granted'::character varying]::text[]))),
+  manual_override_by uuid,
+  manual_override_at timestamp with time zone,
+  manual_override_reason text,
   CONSTRAINT unified_attendance_pkey PRIMARY KEY (id),
   CONSTRAINT unified_attendance_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES public.profiles(id),
+  CONSTRAINT unified_attendance_manual_override_by_fkey FOREIGN KEY (manual_override_by) REFERENCES auth.users(id),
   CONSTRAINT unified_attendance_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.user_roles (

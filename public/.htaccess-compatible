@@ -1,0 +1,48 @@
+# Alternative .htaccess for better hosting compatibility
+
+# Force HTTPS (if supported)
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTPS} off
+  RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# MIME Types - Essential for JavaScript modules
+AddType application/javascript .js
+AddType application/javascript .mjs
+AddType text/css .css
+AddType image/svg+xml .svg
+
+# Security Headers (if mod_headers is available)
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options nosniff
+  Header set X-Frame-Options DENY
+  Header set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+# SPA Routing - Handle all routes through index.html
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  
+  # Don't rewrite files that exist
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  
+  # Rewrite everything else to index.html
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# Fallback
+DirectoryIndex index.html
+
+# Cache Control
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 1 month"
+  ExpiresByType application/javascript "access plus 1 month"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/jpg "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/gif "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+</IfModule>

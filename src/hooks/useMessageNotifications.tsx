@@ -15,7 +15,7 @@ export function useMessageNotifications() {
 
   // Update page title
   useEffect(() => {
-    const baseTitle = 'MyDay | Zoogol';
+    const baseTitle = 'MyDay | ERCMAX';
     document.title = baseTitle;
   }, []);
 

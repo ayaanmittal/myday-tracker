@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deployment Troubleshooting</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test { margin: 10px 0; padding: 10px; border: 1px solid #ccc; }
+        .pass { background-color: #d4edda; border-color: #c3e6cb; }
+        .fail { background-color: #f8d7da; border-color: #f5c6cb; }
+        .info { background-color: #d1ecf1; border-color: #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>🚀 Deployment Troubleshooting Tool</h1>
+    
+    <div class="test info">
+        <h3>📋 Instructions</h3>
+        <p>1. Upload this file to your hosting alongside your app</p>
+        <p>2. Visit this file in your browser</p>
+        <p>3. Click "Run Tests" to diagnose issues</p>
+        <p>4. Follow the recommendations below</p>
+    </div>
+
+    <button onclick="runTests()">🔍 Run Tests</button>
+    <button onclick="clearResults()">🗑️ Clear Results</button>
+
+    <div id="results"></div>
+
+    <div class="test info">
+        <h3>🛠️ Common Solutions</h3>
+        <h4>JavaScript Module Error:</h4>
+        <ul>
+            <li>Use the compatible .htaccess file</li>
+            <li>Clear browser cache (Ctrl+Shift+R)</li>
+            <li>Check that .htaccess is uploaded correctly</li>
+            <li>Ensure your hosting supports mod_rewrite</li>
+        </ul>
+        
+        <h4>HTTPS Issues:</h4>
+        <ul>
+            <li>Enable SSL certificate on your hosting</li>
+            <li>Use Cloudflare for free SSL</li>
+            <li>Check that all URLs use https://</li>
+        </ul>
+    </div>
+
+    <script>
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function runTests() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<h3>🔍 Running Tests...</h3>';
+
+            const tests = [
+                testHTTPS(),
+                testJavaScriptMIME(),
+                testFileAccess(),
+                testHeaders()
+            ];
+
+            const results_html = await Promise.all(tests);
+            results.innerHTML = results_html.join('');
+        }
+
+        async function testHTTPS() {
+            const isHTTPS = location.protocol === 'https:';
+            return `
+                <div class="test ${isHTTPS ? 'pass' : 'fail'}">
+                    <h4>🔒 HTTPS Test</h4>
+                    <p>Status: ${isHTTPS ? '✅ Using HTTPS' : '❌ Using HTTP'}</p>
+                    <p>URL: ${location.href}</p>
+                    ${!isHTTPS ? '<p><strong>Fix:</strong> Enable SSL certificate or use Cloudflare</p>' : ''}
+                </div>
+            `;
+        }
+
+        async function testJavaScriptMIME() {
+            try {
+                // Try to load a JavaScript file
+                const response = await fetch('./assets/index-DLk3RBaS.js', { method: 'HEAD' });
+                const contentType = response.headers.get('content-type');
+                const isCorrectMIME = contentType && contentType.includes('application/javascript');
+                
+                return `
+                    <div class="test ${isCorrectMIME ? 'pass' : 'fail'}">
+                        <h4>📄 JavaScript MIME Type Test</h4>
+                        <p>Content-Type: ${contentType || 'Not found'}</p>
+                        <p>Status: ${isCorrectMIME ? '✅ Correct MIME type' : '❌ Wrong MIME type'}</p>
+                        ${!isCorrectMIME ? '<p><strong>Fix:</strong> Use the compatible .htaccess file or contact hosting support</p>' : ''}
+                    </div>
+                `;
+            } catch (error) {
+                return `
+                    <div class="test fail">
+                        <h4>📄 JavaScript MIME Type Test</h4>
+                        <p>Error: ${error.message}</p>
+                        <p><strong>Fix:</strong> Check that assets folder is uploaded correctly</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testFileAccess() {
+            try {
+                const response = await fetch('./index.html');
+                const isAccessible = response.ok;
+                
+                return `
+                    <div class="test ${isAccessible ? 'pass' : 'fail'}">
+                        <h4>📁 File Access Test</h4>
+                        <p>Status: ${isAccessible ? '✅ Files accessible' : '❌ Files not accessible'}</p>
+                        <p>Response: ${response.status} ${response.statusText}</p>
+                    </div>
+                `;
+            } catch (error) {
+                return `
+                    <div class="test fail">
+                        <h4>📁 File Access Test</h4>
+                        <p>Error: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testHeaders() {
+            try {
+                const response = await fetch('./index.html');
+                const headers = {};
+                for (let [key, value] of response.headers.entries()) {
+                    headers[key] = value;
+                }
+                
+                const hasSecurityHeaders = headers['x-content-type-options'] || headers['x-frame-options'];
+                
+                return `
+                    <div class="test ${hasSecurityHeaders ? 'pass' : 'info'}">
+                        <h4>🛡️ Security Headers Test</h4>
+                        <p>Status: ${hasSecurityHeaders ? '✅ Security headers present' : 'ℹ️ No security headers (optional)'}</p>
+                        <p>Headers: ${Object.keys(headers).length} found</p>
+                    </div>
+                `;
+            } catch (error) {
+                return `
+                    <div class="test fail">
+                        <h4>🛡️ Security Headers Test</h4>
+                        <p>Error: ${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,12 +1,17 @@
 import axios, { AxiosError } from 'axios';
-import https from 'https';
+
+// Check if we're in a browser environment
+const isBrowser = typeof window !== 'undefined';
 
 const api = axios.create({
   baseURL: 'https://api.etimeoffice.com/api',
   timeout: 60000, // Increased to 60 seconds
-  // Handle certificate issues
-  httpsAgent: new https.Agent({
-    rejectUnauthorized: false // Temporarily disable SSL verification due to expired certificate
+  // Only add httpsAgent in Node.js environment
+  ...(isBrowser ? {} : {
+    // @ts-ignore - https module is only available in Node.js
+    httpsAgent: new (require('https')).Agent({
+      rejectUnauthorized: false // Temporarily disable SSL verification due to expired certificate
+    })
   })
 });
 

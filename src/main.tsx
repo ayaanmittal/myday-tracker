@@ -139,12 +139,8 @@ window.addEventListener('unhandledrejection', (event) => {
 // Mobile loading optimization
 if (isMobile) {
   console.log('Mobile optimizations applied');
-  // Preload critical resources on mobile
-  const preloadLink = document.createElement('link');
-  preloadLink.rel = 'preload';
-  preloadLink.href = '/src/main.tsx';
-  preloadLink.as = 'script';
-  document.head.appendChild(preloadLink);
+  // Mobile optimizations are handled by the build process
+  // No need to preload source files in production
 }
 
 // Enhanced root creation with error handling

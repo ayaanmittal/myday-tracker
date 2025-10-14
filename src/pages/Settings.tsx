@@ -345,7 +345,7 @@ export default function Settings() {
         </Card>
 
         <div className="text-center text-sm text-muted-foreground pt-4 border-t">
-          © Zoogol Systems
+          © ERCMAX Systems
         </div>
       </div>
     </Layout>

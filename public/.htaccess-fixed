@@ -1,0 +1,56 @@
+# Fixed .htaccess for JavaScript MIME type issues
+# This version ensures JavaScript files are handled correctly
+
+# Enable rewrite engine
+RewriteEngine On
+
+# Force HTTPS
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# MIME Types - Force correct types FIRST
+<IfModule mod_mime.c>
+    # JavaScript
+    AddType application/javascript .js
+    AddType application/javascript .mjs
+    
+    # CSS
+    AddType text/css .css
+    
+    # Images
+    AddType image/svg+xml .svg
+    AddType image/png .png
+    AddType image/jpeg .jpg .jpeg
+    AddType image/gif .gif
+    AddType image/webp .webp
+</IfModule>
+
+# Force headers for JavaScript files
+<IfModule mod_headers.c>
+    <FilesMatch "\.(js|mjs)$">
+        Header always set Content-Type "application/javascript; charset=utf-8"
+        Header always set Cache-Control "public, max-age=31536000"
+        Header always unset X-Content-Type-Options
+    </FilesMatch>
+    
+    <FilesMatch "\.css$">
+        Header always set Content-Type "text/css; charset=utf-8"
+        Header always set Cache-Control "public, max-age=31536000"
+    </FilesMatch>
+</IfModule>
+
+# CRITICAL: Handle JavaScript files - MUST come before SPA routing
+RewriteCond %{REQUEST_URI} \.(js|mjs)$
+RewriteRule ^(.*)$ - [E=JS:1,L]
+
+# CRITICAL: Handle CSS files - MUST come before SPA routing
+RewriteCond %{REQUEST_URI} \.css$
+RewriteRule ^(.*)$ - [E=CSS:1,L]
+
+# SPA Routing - Only for non-file requests (after JS/CSS handling)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.html [L]
+
+# Fallback
+DirectoryIndex index.html

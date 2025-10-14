@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Build Test - MyDay | ERCMAX</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test { margin: 10px 0; padding: 15px; border-radius: 5px; }
+        .pass { background-color: #d4edda; border: 1px solid #c3e6cb; }
+        .fail { background-color: #f8d7da; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; border: 1px solid #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 3px; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <h1>🔧 New Build Test</h1>
+    
+    <div class="test info">
+        <h3>📋 Testing New Build (index-BOHLcG0h.js)</h3>
+        <p>This test verifies the new build works correctly with the updated .htaccess file.</p>
+    </div>
+
+    <button onclick="testNewBuild()">🧪 Test New JavaScript File</button>
+    <button onclick="testMIMEType()">🎯 Test MIME Type</button>
+    <button onclick="clearResults()">🗑️ Clear Results</button>
+
+    <div id="results"></div>
+
+    <div class="test info">
+        <h3>🛠️ What This Tests:</h3>
+        <ul>
+            <li><strong>New JavaScript File:</strong> index-BOHLcG0h.js (updated build)</li>
+            <li><strong>MIME Type:</strong> Should be application/javascript</li>
+            <li><strong>Content:</strong> Should contain JavaScript code, not HTML</li>
+            <li><strong>No Source References:</strong> Should not reference main.tsx</li>
+        </ul>
+    </div>
+
+    <script>
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function testNewBuild() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<h3>🧪 Testing New Build...</h3>';
+
+            const jsFile = '/assets/index-BOHLcG0h.js';
+            
+            try {
+                const response = await fetch(jsFile);
+                const contentType = response.headers.get('content-type');
+                const content = await response.text();
+                
+                const isJavaScript = content.includes('function') || content.includes('const') || content.includes('var') || content.includes('import');
+                const isHTML = content.includes('<html') || content.includes('<!DOCTYPE') || content.includes('<head>');
+                const hasSourceRef = content.includes('main.tsx') || content.includes('/src/');
+                
+                const status = isJavaScript && !isHTML && !hasSourceRef ? 'pass' : 'fail';
+                const icon = isJavaScript && !isHTML && !hasSourceRef ? '✅' : '❌';
+                
+                results.innerHTML = `
+                    <div class="test ${status}">
+                        <h4>${icon} New Build Test Results</h4>
+                        <p><strong>File:</strong> ${jsFile}</p>
+                        <p><strong>Status Code:</strong> ${response.status}</p>
+                        <p><strong>Content-Type:</strong> ${contentType || 'Not found'}</p>
+                        <p><strong>File Size:</strong> ${content.length} characters</p>
+                        
+                        <h5>Content Analysis:</h5>
+                        <ul>
+                            <li><strong>Contains JavaScript:</strong> ${isJavaScript ? '✅ Yes' : '❌ No'}</li>
+                            <li><strong>Contains HTML:</strong> ${isHTML ? '❌ Yes (Bad)' : '✅ No'}</li>
+                            <li><strong>Has Source References:</strong> ${hasSourceRef ? '❌ Yes (Bad)' : '✅ No'}</li>
+                        </ul>
+                        
+                        <h5>Content Preview (first 200 characters):</h5>
+                        <pre>${content.substring(0, 200)}${content.length > 200 ? '...' : ''}</pre>
+                        
+                        <p><strong>Result:</strong> ${isJavaScript && !isHTML && !hasSourceRef ? '✅ PERFECT - New build is working correctly!' : '❌ ISSUES - Build needs fixing'}</p>
+                    </div>
+                `;
+            } catch (error) {
+                results.innerHTML = `
+                    <div class="test fail">
+                        <h4>❌ New Build Test Failed</h4>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <p><strong>File:</strong> ${jsFile}</p>
+                        <p><strong>Fix:</strong> Check if the new build was uploaded correctly</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testMIMEType() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<h3>🎯 Testing MIME Type...</h3>';
+
+            const jsFile = '/assets/index-BOHLcG0h.js';
+            
+            try {
+                const response = await fetch(jsFile, { method: 'HEAD' });
+                const contentType = response.headers.get('content-type');
+                const isCorrect = contentType && contentType.includes('application/javascript');
+                
+                const status = isCorrect ? 'pass' : 'fail';
+                const icon = isCorrect ? '✅' : '❌';
+                
+                results.innerHTML = `
+                    <div class="test ${status}">
+                        <h4>${icon} MIME Type Test</h4>
+                        <p><strong>File:</strong> ${jsFile}</p>
+                        <p><strong>Status Code:</strong> ${response.status}</p>
+                        <p><strong>Content-Type:</strong> ${contentType || 'Not found'}</p>
+                        <p><strong>Result:</strong> ${isCorrect ? '✅ CORRECT - MIME type is application/javascript' : '❌ INCORRECT - MIME type is wrong'}</p>
+                        ${!isCorrect ? '<p><strong>Fix:</strong> The .htaccess file is not working. Try using the PHP router (index.php) instead.</p>' : ''}
+                    </div>
+                `;
+            } catch (error) {
+                results.innerHTML = `
+                    <div class="test fail">
+                        <h4>❌ MIME Type Test Failed</h4>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <p><strong>Fix:</strong> Check if the .htaccess file is uploaded correctly</p>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

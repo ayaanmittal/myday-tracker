@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Direct JavaScript Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test { margin: 10px 0; padding: 15px; border-radius: 5px; }
+        .pass { background-color: #d4edda; border: 1px solid #c3e6cb; }
+        .fail { background-color: #f8d7da; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; border: 1px solid #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 3px; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; font-size: 12px; }
+        .url { background: #e9ecef; padding: 5px; border-radius: 3px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Direct JavaScript MIME Type Test</h1>
+    
+    <div class="test info">
+        <h3>📋 This test will:</h3>
+        <ol>
+            <li>Test the exact JavaScript file causing the error</li>
+            <li>Check its MIME type and content</li>
+            <li>Provide specific fixes for your hosting</li>
+        </ol>
+    </div>
+
+    <button onclick="testExactFile()">🎯 Test Exact Problem File</button>
+    <button onclick="testAllAssets()">📁 Test All Asset Files</button>
+    <button onclick="clearResults()">🗑️ Clear Results</button>
+
+    <div id="results"></div>
+
+    <div class="test info">
+        <h3>🛠️ Quick Fixes</h3>
+        <p><strong>If the test shows HTML content instead of JavaScript:</strong></p>
+        <ol>
+            <li>Upload <code>.htaccess-ultimate</code> as <code>.htaccess</code></li>
+            <li>Or upload <code>router.php</code> and configure your hosting to use it</li>
+            <li>Or contact your hosting provider about MIME types</li>
+        </ol>
+    </div>
+
+    <script>
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function testExactFile() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<h3>🎯 Testing Exact Problem File...</h3>';
+
+            const jsFile = './assets/index-D4kjRpXF.js';
+            
+            try {
+                // Test with HEAD request first
+                const headResponse = await fetch(jsFile, { method: 'HEAD' });
+                const contentType = headResponse.headers.get('content-type');
+                
+                // Test with GET request
+                const getResponse = await fetch(jsFile);
+                const content = await getResponse.text();
+                
+                const isJavaScript = content.includes('function') || content.includes('const') || content.includes('var') || content.includes('import');
+                const isHTML = content.includes('<html') || content.includes('<!DOCTYPE') || content.includes('<head>');
+                
+                const status = isJavaScript ? 'pass' : 'fail';
+                const icon = isJavaScript ? '✅' : '❌';
+                
+                results.innerHTML = `
+                    <div class="test ${status}">
+                        <h4>${icon} Exact File Test Results</h4>
+                        <p><strong>File:</strong> <span class="url">${jsFile}</span></p>
+                        <p><strong>Status Code:</strong> ${getResponse.status}</p>
+                        <p><strong>Content-Type Header:</strong> ${contentType || 'Not found'}</p>
+                        <p><strong>Content Type Detected:</strong> ${isJavaScript ? 'JavaScript Code' : isHTML ? 'HTML Content' : 'Unknown'}</p>
+                        <p><strong>File Size:</strong> ${content.length} characters</p>
+                        
+                        <h5>Content Preview (first 300 characters):</h5>
+                        <pre>${content.substring(0, 300)}${content.length > 300 ? '...' : ''}</pre>
+                        
+                        <p><strong>Result:</strong> ${isJavaScript ? '✅ CORRECT - File contains JavaScript code' : '❌ INCORRECT - File contains HTML or wrong content'}</p>
+                        
+                        ${!isJavaScript ? `
+                            <div style="background: #fff3cd; padding: 10px; border-radius: 3px; margin-top: 10px;">
+                                <h5>🔧 Fix Required:</h5>
+                                <p>Your hosting is serving JavaScript files as HTML. Try these solutions:</p>
+                                <ol>
+                                    <li>Upload <code>.htaccess-ultimate</code> as <code>.htaccess</code></li>
+                                    <li>Or upload <code>router.php</code> and configure hosting to use it</li>
+                                    <li>Or contact hosting support about MIME types</li>
+                                </ol>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            } catch (error) {
+                results.innerHTML = `
+                    <div class="test fail">
+                        <h4>❌ File Test Failed</h4>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <p><strong>File:</strong> <span class="url">${jsFile}</span></p>
+                        <p><strong>Fix:</strong> Check that the assets folder is uploaded correctly</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testAllAssets() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<h3>📁 Testing All Asset Files...</h3>';
+
+            const assetFiles = [
+                './assets/index-D4kjRpXF.js',
+                './assets/index-By6II382.css',
+                './assets/logo-Dc9Kfm32.png'
+            ];
+
+            let allResults = '';
+
+            for (const file of assetFiles) {
+                try {
+                    const response = await fetch(file, { method: 'HEAD' });
+                    const contentType = response.headers.get('content-type');
+                    const isCorrect = (file.endsWith('.js') && contentType?.includes('application/javascript')) ||
+                                    (file.endsWith('.css') && contentType?.includes('text/css')) ||
+                                    (file.endsWith('.png') && contentType?.includes('image/png'));
+                    
+                    const status = isCorrect ? 'pass' : 'fail';
+                    const icon = isCorrect ? '✅' : '❌';
+                    
+                    allResults += `
+                        <div class="test ${status}">
+                            <h5>${icon} ${file.split('/').pop()}</h5>
+                            <p><strong>Content-Type:</strong> ${contentType || 'Not found'}</p>
+                            <p><strong>Status:</strong> ${isCorrect ? 'Correct' : 'Incorrect'}</p>
+                        </div>
+                    `;
+                } catch (error) {
+                    allResults += `
+                        <div class="test fail">
+                            <h5>❌ ${file.split('/').pop()}</h5>
+                            <p><strong>Error:</strong> ${error.message}</p>
+                        </div>
+                    `;
+                }
+            }
+
+            results.innerHTML = allResults;
+        }
+    </script>
+</body>
+</html>

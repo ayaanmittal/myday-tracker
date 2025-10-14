@@ -2,7 +2,6 @@ import { ReactNode } from 'react';
 import { SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
 import { FirstTimeRulesDialog } from './FirstTimeRulesDialog';
-import { SessionMonitor } from './SessionMonitor';
 // import { MobileDebug } from './MobileDebug';
 import { MobileFallback } from './MobileFallback';
 
@@ -15,7 +14,6 @@ export function Layout({ children }: LayoutProps) {
     <MobileFallback>
       <SidebarProvider>
         <FirstTimeRulesDialog />
-        <SessionMonitor />
         {/* <MobileDebug /> */}
         <div className="min-h-screen flex w-full bg-gradient-to-br from-background via-background to-secondary/20 mobile-layout">
         <AppSidebar />

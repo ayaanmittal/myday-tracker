@@ -24,8 +24,8 @@ Updated authentication hook with:
 - Stay signed in preference tracking
 - Improved error handling
 
-### 4. Session Monitor (`src/components/SessionMonitor.tsx`)
-Development tool that shows:
+### 4. Session Management
+Development tools for session management:
 - Current session status
 - Time until expiration
 - Stay signed in preference

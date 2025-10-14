@@ -1,6 +1,53 @@
+# Force HTTPS redirect
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  
+  # Force HTTPS
+  RewriteCond %{HTTPS} off
+  RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# MIME Types for JavaScript Modules
+<IfModule mod_mime.c>
+  # JavaScript files
+  AddType application/javascript .js
+  AddType application/javascript .mjs
+  
+  # Ensure proper MIME type for module scripts
+  <FilesMatch "\.(js|mjs)$">
+    Header set Content-Type "application/javascript; charset=utf-8"
+  </FilesMatch>
+</IfModule>
+
+# Security Headers
+<IfModule mod_headers.c>
+  # Force HTTPS
+  Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+  
+  # Prevent MIME type sniffing
+  Header always set X-Content-Type-Options nosniff
+  
+  # Enable XSS protection
+  Header always set X-XSS-Protection "1; mode=block"
+  
+  # Prevent clickjacking
+  Header always set X-Frame-Options DENY
+  
+  # Referrer policy
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  
+  # Content Security Policy
+  Header always set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://*.supabase.co https://api.etimeoffice.com; frame-ancestors 'none';"
+</IfModule>
+
+# SPA Routing
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
+  # Ensure JavaScript files are served with correct MIME type
+  RewriteCond %{REQUEST_FILENAME} \.(js|mjs)$
+  RewriteRule ^(.*)$ - [E=JS:1]
+  
   # Allow direct access to existing files and directories
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
@@ -13,3 +60,14 @@
 # Fallback if mod_rewrite is not available
 DirectoryIndex index.html
 
+# Cache Control
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType text/css "access plus 1 year"
+  ExpiresByType application/javascript "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/jpg "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/gif "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+</IfModule>

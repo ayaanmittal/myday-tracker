@@ -251,27 +251,90 @@ async function processAndInsertAttendanceRecordsClient(
       // Check if record already exists
       const { data: existingRecord } = await supabase
         .from('unified_attendance')
-        .select('id')
+        .select('id, check_in_at, check_out_at, status')
         .eq('user_id', userMapping.our_user_id)
         .eq('entry_date', record.DateString)
         .single();
 
       if (existingRecord) {
-        // Update existing record
+        // Check if record already has both check-in and check-out times
+        const hasCompleteData = existingRecord.check_in_at && existingRecord.check_out_at;
+        
+        if (hasCompleteData) {
+          // Skip updating records that already have complete attendance data
+          console.log(`Skipping update for ${record.Empcode} - record already has complete data`);
+          continue;
+        }
+
+        // Only update if record is incomplete (missing check-in or check-out)
+        const updateData: any = {
+          device_info: 'TeamOffice API',
+          device_id: 'teamoffice',
+          source: 'teamoffice',
+          modification_reason: 'API Sync',
+          updated_at: new Date().toISOString()
+        };
+
+        // Only update fields that are missing or need updating
+        if (!existingRecord.check_in_at && checkInAt) {
+          updateData.check_in_at = checkInAt;
+        }
+        if (!existingRecord.check_out_at && checkOutAt) {
+          updateData.check_out_at = checkOutAt;
+        }
+
+        // Update status and work time only if we're adding new data
+        if (updateData.check_in_at || updateData.check_out_at) {
+          const finalCheckIn = updateData.check_in_at || existingRecord.check_in_at;
+          const finalCheckOut = updateData.check_out_at || existingRecord.check_out_at;
+          
+          if (finalCheckIn && finalCheckOut) {
+            const inTime = new Date(finalCheckIn);
+            const outTime = new Date(finalCheckOut);
+            updateData.total_work_time_minutes = Math.round((outTime.getTime() - inTime.getTime()) / (1000 * 60));
+            updateData.status = 'completed';
+          } else if (finalCheckIn) {
+            updateData.status = 'in_progress';
+          }
+
+          // Calculate late status if we're updating check-in
+          if (updateData.check_in_at) {
+            try {
+              const { data: settings } = await supabase
+                .from('settings')
+                .select('value')
+                .eq('key', 'late_threshold_minutes')
+                .single();
+              
+              const lateThresholdMinutes = settings?.value ? parseInt(settings.value) : 15;
+              
+              const { data: workdaySettings } = await supabase
+                .from('settings')
+                .select('value')
+                .eq('key', 'workday_start_time')
+                .single();
+              
+              const workdayStartTime = workdaySettings?.value || '09:00';
+              
+              const checkInTime = new Date(updateData.check_in_at);
+              const [startHour, startMinute] = workdayStartTime.split(':').map(Number);
+              const workdayStart = new Date(checkInTime);
+              workdayStart.setHours(startHour, startMinute, 0, 0);
+              
+              const lateThresholdTime = new Date(workdayStart);
+              lateThresholdTime.setMinutes(lateThresholdTime.getMinutes() + lateThresholdMinutes);
+              
+              updateData.is_late = checkInTime > lateThresholdTime;
+            } catch (error) {
+              console.warn('Error calculating late status:', error);
+              updateData.is_late = false;
+            }
+          }
+        }
+
         const { error: updateError } = await supabase
           .from('unified_attendance')
-          .update({
-            check_in_at: checkInAt,
-            check_out_at: checkOutAt,
-            total_work_time_minutes: totalWorkTimeMinutes,
-            status: status,
-            is_late: isLate,
-            device_info: 'TeamOffice API',
-            device_id: 'teamoffice',
-            source: 'teamoffice',
-            modification_reason: 'API Sync',
-            updated_at: new Date().toISOString()
-          })
+          .update(updateData)
           .eq('id', existingRecord.id);
 
         if (updateError) {

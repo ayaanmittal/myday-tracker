@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MIME Type Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test { margin: 10px 0; padding: 15px; border-radius: 5px; }
+        .pass { background-color: #d4edda; border: 1px solid #c3e6cb; }
+        .fail { background-color: #f8d7da; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; border: 1px solid #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 3px; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔍 JavaScript MIME Type Test</h1>
+    
+    <div class="test info">
+        <h3>📋 What This Tests</h3>
+        <p>This page tests if your hosting provider serves JavaScript files with the correct MIME type.</p>
+        <p><strong>Expected:</strong> Content-Type: application/javascript</p>
+        <p><strong>Problem:</strong> Content-Type: text/html (causes module script error)</p>
+    </div>
+
+    <button onclick="testJavaScriptFiles()">🧪 Test JavaScript Files</button>
+    <button onclick="testDirectAccess()">🔗 Test Direct File Access</button>
+    <button onclick="clearResults()">🗑️ Clear Results</button>
+
+    <div id="results"></div>
+
+    <div class="test info">
+        <h3>🛠️ If Tests Fail</h3>
+        <ol>
+            <li><strong>Try different .htaccess:</strong> Use .htaccess-aggressive or .htaccess-minimal</li>
+            <li><strong>Clear browser cache:</strong> Hard refresh (Ctrl+Shift+R)</li>
+            <li><strong>Check file upload:</strong> Ensure .htaccess is uploaded correctly</li>
+            <li><strong>Contact hosting:</strong> Ask them to fix MIME types for .js files</li>
+            <li><strong>Switch hosting:</strong> Consider Vercel, Netlify, or Cloudflare Pages</li>
+        </ol>
+    </div>
+
+    <script>
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function testJavaScriptFiles() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<h3>🧪 Testing JavaScript Files...</h3>';
+
+            try {
+                // Test the main JavaScript file
+                const response = await fetch('./assets/index-D4kjRpXF.js', { method: 'HEAD' });
+                const contentType = response.headers.get('content-type');
+                const isCorrectMIME = contentType && contentType.includes('application/javascript');
+                
+                const status = isCorrectMIME ? 'pass' : 'fail';
+                const icon = isCorrectMIME ? '✅' : '❌';
+                
+                results.innerHTML = `
+                    <div class="test ${status}">
+                        <h4>${icon} JavaScript MIME Type Test</h4>
+                        <p><strong>File:</strong> ./assets/index-D4kjRpXF.js</p>
+                        <p><strong>Status Code:</strong> ${response.status}</p>
+                        <p><strong>Content-Type:</strong> ${contentType || 'Not found'}</p>
+                        <p><strong>Result:</strong> ${isCorrectMIME ? 'CORRECT - JavaScript files are served properly' : 'INCORRECT - JavaScript files are served as HTML'}</p>
+                        ${!isCorrectMIME ? '<p><strong>Fix:</strong> Use .htaccess-aggressive or contact hosting support</p>' : ''}
+                    </div>
+                `;
+            } catch (error) {
+                results.innerHTML = `
+                    <div class="test fail">
+                        <h4>❌ JavaScript MIME Type Test</h4>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <p><strong>Fix:</strong> Check that assets folder is uploaded correctly</p>
+                    </div>
+                `;
+            }
+        }
+
+        async function testDirectAccess() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<h3>🔗 Testing Direct File Access...</h3>';
+
+            try {
+                const response = await fetch('./assets/index-D4kjRpXF.js');
+                const content = await response.text();
+                const isJavaScript = content.includes('function') || content.includes('const') || content.includes('var');
+                const isHTML = content.includes('<html') || content.includes('<!DOCTYPE');
+                
+                const status = isJavaScript ? 'pass' : 'fail';
+                const icon = isJavaScript ? '✅' : '❌';
+                
+                results.innerHTML = `
+                    <div class="test ${status}">
+                        <h4>${icon} Direct File Access Test</h4>
+                        <p><strong>File Content Type:</strong> ${isJavaScript ? 'JavaScript Code' : isHTML ? 'HTML Content' : 'Unknown'}</p>
+                        <p><strong>Content Preview:</strong></p>
+                        <pre>${content.substring(0, 200)}${content.length > 200 ? '...' : ''}</pre>
+                        <p><strong>Result:</strong> ${isJavaScript ? 'CORRECT - File contains JavaScript' : 'INCORRECT - File contains HTML or other content'}</p>
+                    </div>
+                `;
+            } catch (error) {
+                results.innerHTML = `
+                    <div class="test fail">
+                        <h4>❌ Direct File Access Test</h4>
+                        <p><strong>Error:</strong> ${error.message}</p>
+                        <p><strong>Fix:</strong> Check file path and upload</p>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,50 @@
+# Aggressive .htaccess for stubborn hosting providers
+# This version forces correct MIME types more aggressively
+
+# Enable rewrite engine
+RewriteEngine On
+
+# Force HTTPS
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# MIME Types - Force JavaScript files to be served correctly
+<IfModule mod_mime.c>
+    AddType application/javascript .js
+    AddType application/javascript .mjs
+    AddType text/css .css
+    AddType image/svg+xml .svg
+    AddType image/png .png
+    AddType image/jpeg .jpg .jpeg
+    AddType image/gif .gif
+    AddType image/webp .webp
+</IfModule>
+
+# Force correct headers for JavaScript files
+<IfModule mod_headers.c>
+    <FilesMatch "\.(js|mjs)$">
+        Header set Content-Type "application/javascript; charset=utf-8"
+        Header set Cache-Control "public, max-age=31536000"
+    </FilesMatch>
+    
+    <FilesMatch "\.css$">
+        Header set Content-Type "text/css; charset=utf-8"
+        Header set Cache-Control "public, max-age=31536000"
+    </FilesMatch>
+</IfModule>
+
+# Handle JavaScript files specifically
+RewriteCond %{REQUEST_URI} \.(js|mjs)$
+RewriteRule ^(.*)$ - [E=JS:1]
+
+# Handle CSS files specifically  
+RewriteCond %{REQUEST_URI} \.css$
+RewriteRule ^(.*)$ - [E=CSS:1]
+
+# SPA Routing - Only redirect non-file requests
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.html [L]
+
+# Fallback
+DirectoryIndex index.html

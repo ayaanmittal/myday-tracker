@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Test - MyDay | ERCMAX</title>
+</head>
+<body>
+    <h1>🔧 Quick Test Page</h1>
+    <p><strong>If you can see this page, the basic HTML is working.</strong></p>
+    
+    <h2>JavaScript Test:</h2>
+    <button onclick="testJS()">Test JavaScript Loading</button>
+    <div id="result"></div>
+    
+    <h2>File Check:</h2>
+    <p>Check if these files exist:</p>
+    <ul>
+        <li><a href="/assets/index-DLk3RBaS.js" target="_blank">Main JavaScript File</a></li>
+        <li><a href="/.htaccess" target="_blank">.htaccess File</a></li>
+        <li><a href="/favicon.ico" target="_blank">Favicon</a></li>
+    </ul>
+    
+    <script>
+        function testJS() {
+            const result = document.getElementById('result');
+            result.innerHTML = '<p>Testing JavaScript loading...</p>';
+            
+            // Try to load the main JS file
+            fetch('/assets/index-DLk3RBaS.js')
+                .then(response => {
+                    const contentType = response.headers.get('content-type');
+                    result.innerHTML = `
+                        <div style="background: #d4edda; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                            <h3>✅ JavaScript File Test Results:</h3>
+                            <p><strong>Status:</strong> ${response.status}</p>
+                            <p><strong>Content-Type:</strong> ${contentType || 'Not found'}</p>
+                            <p><strong>Result:</strong> ${contentType && contentType.includes('application/javascript') ? 'CORRECT - JavaScript MIME type is working!' : 'INCORRECT - Still getting wrong MIME type'}</p>
+                        </div>
+                    `;
+                })
+                .catch(error => {
+                    result.innerHTML = `
+                        <div style="background: #f8d7da; padding: 10px; border-radius: 5px; margin: 10px 0;">
+                            <h3>❌ JavaScript File Test Failed:</h3>
+                            <p><strong>Error:</strong> ${error.message}</p>
+                            <p><strong>Fix:</strong> Check if the assets folder is uploaded correctly</p>
+                        </div>
+                    `;
+                });
+        }
+    </script>
+</body>
+</html>

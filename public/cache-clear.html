@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cache Clear - MyDay | ERCMAX</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; text-align: center; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .success { background-color: #d4edda; padding: 20px; border-radius: 5px; margin: 20px 0; }
+        .info { background-color: #d1ecf1; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        button { padding: 15px 30px; margin: 10px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 5px; font-size: 16px; }
+        .warning { background-color: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 Cache Clear Tool</h1>
+        
+        <div class="warning">
+            <h3>⚠️ Browser Cache Issue Detected</h3>
+            <p>Your browser is trying to load an old JavaScript file that no longer exists.</p>
+            <p><strong>Old file:</strong> index-BOHLcG0h.js (404 error)</p>
+            <p><strong>New file:</strong> index-w26_Gak4.js (current)</p>
+        </div>
+
+        <div class="info">
+            <h3>🔧 How to Fix:</h3>
+            <ol style="text-align: left;">
+                <li><strong>Hard Refresh:</strong> Press Ctrl+Shift+R (Windows) or Cmd+Shift+R (Mac)</li>
+                <li><strong>Clear Cache:</strong> Use the button below to clear browser cache</li>
+                <li><strong>Incognito Mode:</strong> Try opening the site in incognito/private mode</li>
+                <li><strong>Wait 5 minutes:</strong> Sometimes it takes time for cache to clear</li>
+            </ol>
+        </div>
+
+        <button onclick="clearCache()">🗑️ Clear Browser Cache</button>
+        <button onclick="goToMainApp()">🚀 Go to Main App</button>
+        <button onclick="testNewFiles()">🧪 Test New Files</button>
+
+        <div id="results"></div>
+
+        <div class="success">
+            <h3>✅ After Clearing Cache:</h3>
+            <p>Your site should load with the correct JavaScript file and show "MyDay | ERCMAX" in the title.</p>
+        </div>
+    </div>
+
+    <script>
+        function clearCache() {
+            // Clear all caches
+            if ('caches' in window) {
+                caches.keys().then(names => {
+                    names.forEach(name => {
+                        caches.delete(name);
+                    });
+                });
+            }
+            
+            // Clear localStorage and sessionStorage
+            localStorage.clear();
+            sessionStorage.clear();
+            
+            document.getElementById('results').innerHTML = `
+                <div class="success">
+                    <h4>✅ Cache Cleared Successfully!</h4>
+                    <p>Now refresh the page (Ctrl+Shift+R) to load the new files.</p>
+                </div>
+            `;
+        }
+
+        function goToMainApp() {
+            // Add cache-busting parameter
+            const timestamp = new Date().getTime();
+            window.location.href = `/?v=${timestamp}`;
+        }
+
+        function testNewFiles() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<h3>🧪 Testing New Files...</h3>';
+
+            // Test the new JavaScript file
+            fetch('/assets/index-w26_Gak4.js', { method: 'HEAD' })
+                .then(response => {
+                    if (response.ok) {
+                        results.innerHTML = `
+                            <div class="success">
+                                <h4>✅ New Files Test Results</h4>
+                                <p><strong>New JavaScript file:</strong> ✅ Available (${response.status})</p>
+                                <p><strong>Content-Type:</strong> ${response.headers.get('content-type') || 'Not found'}</p>
+                                <p><strong>Result:</strong> New files are ready! Clear cache and refresh.</p>
+                            </div>
+                        `;
+                    } else {
+                        results.innerHTML = `
+                            <div class="warning">
+                                <h4>❌ New Files Test Failed</h4>
+                                <p><strong>Status:</strong> ${response.status}</p>
+                                <p><strong>Fix:</strong> Make sure the new build is uploaded to your hosting.</p>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    results.innerHTML = `
+                        <div class="warning">
+                            <h4>❌ Test Failed</h4>
+                            <p><strong>Error:</strong> ${error.message}</p>
+                            <p><strong>Fix:</strong> Check your internet connection and hosting.</p>
+                        </div>
+                    `;
+                });
+        }
+
+        // Auto-test on page load
+        window.addEventListener('load', testNewFiles);
+    </script>
+</body>
+</html>
