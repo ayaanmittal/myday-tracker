@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
 import { Loader2, CheckCircle, AlertTriangle, XCircle, UserPlus } from 'lucide-react';
+import { joinApiPath } from '@/config/api';
+import { safeJsonParse } from '@/utils/safeJsonParse';
 
 interface UnmappedEmployee {
   emp_code: string;
@@ -56,10 +58,9 @@ export function EmployeeMappingManager() {
   const loadUnmappedEmployees = async () => {
     setIsLoading(true);
     try {
-      // This would call your API endpoint
-      const response = await fetch(joinApiPath('/api/employees/unmapped'));
-      const data = await response.json();
-      setUnmappedEmployees(data);
+      // Show message that unmapped employees loading is not available in frontend-only setup
+      setUnmappedEmployees([]);
+      console.warn('Unmapped employees loading is not available in frontend-only setup');
     } catch (error) {
       console.error('Error loading unmapped employees:', error);
     } finally {
@@ -74,14 +75,11 @@ export function EmployeeMappingManager() {
   }) => {
     setIsProcessing(true);
     try {
-      const response = await fetch(joinApiPath('/api/employees/bulk-mapping'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
+      // Show message that bulk mapping is not available in frontend-only setup
+      setMappingResult({
+        success: false,
+        message: 'Bulk mapping is not available in this frontend-only setup. Use manual employee management instead.'
       });
-      const result = await response.json();
-      setMappingResult(result);
-      await loadUnmappedEmployees(); // Refresh the list
     } catch (error) {
       console.error('Error running bulk mapping:', error);
     } finally {
@@ -91,15 +89,8 @@ export function EmployeeMappingManager() {
 
   const approveMapping = async (empCode: string, userId: string) => {
     try {
-      const response = await fetch(joinApiPath('/api/employees/approve-mapping'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ empCode, userId })
-      });
-      
-      if (response.ok) {
-        await loadUnmappedEmployees(); // Refresh the list
-      }
+      // Show message that mapping approval is not available in frontend-only setup
+      console.log('Mapping approval is not available in frontend-only setup');
     } catch (error) {
       console.error('Error approving mapping:', error);
     }

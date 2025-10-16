@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { safeJsonParse } from '@/utils/safeJsonParse';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ServerStatus {
   health: any;
@@ -15,20 +17,36 @@ export function ServerStatus() {
 
   const fetchStatus = async () => {
     try {
-      const { joinApiPath } = await import('@/config/api');
-      const [healthRes, syncRes, teamOfficeRes] = await Promise.allSettled([
-        fetch(joinApiPath('/api/health')).then(r => r.json()),
-        fetch(joinApiPath('/api/sync/status')).then(r => r.json()),
-        fetch(joinApiPath('/api/test/teamoffice')).then(r => r.json())
-      ]);
+      // Test Supabase connection
+      const { data: healthData, error: healthError } = await supabase
+        .from('profiles')
+        .select('count')
+        .limit(1);
+
+      // Test unified_attendance table access
+      const { data: syncData, error: syncError } = await supabase
+        .from('unified_attendance')
+        .select('count')
+        .limit(1);
+
+      // Test employee_mappings table access
+      const { data: teamOfficeData, error: teamOfficeError } = await supabase
+        .from('employee_mappings')
+        .select('count')
+        .limit(1);
 
       setStatus({
-        health: healthRes.status === 'fulfilled' ? healthRes.value : { error: healthRes.reason },
-        syncStatus: syncRes.status === 'fulfilled' ? syncRes.value : { error: syncRes.reason },
-        teamOfficeTest: teamOfficeRes.status === 'fulfilled' ? teamOfficeRes.value : { error: teamOfficeRes.reason }
+        health: healthError ? { error: healthError.message } : { success: true, message: 'Database connection healthy' },
+        syncStatus: syncError ? { error: syncError.message } : { success: true, message: 'Attendance sync table accessible' },
+        teamOfficeTest: teamOfficeError ? { error: teamOfficeError.message } : { success: true, message: 'Employee mappings accessible' }
       });
     } catch (error) {
       console.error('Error fetching status:', error);
+      setStatus({
+        health: { error: 'Failed to connect to database' },
+        syncStatus: { error: 'Failed to access sync data' },
+        teamOfficeTest: { error: 'Failed to access employee mappings' }
+      });
     } finally {
       setLoading(false);
     }

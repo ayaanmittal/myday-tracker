@@ -8,6 +8,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, RefreshCw, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { joinApiPath } from '@/config/api';
+import { safeJsonParse } from '@/utils/safeJsonParse';
+import { supabase } from '@/integrations/supabase/client';
 
 interface ApiTestResult {
   success: boolean;
@@ -59,7 +62,17 @@ export function BiometricTest() {
         body: JSON.stringify(params)
       });
       
-      const data = await response.json();
+      const data = await safeJsonParse(response);
+      
+      if (data === null) {
+        addTestResult({
+          success: false,
+          error: 'Failed to parse response as JSON',
+          timestamp: new Date().toISOString(),
+          endpoint: endpoint
+        });
+        return null;
+      }
       
       addTestResult({
         success: response.ok,
@@ -112,21 +125,29 @@ export function BiometricTest() {
 
   const fetchRecentLogs = async () => {
     try {
-      const response = await fetch(joinApiPath('/api/attendance/recent'));
-      const data = await response.json();
-      
-      if (data.success && data.data) {
-        const logs: BiometricLog[] = data.data.map((log: any) => ({
-          id: log.id,
-          name: log.employee_name || 'Unknown',
-          empCode: log.employee_id,
-          punchTime: new Date(log.log_time).toLocaleString(),
-          type: log.log_type,
-          deviceId: log.device_id || 'N/A',
-          source: log.source
-        }));
-        setBiometricLogs(logs);
+      // Get recent attendance logs from unified_attendance table
+      const { data, error } = await supabase
+        .from('unified_attendance')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) {
+        console.error('Error fetching recent logs:', error);
+        return;
       }
+
+      const logs: BiometricLog[] = (data || []).map((record: any) => ({
+        id: record.id,
+        name: record.employee_name || 'Unknown',
+        empCode: record.employee_code || record.user_id,
+        punchTime: record.check_in_at ? new Date(record.check_in_at).toLocaleString() : 'N/A',
+        type: record.check_in_at && record.check_out_at ? 'completed' : 'in_progress',
+        deviceId: record.device_id || 'N/A',
+        source: record.source || 'unified_attendance'
+      }));
+      
+      setBiometricLogs(logs);
     } catch (error) {
       console.error('Error fetching recent logs:', error);
     }

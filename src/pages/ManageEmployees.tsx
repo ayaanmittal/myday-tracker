@@ -137,31 +137,23 @@ export default function ManageEmployees() {
           description: 'Employee information has been updated successfully.',
         });
       } else {
-        // Create new employee using server API (doesn't auto-login)
-        const response = await fetch(joinApiPath('/api/users/create'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email: formData.email,
-            password: formData.password,
-            name: formData.name,
-            team: formData.team,
-            designation: formData.designation,
-            role: formData.role
-          })
-        });
+        // Create employee profile for existing auth user
+        const { data: profileResult, error: profileError } = await supabase
+          .rpc('create_employee_profile_for_existing_auth_user', {
+            p_name: formData.name,
+            p_email: formData.email,
+            p_team: formData.team || null,
+            p_designation: formData.designation || null,
+            p_role: formData.role
+          });
 
-        const result = await response.json();
-
-        if (!result.success) {
-          throw new Error(result.error || 'Failed to create user');
+        if (profileError) {
+          throw new Error(`Failed to create employee profile: ${profileError.message}`);
         }
 
         toast({
-          title: 'Employee added',
-          description: 'New employee has been added successfully.',
+          title: 'Employee profile created/updated',
+          description: 'Employee profile has been created or updated and linked to the existing auth user.',
         });
       }
 
@@ -261,11 +253,11 @@ export default function ManageEmployees() {
                 <DialogTitle>
                   {editingEmployee ? 'Edit Employee' : 'Add New Employee'}
                 </DialogTitle>
-                <DialogDescription>
-                  {editingEmployee
-                    ? 'Update employee information and permissions'
-                    : 'Create a new employee account with login credentials'}
-                </DialogDescription>
+                 <DialogDescription>
+                   {editingEmployee
+                     ? 'Update employee information and permissions'
+                     : 'Create a new employee profile. Make sure the auth user already exists in Supabase Dashboard with the same email.'}
+                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
@@ -278,32 +270,21 @@ export default function ManageEmployees() {
                   />
                 </div>
 
-                {!editingEmployee && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="password">Password</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        value={formData.password}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        required
-                        minLength={6}
-                      />
-                    </div>
-                  </>
-                )}
+                 {!editingEmployee && (
+                   <div className="space-y-2">
+                     <Label htmlFor="email">Email</Label>
+                     <Input
+                       id="email"
+                       type="email"
+                       value={formData.email}
+                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                       required
+                     />
+                     <p className="text-sm text-muted-foreground">
+                       Make sure an auth user with this email already exists in Supabase Dashboard
+                     </p>
+                   </div>
+                 )}
 
                 <div className="space-y-2">
                   <Label htmlFor="team">Team (optional)</Label>

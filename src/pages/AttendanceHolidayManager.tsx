@@ -23,6 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 
 export default function AttendanceHolidayManager() {
   const [startDate, setStartDate] = useState('');
@@ -35,7 +36,7 @@ export default function AttendanceHolidayManager() {
   const [generatedRecords, setGeneratedRecords] = useState<GeneratedRecord[]>([]);
   const [totalUpdated, setTotalUpdated] = useState(0);
   const [totalGenerated, setTotalGenerated] = useState(0);
-  const [approvedLeaves, setApprovedLeaves] = useState<{ user_id: string; start_date: string; end_date: string; approved_by: string | null; reason: string | null; user_name?: string; user_email?: string; approver_name?: string }[]>([]);
+  const [approvedLeaves, setApprovedLeaves] = useState<{ user_id: string; start_date: string; end_date: string; approved_by: string | null; reason: string | null; processed: boolean; user_name?: string; user_email?: string; approver_name?: string }[]>([]);
   const [selectedApproved, setSelectedApproved] = useState<{ user_id: string; start_date: string; end_date: string }[]>([]);
 
   // Set default date range (last 30 days)
@@ -164,10 +165,10 @@ export default function AttendanceHolidayManager() {
 
   const loadApprovedLeaves = async () => {
     const todayStr = new Date().toISOString().split('T')[0];
-    // Fetch future approved leave requests
+    // Fetch future approved leave requests including processed status
     const { data, error } = await supabase
       .from('leave_requests')
-      .select('user_id, start_date, end_date, approved_by, reason')
+      .select('user_id, start_date, end_date, approved_by, reason, processed')
       .eq('status', 'approved')
       .gte('end_date', todayStr)
       .order('start_date');
@@ -202,7 +203,12 @@ export default function AttendanceHolidayManager() {
     void loadApprovedLeaves();
   }, []);
 
-  const toggleApprovedSelection = (row: { user_id: string; start_date: string; end_date: string }) => {
+  const toggleApprovedSelection = (row: { user_id: string; start_date: string; end_date: string; processed: boolean }) => {
+    // Don't allow selection of processed leaves
+    if (row.processed) {
+      return;
+    }
+    
     setSelectedApproved(prev => {
       const key = `${row.user_id}-${row.start_date}-${row.end_date}`;
       const exists = prev.some(r => `${r.user_id}-${r.start_date}-${r.end_date}` === key);
@@ -224,6 +230,29 @@ export default function AttendanceHolidayManager() {
       const inserted = results.reduce((sum, r) => sum + (r.success ? (r.inserted || 0) : 0), 0);
       const updated = results.reduce((sum, r) => sum + (r.success ? (r.updated || 0) : 0), 0);
       const failed = results.filter(r => !r.success).length;
+      
+      // Mark successfully processed leaves as processed
+      if (inserted > 0 || updated > 0) {
+        const userIds = selectedApproved.map(r => r.user_id);
+        const startDates = selectedApproved.map(r => r.start_date);
+        const endDates = selectedApproved.map(r => r.end_date);
+        
+        // Mark each leave request as processed
+        for (let i = 0; i < selectedApproved.length; i++) {
+          const { error } = await supabase
+            .from('leave_requests')
+            .update({ processed: true })
+            .eq('user_id', selectedApproved[i].user_id)
+            .eq('start_date', selectedApproved[i].start_date)
+            .eq('end_date', selectedApproved[i].end_date)
+            .eq('status', 'approved');
+          
+          if (error) {
+            console.error('Error marking leave as processed:', error);
+          }
+        }
+      }
+      
       toast({ title: 'Processed approved leaves', description: `Updated ${updated}, Inserted ${inserted}${failed ? `, Failed ${failed}` : ''}` });
     } catch (e: any) {
       toast({ title: 'Error', description: e.message || 'Failed to apply approved leaves', variant: 'destructive' });
@@ -407,7 +436,7 @@ export default function AttendanceHolidayManager() {
               <Button
                 onClick={applySelectedApprovedLeaves}
                 disabled={processing || selectedApproved.length === 0}
-                variant="secondary"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 Process Leave
               </Button>
@@ -421,13 +450,14 @@ export default function AttendanceHolidayManager() {
                   <TableHead>Start Date</TableHead>
                   <TableHead>End Date</TableHead>
                   <TableHead>Approved By</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead>Reason</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {approvedLeaves.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center text-muted-foreground">
                       No upcoming approved leaves
                     </TableCell>
                   </TableRow>
@@ -438,7 +468,9 @@ export default function AttendanceHolidayManager() {
                         <input
                           type="checkbox"
                           checked={selectedApproved.some(r => r.user_id === row.user_id && r.start_date === row.start_date && r.end_date === row.end_date)}
-                          onChange={() => toggleApprovedSelection({ user_id: row.user_id, start_date: row.start_date, end_date: row.end_date })}
+                          onChange={() => toggleApprovedSelection({ user_id: row.user_id, start_date: row.start_date, end_date: row.end_date, processed: row.processed })}
+                          disabled={row.processed}
+                          className={row.processed ? 'opacity-50 cursor-not-allowed' : ''}
                         />
                       </TableCell>
                       <TableCell>{row.user_name || row.user_id}</TableCell>
@@ -446,6 +478,17 @@ export default function AttendanceHolidayManager() {
                       <TableCell>{new Date(row.start_date).toLocaleDateString()}</TableCell>
                       <TableCell>{new Date(row.end_date).toLocaleDateString()}</TableCell>
                       <TableCell>{row.approver_name || row.approved_by || '-'}</TableCell>
+                      <TableCell>
+                        {row.processed ? (
+                          <Badge variant="secondary" className="bg-green-100 text-green-800">
+                            Processed
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
+                            Pending
+                          </Badge>
+                        )}
+                      </TableCell>
                       <TableCell className="max-w-[260px] truncate" title={row.reason || ''}>{row.reason || '-'}</TableCell>
                     </TableRow>
                   ))

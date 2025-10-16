@@ -5,6 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { joinApiPath } from '@/config/api';
+import { safeJsonParse } from '@/utils/safeJsonParse';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   Play, 
   Pause, 
@@ -62,9 +65,23 @@ export function AutoSyncManager() {
 
   const loadSyncStatus = async () => {
     try {
-      const response = await fetch(joinApiPath('/api/sync/status'));
-      const status = await response.json();
-      setSyncStatus(status);
+      // Get sync status from unified_attendance table
+      const { data: attendanceData, error: attendanceError } = await supabase
+        .from('unified_attendance')
+        .select('count')
+        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()); // Last 24 hours
+
+      const { data: employeeData, error: employeeError } = await supabase
+        .from('employee_mappings')
+        .select('count');
+
+      setSyncStatus({
+        isActive: false, // Auto sync is not implemented in this frontend-only setup
+        lastSync: attendanceData ? new Date().toISOString() : null,
+        totalRecords: attendanceData?.length || 0,
+        totalEmployees: employeeData?.length || 0,
+        errors: attendanceError ? [attendanceError.message] : []
+      });
     } catch (error) {
       console.error('Error loading sync status:', error);
     }
@@ -72,9 +89,13 @@ export function AutoSyncManager() {
 
   const loadConfig = async () => {
     try {
-      const response = await fetch(joinApiPath('/api/sync/config'));
-      const configData = await response.json();
-      setConfig(configData);
+      // Set default config since we don't have a backend API
+      setConfig({
+        autoSyncEnabled: false,
+        syncInterval: 30,
+        maxRetries: 3,
+        timeout: 30000
+      });
     } catch (error) {
       console.error('Error loading config:', error);
     }
@@ -83,16 +104,14 @@ export function AutoSyncManager() {
   const startSync = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(joinApiPath('/api/sync/start'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
-      });
-      
-      if (response.ok) {
-        setIsRunning(true);
-        await loadSyncStatus();
-      }
+      // Show message that sync is not available in frontend-only setup
+      setLastSync(prev => ({
+        ...prev,
+        sync: {
+          success: false,
+          message: 'Auto sync is not available in this frontend-only setup. Use manual data refresh instead.'
+        }
+      }));
     } catch (error) {
       console.error('Error starting sync:', error);
     } finally {
@@ -103,12 +122,14 @@ export function AutoSyncManager() {
   const stopSync = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(joinApiPath('/api/sync/stop'), { method: 'POST' });
-      
-      if (response.ok) {
-        setIsRunning(false);
-        await loadSyncStatus();
-      }
+      setIsRunning(false);
+      setLastSync(prev => ({
+        ...prev,
+        sync: {
+          success: true,
+          message: 'Sync stopped (not applicable in frontend-only setup)'
+        }
+      }));
     } catch (error) {
       console.error('Error stopping sync:', error);
     } finally {
@@ -119,20 +140,14 @@ export function AutoSyncManager() {
   const runEmployeeSync = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(joinApiPath('/api/sync/employees'), { method: 'POST' });
-      const result = await response.json();
-      
+      // Show message that employee sync is not available in frontend-only setup
       setLastSync(prev => ({
         ...prev,
         employees: {
-          success: result.success,
-          message: result.success 
-            ? `Synced ${result.employeesSynced} employees, created ${result.mappingsCreated} mappings`
-            : `Error: ${result.errors.join(', ')}`
+          success: false,
+          message: 'Employee sync is not available in this frontend-only setup. Use manual employee management instead.'
         }
       }));
-      
-      await loadSyncStatus();
     } catch (error) {
       setLastSync(prev => ({
         ...prev,
@@ -149,20 +164,14 @@ export function AutoSyncManager() {
   const runAttendanceSync = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(joinApiPath('/api/sync/attendance'), { method: 'POST' });
-      const result = await response.json();
-      
+      // Show message that attendance sync is not available in frontend-only setup
       setLastSync(prev => ({
         ...prev,
         attendance: {
-          success: result.success,
-          message: result.success 
-            ? `Processed ${result.recordsProcessed} records, inserted ${result.recordsInserted}`
-            : `Error: ${result.errors.join(', ')}`
+          success: false,
+          message: 'Attendance sync is not available in this frontend-only setup. Use manual data refresh instead.'
         }
       }));
-      
-      await loadSyncStatus();
     } catch (error) {
       setLastSync(prev => ({
         ...prev,
@@ -178,15 +187,8 @@ export function AutoSyncManager() {
 
   const updateConfig = async () => {
     try {
-      const response = await fetch(joinApiPath('/api/sync/config'), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(config)
-      });
-      
-      if (response.ok) {
-        console.log('Config updated successfully');
-      }
+      // Show message that config update is not available in frontend-only setup
+      console.log('Config update not available in frontend-only setup');
     } catch (error) {
       console.error('Error updating config:', error);
     }

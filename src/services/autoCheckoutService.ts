@@ -221,6 +221,129 @@ export class AutoCheckoutService {
   }
 
   /**
+   * Run auto checkout for a specific individual record
+   */
+  static async runForIndividualRecord(recordId: string): Promise<AutoCheckoutResult> {
+    try {
+      console.log('Fetching record for individual checkout:', recordId);
+      
+      // First, get the record to verify it needs auto checkout
+      const { data: record, error: fetchError } = await supabase
+        .from('unified_attendance')
+        .select('*')
+        .eq('id', recordId)
+        .single();
+
+      console.log('Record fetch result:', { record, fetchError });
+
+      if (fetchError || !record) {
+        console.error('Record not found:', fetchError);
+        return {
+          success: false,
+          message: 'Record not found',
+          error: fetchError?.message || 'Record not found'
+        };
+      }
+
+      // Check if record needs auto checkout
+      console.log('Record validation:', {
+        check_out_at: record.check_out_at,
+        status: record.status,
+        needsCheckout: record.check_out_at === null && record.status === 'in_progress'
+      });
+
+      if (record.check_out_at !== null || record.status !== 'in_progress') {
+        console.log('Record does not need auto checkout');
+        return {
+          success: false,
+          message: 'Record does not need auto checkout (already has checkout or wrong status)',
+          error: 'Record already processed'
+        };
+      }
+
+      // Calculate checkout time (5:00 PM on the same date as check-in)
+      const checkInDate = new Date(record.check_in_at).toISOString().split('T')[0];
+      
+      // Create checkout time in the same timezone as check-in
+      const checkInTime = new Date(record.check_in_at);
+      const checkOutTime = new Date(checkInTime);
+      checkOutTime.setHours(17, 0, 0, 0); // Set to 5:00 PM
+      
+      const checkoutTime = checkOutTime.toISOString();
+      
+      // Calculate total work time in minutes (from check-in to 5:00 PM)
+      const totalWorkTimeMinutes = Math.round((checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60));
+
+      // Validate that checkout time is after check-in time
+      if (checkOutTime <= checkInTime) {
+        console.error('Checkout time is not after check-in time:', {
+          checkInTime: checkInTime.toISOString(),
+          checkOutTime: checkOutTime.toISOString()
+        });
+        return {
+          success: false,
+          message: 'Checkout time must be after check-in time',
+          error: 'Invalid time calculation'
+        };
+      }
+
+      console.log('Update parameters:', {
+        checkInTime: checkInTime.toISOString(),
+        checkoutTime,
+        totalWorkTimeMinutes,
+        timeDifference: totalWorkTimeMinutes
+      });
+
+      // Update the record
+      const { error: updateError } = await supabase
+        .from('unified_attendance')
+        .update({
+          check_out_at: checkoutTime,
+          total_work_time_minutes: totalWorkTimeMinutes,
+          status: 'completed',
+          modification_reason: 'Individual auto checkout',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', recordId);
+
+      console.log('Update result:', { updateError });
+
+      if (updateError) {
+        return {
+          success: false,
+          message: `Failed to update record: ${updateError.message}`,
+          error: updateError.message
+        };
+      }
+
+      // Log the operation
+      await supabase
+        .from('api_refresh_logs')
+        .insert({
+          operation: 'individual_auto_checkout',
+          status: 'success',
+          records_processed: 1,
+          records_found: 1,
+          error_message: null,
+          created_at: new Date().toISOString()
+        });
+
+      return {
+        success: true,
+        message: `Auto checkout applied for ${record.employee_name || record.employee_code}`,
+        recordsUpdated: 1
+      };
+    } catch (err) {
+      console.error('Error in runForIndividualRecord:', err);
+      return {
+        success: false,
+        message: 'Failed to apply auto checkout for individual record',
+        error: err instanceof Error ? err.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
    * Run auto checkout at 11:59 PM for employees who checked in but didn't check out
    */
   static async runAutoCheckoutAt1159PM(): Promise<AutoCheckoutResult> {
@@ -235,17 +358,19 @@ export class AutoCheckoutService {
         };
       }
 
-      const today = new Date().toISOString().split('T')[0];
-      const checkoutTime = `${today}T17:00:00+05:30`; // 5:00 PM IST
-      
       let updatedCount = 0;
       const errors: string[] = [];
 
       for (const record of records) {
         try {
-          // Calculate total work time in minutes (from check-in to 5:00 PM)
+          // Calculate checkout time (5:00 PM on the same date as check-in)
           const checkInTime = new Date(record.check_in_at);
-          const checkOutTime = new Date(checkoutTime);
+          const checkOutTime = new Date(checkInTime);
+          checkOutTime.setHours(17, 0, 0, 0); // Set to 5:00 PM
+          
+          const checkoutTime = checkOutTime.toISOString();
+          
+          // Calculate total work time in minutes (from check-in to 5:00 PM)
           const totalWorkTimeMinutes = Math.round((checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60));
 
           const { error: updateError } = await supabase

@@ -7,7 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Layout } from '@/components/Layout';
-import { User, Users, Settings, ArrowRight, Calendar, Edit, Clock } from 'lucide-react';
+import { User, Users, Settings, ArrowRight, Calendar, Edit, Clock, FileText } from 'lucide-react';
+import { EmployeeNotesDialog } from '@/components/EmployeeNotesDialog';
+import { EmployeeNotesService } from '@/services/employeeNotesService';
 
 interface Employee {
   id: string;
@@ -19,11 +21,15 @@ interface Employee {
   role: string;
 }
 
+interface EmployeeWithNoteCount extends Employee {
+  noteCount: number;
+}
+
 export default function Employees() {
   const { user } = useAuth();
   const { data: role, isLoading: roleLoading } = useUserRole();
   const navigate = useNavigate();
-  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [employees, setEmployees] = useState<EmployeeWithNoteCount[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -54,7 +60,18 @@ export default function Employees() {
         role: rolesData?.find((r) => r.user_id === profile.id)?.role || 'employee',
       }));
 
-      setEmployees(employeesWithRoles || []);
+      // Fetch note counts for each employee
+      const employeesWithNoteCounts = await Promise.all(
+        (employeesWithRoles || []).map(async (employee) => {
+          const noteCount = await EmployeeNotesService.getEmployeeNoteCount(employee.id);
+          return {
+            ...employee,
+            noteCount
+          };
+        })
+      );
+
+      setEmployees(employeesWithNoteCounts);
     } catch (error) {
       console.error('Error fetching employees:', error);
     } finally {
@@ -215,15 +232,42 @@ export default function Employees() {
                   </Badge>
                   
                   {(role === 'admin' || role === 'manager') && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => navigate(`/history?employee=${employee.id}`)}
-                      className="text-xs"
-                    >
-                      <Calendar className="h-3 w-3 mr-1" />
-                      View History
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigate(`/history?employee=${employee.id}`)}
+                        className="text-xs"
+                      >
+                        <Calendar className="h-3 w-3 mr-1" />
+                        View History
+                      </Button>
+                      {role === 'admin' && (
+                        <EmployeeNotesDialog
+                          employeeId={employee.id}
+                          employeeName={employee.name}
+                          onNotesChange={fetchEmployees}
+                          trigger={
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-xs relative"
+                            >
+                              <FileText className="h-3 w-3 mr-1" />
+                              Notes
+                              {employee.noteCount > 0 && (
+                                <Badge 
+                                  variant="destructive" 
+                                  className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center text-xs p-0"
+                                >
+                                  {employee.noteCount}
+                                </Badge>
+                              )}
+                            </Button>
+                          }
+                        />
+                      )}
+                    </div>
                   )}
                 </div>
               </CardContent>
