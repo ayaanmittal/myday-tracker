@@ -7,7 +7,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Layout } from '@/components/Layout';
-import { User, Users, Settings, ArrowRight, Calendar, Edit, Clock, FileText } from 'lucide-react';
+import { User, Users, Settings, ArrowRight, Calendar, Edit, Clock, FileText, Phone, MapPin, Mail } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { toast } from '@/hooks/use-toast';
 import { EmployeeNotesDialog } from '@/components/EmployeeNotesDialog';
 import { EmployeeNotesService } from '@/services/employeeNotesService';
 
@@ -17,6 +29,8 @@ interface Employee {
   email: string;
   team: string | null;
   designation: string | null;
+  phone: string | null;
+  address: string | null;
   is_active: boolean;
   role: string;
 }
@@ -31,6 +45,17 @@ export default function Employees() {
   const navigate = useNavigate();
   const [employees, setEmployees] = useState<EmployeeWithNoteCount[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    address: '',
+    team: '',
+    designation: ''
+  });
 
   useEffect(() => {
     if (!user) {
@@ -110,6 +135,80 @@ export default function Employees() {
     }, 0);
     
     return colors[Math.abs(hash) % colors.length];
+  };
+
+  const openDetailsDialog = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setEditForm({
+      name: employee.name,
+      email: employee.email,
+      phone: employee.phone || '',
+      address: employee.address || '',
+      team: employee.team || '',
+      designation: employee.designation || ''
+    });
+    setDetailsDialogOpen(true);
+    setIsEditing(false);
+  };
+
+  const handleEdit = () => {
+    setIsEditing(true);
+  };
+
+  const handleSave = async () => {
+    if (!selectedEmployee) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          name: editForm.name,
+          email: editForm.email,
+          phone: editForm.phone || null,
+          address: editForm.address || null,
+          team: editForm.team || null,
+          designation: editForm.designation || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', selectedEmployee.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setEmployees(prev => prev.map(emp => 
+        emp.id === selectedEmployee.id 
+          ? { ...emp, ...editForm }
+          : emp
+      ));
+
+      toast({
+        title: "Success",
+        description: "Employee details updated successfully",
+      });
+
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Error updating employee:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update employee details",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    if (selectedEmployee) {
+      setEditForm({
+        name: selectedEmployee.name,
+        email: selectedEmployee.email,
+        phone: selectedEmployee.phone || '',
+        address: selectedEmployee.address || '',
+        team: selectedEmployee.team || '',
+        designation: selectedEmployee.designation || ''
+      });
+    }
   };
 
   if (roleLoading || loading) {
@@ -231,44 +330,56 @@ export default function Employees() {
                     {employee.is_active ? 'Active' : 'Inactive'}
                   </Badge>
                   
-                  {(role === 'admin' || role === 'manager') && (
-                    <div className="flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => navigate(`/history?employee=${employee.id}`)}
-                        className="text-xs"
-                      >
-                        <Calendar className="h-3 w-3 mr-1" />
-                        View History
-                      </Button>
-                      {role === 'admin' && (
-                        <EmployeeNotesDialog
-                          employeeId={employee.id}
-                          employeeName={employee.name}
-                          onNotesChange={fetchEmployees}
-                          trigger={
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-xs relative"
-                            >
-                              <FileText className="h-3 w-3 mr-1" />
-                              Notes
-                              {employee.noteCount > 0 && (
-                                <Badge 
-                                  variant="destructive" 
-                                  className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center text-xs p-0"
-                                >
-                                  {employee.noteCount}
-                                </Badge>
-                              )}
-                            </Button>
-                          }
-                        />
-                      )}
-                    </div>
-                  )}
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => openDetailsDialog(employee)}
+                      className="text-xs"
+                    >
+                      <User className="h-3 w-3 mr-1" />
+                      Details
+                    </Button>
+                    
+                    {(role === 'admin' || role === 'manager') && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => navigate(`/history?employee=${employee.id}`)}
+                          className="text-xs"
+                        >
+                          <Calendar className="h-3 w-3 mr-1" />
+                          History
+                        </Button>
+                        {role === 'admin' && (
+                          <EmployeeNotesDialog
+                            employeeId={employee.id}
+                            employeeName={employee.name}
+                            onNotesChange={fetchEmployees}
+                            trigger={
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-xs relative"
+                              >
+                                <FileText className="h-3 w-3 mr-1" />
+                                Notes
+                                {employee.noteCount > 0 && (
+                                  <Badge 
+                                    variant="destructive" 
+                                    className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center text-xs p-0"
+                                  >
+                                    {employee.noteCount}
+                                  </Badge>
+                                )}
+                              </Button>
+                            }
+                          />
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -295,6 +406,185 @@ export default function Employees() {
             </CardContent>
           </Card>
         )}
+
+        {/* Employee Details Dialog */}
+        <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Employee Details</DialogTitle>
+              <DialogDescription>
+                {isEditing ? 'Edit employee information' : 'View employee information'}
+              </DialogDescription>
+            </DialogHeader>
+            
+            {selectedEmployee && (
+              <div className="space-y-6">
+                {/* Basic Info */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Name</Label>
+                    {isEditing ? (
+                      <Input
+                        id="name"
+                        value={editForm.name}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
+                      />
+                    ) : (
+                      <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                        <User className="h-4 w-4" />
+                        <span>{selectedEmployee.name}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    {isEditing ? (
+                      <Input
+                        id="email"
+                        type="email"
+                        value={editForm.email}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
+                      />
+                    ) : (
+                      <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                        <Mail className="h-4 w-4" />
+                        <span>{selectedEmployee.email}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Contact Info */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone</Label>
+                    {isEditing ? (
+                      <Input
+                        id="phone"
+                        value={editForm.phone}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, phone: e.target.value }))}
+                        placeholder="Enter phone number"
+                      />
+                    ) : (
+                      <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                        <Phone className="h-4 w-4" />
+                        <span>{selectedEmployee.phone || 'Not provided'}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="address">Address</Label>
+                    {isEditing ? (
+                      <Textarea
+                        id="address"
+                        value={editForm.address}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, address: e.target.value }))}
+                        placeholder="Enter address"
+                        rows={2}
+                      />
+                    ) : (
+                      <div className="flex items-start gap-2 p-2 bg-muted rounded-md">
+                        <MapPin className="h-4 w-4 mt-0.5" />
+                        <span>{selectedEmployee.address || 'Not provided'}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Work Info */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="team">Team</Label>
+                    {isEditing ? (
+                      <Input
+                        id="team"
+                        value={editForm.team}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, team: e.target.value }))}
+                        placeholder="Enter team"
+                      />
+                    ) : (
+                      <div className="p-2 bg-muted rounded-md">
+                        <span>{selectedEmployee.team || 'Not assigned'}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="designation">Designation</Label>
+                    {isEditing ? (
+                      <Input
+                        id="designation"
+                        value={editForm.designation}
+                        onChange={(e) => setEditForm(prev => ({ ...prev, designation: e.target.value }))}
+                        placeholder="Enter designation"
+                      />
+                    ) : (
+                      <div className="p-2 bg-muted rounded-md">
+                        <span>{selectedEmployee.designation || 'Not specified'}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Role and Status */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Role</Label>
+                    <div className="p-2 bg-muted rounded-md">
+                      <Badge variant={getRoleBadgeVariant(selectedEmployee.role)} className="capitalize">
+                        {selectedEmployee.role}
+                      </Badge>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Status</Label>
+                    <div className="p-2 bg-muted rounded-md">
+                      <Badge
+                        variant={selectedEmployee.is_active ? 'default' : 'secondary'}
+                        className={
+                          selectedEmployee.is_active
+                            ? 'bg-success/10 text-success hover:bg-success/20'
+                            : ''
+                        }
+                      >
+                        {selectedEmployee.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-2 pt-4 border-t">
+                  {isEditing ? (
+                    <>
+                      <Button variant="outline" onClick={handleCancel}>
+                        Cancel
+                      </Button>
+                      <Button onClick={handleSave}>
+                        Save Changes
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button variant="outline" onClick={() => setDetailsDialogOpen(false)}>
+                        Close
+                      </Button>
+                      {(role === 'admin' || role === 'manager') && (
+                        <Button onClick={handleEdit}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit Details
+                        </Button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );
