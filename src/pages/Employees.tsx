@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Layout } from '@/components/Layout';
 import { User, Users, Settings, ArrowRight, Calendar, Edit, Clock, FileText } from 'lucide-react';
 import { EmployeeNotesDialog } from '@/components/EmployeeNotesDialog';
+import { EmployeeDetailsDialog } from '@/components/EmployeeDetailsDialog';
 import { EmployeeNotesService } from '@/services/employeeNotesService';
 
 interface Employee {
@@ -242,6 +243,17 @@ export default function Employees() {
                         <Calendar className="h-3 w-3 mr-1" />
                         View History
                       </Button>
+                      <EmployeeDetailsDialog
+                        employeeId={employee.id}
+                        employeeName={employee.name}
+                        onSaved={fetchEmployees}
+                        trigger={
+                          <Button size="sm" variant="outline" className="text-xs">
+                            <Edit className="h-3 w-3 mr-1" />
+                            Employee Details
+                          </Button>
+                        }
+                      />
                       {role === 'admin' && (
                         <EmployeeNotesDialog
                           employeeId={employee.id}

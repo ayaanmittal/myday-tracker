@@ -117,20 +117,57 @@ export default function TaskManager() {
 
   const fetchTasks = async () => {
     try {
-      // First, fetch tasks without the profile joins
-      const { data: tasksData, error: tasksError } = await supabase
-        .from('tasks')
-        .select('*')
-        .order('created_at', { ascending: false });
+      if (!user) return;
 
-      if (tasksError) {
+      // First, get task IDs where the user is either the assigner or a follower
+      const { data: assignedTasks, error: assignedError } = await supabase
+        .from('tasks')
+        .select('id')
+        .eq('assigned_by', user.id);
+
+      if (assignedError) {
         // Check if it's a table doesn't exist error
-        if (tasksError.message?.includes('relation "tasks" does not exist') || 
-            tasksError.message?.includes('relation "public.tasks" does not exist')) {
+        if (assignedError.message?.includes('relation "tasks" does not exist') || 
+            assignedError.message?.includes('relation "public.tasks" does not exist')) {
           console.log('Tasks table not found. Please run the database setup script.');
           setTasks([]);
           return;
         }
+        throw assignedError;
+      }
+
+      // Get tasks where user is a follower
+      const { data: followedTasks, error: followedError } = await supabase
+        .from('task_followers')
+        .select('task_id')
+        .eq('user_id', user.id);
+
+      if (followedError) {
+        console.error('Error fetching followed tasks:', followedError);
+        // Don't throw here, just log and continue with assigned tasks
+      }
+
+      // Combine all task IDs (remove duplicates)
+      const allTaskIds = [
+        ...(assignedTasks?.map(t => t.id) || []),
+        ...(followedTasks?.map(t => t.task_id) || [])
+      ];
+      const uniqueTaskIds = [...new Set(allTaskIds)];
+
+      // Now fetch the full task data for all these tasks
+      let tasksData: any[] | null = [];
+      let tasksError: any = null;
+      if (uniqueTaskIds.length > 0) {
+        const res = await supabase
+          .from('tasks')
+          .select('*')
+          .in('id', uniqueTaskIds)
+          .order('created_at', { ascending: false });
+        tasksData = res.data as any[] | null;
+        tasksError = res.error;
+      }
+
+      if (tasksError) {
         throw tasksError;
       }
 
@@ -518,7 +555,7 @@ export default function TaskManager() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Task Manager</h1>
-            <p className="text-muted-foreground">Assign and manage tasks for employees</p>
+            <p className="text-muted-foreground">Create, assign, and manage tasks for employees</p>
           </div>
           <Dialog open={dialogOpen} onOpenChange={(open) => {
             setDialogOpen(open);
@@ -726,7 +763,7 @@ export default function TaskManager() {
         <Card>
           <CardHeader>
             <CardTitle>All Tasks</CardTitle>
-            <CardDescription>Manage and track all assigned tasks</CardDescription>
+            <CardDescription>Create, assign, and manage tasks for your team</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
