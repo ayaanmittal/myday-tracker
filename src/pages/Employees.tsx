@@ -23,6 +23,7 @@ import { toast } from '@/hooks/use-toast';
 import { EmployeeNotesDialog } from '@/components/EmployeeNotesDialog';
 import { EmployeeDetailsDialog } from '@/components/EmployeeDetailsDialog';
 import { EmployeeNotesService } from '@/services/employeeNotesService';
+import { RulesAgreementService, RulesAgreementData } from '@/services/rulesAgreementService';
 
 interface Employee {
   id: string;
@@ -38,6 +39,7 @@ interface Employee {
 
 interface EmployeeWithNoteCount extends Employee {
   noteCount: number;
+  rulesAgreement?: RulesAgreementData;
 }
 
 export default function Employees() {
@@ -47,6 +49,7 @@ export default function Employees() {
   const [employees, setEmployees] = useState<EmployeeWithNoteCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [selectedEmployeeRules, setSelectedEmployeeRules] = useState<RulesAgreementData | null>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -86,13 +89,21 @@ export default function Employees() {
         role: rolesData?.find((r) => r.user_id === profile.id)?.role || 'employee',
       }));
 
-      // Fetch note counts for each employee
+      // Fetch note counts and rules agreement data for each employee
       const employeesWithNoteCounts = await Promise.all(
         (employeesWithRoles || []).map(async (employee) => {
           const noteCount = await EmployeeNotesService.getEmployeeNoteCount(employee.id);
+          
+          // Only fetch rules agreement data for admins
+          let rulesAgreement: RulesAgreementData | undefined;
+          if (role === 'admin') {
+            rulesAgreement = await RulesAgreementService.getRulesAgreementData(employee.id);
+          }
+          
           return {
             ...employee,
-            noteCount
+            noteCount,
+            rulesAgreement
           };
         })
       );
@@ -138,7 +149,7 @@ export default function Employees() {
     return colors[Math.abs(hash) % colors.length];
   };
 
-  const openDetailsDialog = (employee: Employee) => {
+  const openDetailsDialog = async (employee: Employee) => {
     setSelectedEmployee(employee);
     setEditForm({
       name: employee.name,
@@ -148,6 +159,13 @@ export default function Employees() {
       team: employee.team || '',
       designation: employee.designation || ''
     });
+    
+    // Fetch rules agreement data for the selected employee if user is admin
+    if (role === 'admin') {
+      const rulesData = await RulesAgreementService.getRulesAgreementData(employee.id);
+      setSelectedEmployeeRules(rulesData);
+    }
+    
     setDetailsDialogOpen(true);
     setIsEditing(false);
   };
@@ -239,7 +257,7 @@ export default function Employees() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className={`grid grid-cols-1 gap-6 ${role === 'admin' ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
@@ -282,10 +300,37 @@ export default function Employees() {
               </p>
             </CardContent>
           </Card>
+
+          {/* Rules Compliance Stats - Only visible to admins */}
+          {role === 'admin' && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Rules Compliance</CardTitle>
+                <FileText className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-green-600">
+                  {employees.filter(emp => 
+                    emp.rulesAgreement && 
+                    RulesAgreementService.isFullyCompliant(emp.rulesAgreement)
+                  ).length}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Fully compliant
+                </p>
+                <div className="mt-2 text-xs text-muted-foreground">
+                  {employees.filter(emp => 
+                    emp.rulesAgreement && 
+                    !RulesAgreementService.isFullyCompliant(emp.rulesAgreement)
+                  ).length} need attention
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* Employees Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           {employees.map((employee) => (
             <Card key={employee.id} className="hover:shadow-md transition-shadow">
               <CardHeader className="pb-3">
@@ -317,6 +362,53 @@ export default function Employees() {
                   <p className="text-sm text-muted-foreground">
                     {employee.designation}
                   </p>
+                )}
+
+                {/* Rules Agreement Status - Only visible to admins */}
+                {role === 'admin' && employee.rulesAgreement && (
+                  <div className="space-y-2 pt-2 border-t">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">Rules Compliance</span>
+                      <Badge 
+                        variant={
+                          RulesAgreementService.isFullyCompliant(employee.rulesAgreement) 
+                            ? 'default' 
+                            : RulesAgreementService.getComplianceStatus(employee.rulesAgreement).status === 'partial'
+                            ? 'secondary'
+                            : 'destructive'
+                        }
+                        className={
+                          RulesAgreementService.isFullyCompliant(employee.rulesAgreement)
+                            ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                            : RulesAgreementService.getComplianceStatus(employee.rulesAgreement).status === 'partial'
+                            ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                            : 'bg-red-100 text-red-800 hover:bg-red-200'
+                        }
+                      >
+                        {RulesAgreementService.getComplianceStatus(employee.rulesAgreement).message}
+                      </Badge>
+                    </div>
+                    
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <div className="flex justify-between">
+                        <span>Contract:</span>
+                        <span className={employee.rulesAgreement.hasSignedContract ? 'text-green-600' : 'text-red-600'}>
+                          {employee.rulesAgreement.hasSignedContract ? '✓ Signed' : '✗ Not signed'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Rules:</span>
+                        <span>
+                          {employee.rulesAgreement.acknowledgedRulesCount}/{employee.rulesAgreement.totalActiveRulesCount}
+                        </span>
+                      </div>
+                      {employee.rulesAgreement.contractSignedAt && (
+                        <div className="text-xs text-muted-foreground">
+                          Signed: {new Date(employee.rulesAgreement.contractSignedAt).toLocaleDateString()}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 )}
 
                 <div className="flex items-center justify-between pt-2">
@@ -558,6 +650,87 @@ export default function Employees() {
                     </div>
                   </div>
                 </div>
+
+                {/* Rules Agreement Details - Only visible to admins */}
+                {role === 'admin' && selectedEmployeeRules && (
+                  <div className="space-y-4 pt-4 border-t">
+                    <div className="space-y-2">
+                      <Label className="text-base font-semibold">Rules Agreement Status</Label>
+                      <div className="p-4 bg-muted rounded-lg space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium">Overall Compliance:</span>
+                          <Badge 
+                            variant={
+                              RulesAgreementService.isFullyCompliant(selectedEmployeeRules) 
+                                ? 'default' 
+                                : RulesAgreementService.getComplianceStatus(selectedEmployeeRules).status === 'partial'
+                                ? 'secondary'
+                                : 'destructive'
+                            }
+                            className={
+                              RulesAgreementService.isFullyCompliant(selectedEmployeeRules)
+                                ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                                : RulesAgreementService.getComplianceStatus(selectedEmployeeRules).status === 'partial'
+                                ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                                : 'bg-red-100 text-red-800 hover:bg-red-200'
+                            }
+                          >
+                            {RulesAgreementService.getComplianceStatus(selectedEmployeeRules).message}
+                          </Badge>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                          <div className="space-y-2">
+                            <div className="flex justify-between">
+                              <span>Contract Signed:</span>
+                              <span className={selectedEmployeeRules.hasSignedContract ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                                {selectedEmployeeRules.hasSignedContract ? '✓ Yes' : '✗ No'}
+                              </span>
+                            </div>
+                            {selectedEmployeeRules.contractSignedAt && (
+                              <div className="text-xs text-muted-foreground">
+                                Signed on: {new Date(selectedEmployeeRules.contractSignedAt).toLocaleDateString()}
+                              </div>
+                            )}
+                            {selectedEmployeeRules.contractInitials && (
+                              <div className="text-xs text-muted-foreground">
+                                Initials: {selectedEmployeeRules.contractInitials}
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <div className="flex justify-between">
+                              <span>Rules Acknowledged:</span>
+                              <span className="font-medium">
+                                {selectedEmployeeRules.acknowledgedRulesCount}/{selectedEmployeeRules.totalActiveRulesCount}
+                              </span>
+                            </div>
+                            {selectedEmployeeRules.lastAcknowledgmentAt && (
+                              <div className="text-xs text-muted-foreground">
+                                Last acknowledgment: {new Date(selectedEmployeeRules.lastAcknowledgmentAt).toLocaleDateString()}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {selectedEmployeeRules.unacknowledgedRules.length > 0 && (
+                          <div className="space-y-2">
+                            <span className="text-sm font-medium text-red-600">Unacknowledged Rules:</span>
+                            <div className="space-y-1">
+                              {selectedEmployeeRules.unacknowledgedRules.map((rule) => (
+                                <div key={rule.id} className="text-xs text-muted-foreground p-2 bg-red-50 rounded border-l-2 border-red-200">
+                                  <div className="font-medium">{rule.title}</div>
+                                  <div className="text-xs mt-1">{rule.description}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Action Buttons */}
                 <div className="flex justify-end gap-2 pt-4 border-t">
