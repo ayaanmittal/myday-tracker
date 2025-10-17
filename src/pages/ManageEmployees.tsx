@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Layout } from '@/components/Layout';
 import { toast } from '@/hooks/use-toast';
@@ -41,6 +42,8 @@ interface Employee {
   email: string;
   team: string | null;
   designation: string | null;
+  phone: string | null;
+  address: string | null;
   is_active: boolean;
   role: string;
 }
@@ -61,6 +64,8 @@ export default function ManageEmployees() {
     password: '',
     team: '',
     designation: '',
+    phone: '',
+    address: '',
     role: 'employee' as 'admin' | 'manager' | 'employee',
   });
 
@@ -119,6 +124,8 @@ export default function ManageEmployees() {
             name: formData.name,
             team: formData.team || null,
             designation: formData.designation || null,
+            phone: formData.phone || null,
+            address: formData.address || null,
           })
           .eq('id', editingEmployee.id);
 
@@ -179,6 +186,8 @@ export default function ManageEmployees() {
       password: '',
       team: employee.team || '',
       designation: employee.designation || '',
+      phone: employee.phone || '',
+      address: employee.address || '',
       role: employee.role as 'admin' | 'manager' | 'employee',
     });
     setDialogOpen(true);
@@ -215,6 +224,8 @@ export default function ManageEmployees() {
       password: '',
       team: '',
       designation: '',
+      phone: '',
+      address: '',
       role: 'employee',
     });
     setEditingEmployee(null);
@@ -303,6 +314,27 @@ export default function ManageEmployees() {
                     value={formData.designation}
                     onChange={(e) => setFormData({ ...formData, designation: e.target.value })}
                     placeholder="e.g., Senior Developer, Team Lead, Manager"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="phone">Phone (optional)</Label>
+                  <Input
+                    id="phone"
+                    value={formData.phone}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    placeholder="e.g., +1 (555) 123-4567"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="address">Address (optional)</Label>
+                  <Textarea
+                    id="address"
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    placeholder="Enter full address"
+                    rows={3}
                   />
                 </div>
 
