@@ -56,12 +56,12 @@ export default function ManageEmployees() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [showInactive, setShowInactive] = useState(false);
 
   // Form state
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    password: '',
     team: '',
     designation: '',
     phone: '',
@@ -83,14 +83,23 @@ export default function ManageEmployees() {
     if (role === 'admin') {
       fetchEmployees();
     }
-  }, [user, role, roleLoading, navigate]);
+  }, [user, role, roleLoading, navigate, showInactive]);
 
   const fetchEmployees = async () => {
     try {
-      const { data: profilesData, error: profilesError } = await supabase
+      // Fetch employees based on active/inactive filter
+      let query = supabase
         .from('profiles')
-        .select('*')
-        .order('name');
+        .select('*');
+      
+      // Filter by is_active status
+      if (showInactive) {
+        query = query.eq('is_active', false);
+      } else {
+        query = query.eq('is_active', true);
+      }
+      
+      const { data: profilesData, error: profilesError } = await query.order('name');
 
       if (profilesError) throw profilesError;
 
@@ -144,8 +153,8 @@ export default function ManageEmployees() {
           description: 'Employee information has been updated successfully.',
         });
       } else {
-        // Create employee profile for existing auth user
-        const { data: profileResult, error: profileError } = await supabase
+        // Create employee profile (auth user must exist in Supabase Dashboard)
+        const { data: result, error: createError } = await supabase
           .rpc('create_employee_profile_for_existing_auth_user', {
             p_name: formData.name,
             p_email: formData.email,
@@ -154,13 +163,17 @@ export default function ManageEmployees() {
             p_role: formData.role
           });
 
-        if (profileError) {
-          throw new Error(`Failed to create employee profile: ${profileError.message}`);
+        if (createError) {
+          throw new Error(`Failed to create employee: ${createError.message}`);
+        }
+
+        if (!result || !result.success) {
+          throw new Error(result?.error || 'Failed to create employee profile');
         }
 
         toast({
-          title: 'Employee profile created/updated',
-          description: 'Employee profile has been created or updated and linked to the existing auth user.',
+          title: 'Employee profile created',
+          description: 'Profile created successfully and linked to existing auth user.',
         });
       }
 
@@ -221,7 +234,6 @@ export default function ManageEmployees() {
     setFormData({
       name: '',
       email: '',
-      password: '',
       team: '',
       designation: '',
       phone: '',
@@ -246,19 +258,49 @@ export default function ManageEmployees() {
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Manage Employees</h1>
-            <p className="text-muted-foreground">Add, edit, and manage employee accounts</p>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {showInactive ? 'Inactive Employees' : 'Active Employees'}
+            </h1>
+            <p className="text-muted-foreground">
+              {showInactive 
+                ? 'View and manage inactive employee accounts' 
+                : 'Add, edit, and manage active employee accounts'}
+            </p>
           </div>
-          <Dialog open={dialogOpen} onOpenChange={(open) => {
-            setDialogOpen(open);
-            if (!open) resetForm();
-          }}>
-            <DialogTrigger asChild>
-              <Button>
-                <UserPlus className="h-4 w-4 mr-2" />
-                Add Employee
-              </Button>
-            </DialogTrigger>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowInactive(false)}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  !showInactive 
+                    ? 'bg-primary text-primary-foreground' 
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
+              >
+                Active
+              </button>
+              <button
+                onClick={() => setShowInactive(true)}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  showInactive 
+                    ? 'bg-primary text-primary-foreground' 
+                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                }`}
+              >
+                Inactive
+              </button>
+            </div>
+          {!showInactive && (
+            <Dialog open={dialogOpen} onOpenChange={(open) => {
+              setDialogOpen(open);
+              if (!open) resetForm();
+            }}>
+              <DialogTrigger asChild>
+                <Button>
+                  <UserPlus className="h-4 w-4 mr-2" />
+                  Add Employee
+                </Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>
@@ -267,7 +309,7 @@ export default function ManageEmployees() {
                  <DialogDescription>
                    {editingEmployee
                      ? 'Update employee information and permissions'
-                     : 'Create a new employee profile. Make sure the auth user already exists in Supabase Dashboard with the same email.'}
+                     : 'Create employee profile. You must first create the auth user in Supabase Dashboard (Authentication → Users → Add User) with the same email.'}
                  </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -281,21 +323,21 @@ export default function ManageEmployees() {
                   />
                 </div>
 
-                 {!editingEmployee && (
-                   <div className="space-y-2">
-                     <Label htmlFor="email">Email</Label>
-                     <Input
-                       id="email"
-                       type="email"
-                       value={formData.email}
-                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                       required
-                     />
-                     <p className="text-sm text-muted-foreground">
-                       Make sure an auth user with this email already exists in Supabase Dashboard
-                     </p>
-                   </div>
-                 )}
+                {!editingEmployee && (
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      required
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Must match the email of an existing auth user in Supabase Dashboard.
+                    </p>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="team">Team (optional)</Label>
@@ -375,12 +417,18 @@ export default function ManageEmployees() {
               </form>
             </DialogContent>
           </Dialog>
+          )}
+          </div>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>All Employees</CardTitle>
-            <CardDescription>Manage employee accounts and permissions</CardDescription>
+            <CardTitle>{showInactive ? 'Inactive' : 'Active'} Employees</CardTitle>
+            <CardDescription>
+              {showInactive 
+                ? 'View and manage inactive employee accounts' 
+                : 'Manage active employee accounts and permissions'}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <Table>

@@ -28,6 +28,7 @@ interface Task {
   status: string;
   priority: string;
   due_date: string;
+  completed_at: string | null;
   created_at: string;
   last_updated: string;
   assigned_to: string;
@@ -538,10 +539,13 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
           }
         }
       }
-      
-      console.log('Loaded assignees:', assigneesWithUsers);
 
-      setAssignees(assigneesWithUsers);
+      // Filter out the assigned_by user from assignees list
+      const filteredAssignees = assigneesWithUsers.filter(a => a.user_id !== task?.assigned_by);
+      
+      console.log('Loaded assignees:', filteredAssignees);
+
+      setAssignees(filteredAssignees);
     } catch (err) {
       console.error('Error in loadAssignees:', err);
       setAssignees([]);
@@ -845,6 +849,16 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
       return;
     }
     
+    // Don't add if it's the assigned_by user
+    if (userId === task?.assigned_by) {
+      toast({
+        title: 'Info',
+        description: 'Cannot add the task creator as an assignee',
+        variant: 'default',
+      });
+      return;
+    }
+    
     // Don't add if already in assignees list
     if (assignees.some(a => a.user_id === userId)) {
       toast({
@@ -986,6 +1000,9 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
             </div>
             <div className="mt-3 flex items-center gap-3 text-sm">
               <div className="text-muted-foreground">Created • {new Date(task.created_at).toLocaleString()}</div>
+              {task.status === 'completed' && task.completed_at && (
+                <div className="text-muted-foreground">Completed • {new Date(task.completed_at).toLocaleString()}</div>
+              )}
               {task.assigned_user && (
                 <div className="flex items-center gap-1 text-muted-foreground">
                   <User className="h-3 w-3" />
@@ -1166,9 +1183,6 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                 ) : comments.length === 0 ? (
                   <div className="text-sm text-muted-foreground text-center py-4">
                     No comments yet. Start the discussion!
-                    <div className="text-xs mt-2 text-gray-400">
-                      Debug: Task ID: {taskId}
-                    </div>
                   </div>
                 ) : (
                   comments.map((c, index) => {
@@ -1354,6 +1368,24 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
               </div>
             </div>
 
+            {/* Assigned By */}
+            {task.assigned_by_user && (
+              <div className="mt-5">
+                <div className="flex items-center gap-2 mb-2">
+                  <h4 className="text-sm font-semibold">Assigned By</h4>
+                  <span className="text-xs text-muted-foreground">(Who created this task)</span>
+                </div>
+                <div className="space-y-2">
+                  <div className="text-xs bg-purple-50 border border-purple-200 rounded px-2 py-1 flex items-center gap-2">
+                    <User className="h-3 w-3 text-purple-600" />
+                    <span className="font-medium text-purple-900">
+                      {task.assigned_by_user.name || task.assigned_by_user.email}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Assignees */}
             <div className="mt-5">
               <div className="flex items-center gap-2 mb-2">
@@ -1406,7 +1438,8 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                       <option value="">Add additional assignee…</option>
                       {allUsers.filter(u => 
                         !assignees.some(a => a.user_id === u.id) && 
-                        u.id !== task?.assigned_to
+                        u.id !== task?.assigned_to &&
+                        u.id !== task?.assigned_by
                       ).map((u:any) => (
                         <option key={u.id} value={u.id}>{u.name || u.email}</option>
                       ))}

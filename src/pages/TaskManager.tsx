@@ -774,6 +774,7 @@ export default function TaskManager() {
                   <TableHead>Priority</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Date Assigned</TableHead>
+                  <TableHead>Completed Date</TableHead>
                   <TableHead>Due Date</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -820,6 +821,11 @@ export default function TaskManager() {
                     </TableCell>
                     <TableCell>
                       {new Date(task.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      {task.status === 'completed' && task.completed_at 
+                        ? new Date(task.completed_at).toLocaleDateString() 
+                        : '-'}
                     </TableCell>
                     <TableCell>
                       {task.due_date ? new Date(task.due_date).toLocaleDateString() : '-'}
