@@ -32,6 +32,7 @@ export function EmployeeNotesDialog({ employeeId, employeeName, trigger, onNotes
     title: '',
     content: '',
     note_type: 'general' as const,
+    amount: '',
     is_private: true
   });
 
@@ -66,7 +67,13 @@ export function EmployeeNotesDialog({ employeeId, employeeName, trigger, onNotes
         // Update existing note
         const result = await EmployeeNotesService.updateNote({
           id: editingNote.id!,
-          ...formData
+          note_date: formData.note_date,
+          note_time: formData.note_time || undefined,
+          title: formData.title,
+          content: formData.content,
+          note_type: formData.note_type,
+          amount: formData.note_type === 'salary_advance' && formData.amount ? parseFloat(formData.amount) : undefined,
+          is_private: formData.is_private
         });
 
         if (result.success) {
@@ -89,7 +96,13 @@ export function EmployeeNotesDialog({ employeeId, employeeName, trigger, onNotes
         // Create new note
         const noteData: CreateNoteRequest = {
           employee_id: employeeId,
-          ...formData
+          note_date: formData.note_date,
+          note_time: formData.note_time || undefined,
+          title: formData.title,
+          content: formData.content,
+          note_type: formData.note_type,
+          amount: formData.note_type === 'salary_advance' && formData.amount ? parseFloat(formData.amount) : undefined,
+          is_private: formData.is_private
         };
 
         const result = await EmployeeNotesService.createNote(noteData);
@@ -130,6 +143,7 @@ export function EmployeeNotesDialog({ employeeId, employeeName, trigger, onNotes
       title: note.title,
       content: note.content,
       note_type: note.note_type,
+      amount: note.amount ? note.amount.toString() : '',
       is_private: note.is_private
     });
     setShowAddForm(true);
@@ -174,6 +188,7 @@ export function EmployeeNotesDialog({ employeeId, employeeName, trigger, onNotes
       title: '',
       content: '',
       note_type: 'general',
+      amount: '',
       is_private: true
     });
     setEditingNote(null);
@@ -292,6 +307,22 @@ export function EmployeeNotesDialog({ employeeId, employeeName, trigger, onNotes
                     </Select>
                   </div>
 
+                  {formData.note_type === 'salary_advance' && (
+                    <div>
+                      <Label htmlFor="amount">Amount (₹)</Label>
+                      <Input
+                        id="amount"
+                        type="number"
+                        value={formData.amount}
+                        onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                        placeholder="Enter advance amount"
+                        min="0"
+                        step="0.01"
+                        required
+                      />
+                    </div>
+                  )}
+
                   <div>
                     <Label htmlFor="content">Content</Label>
                     <Textarea
@@ -372,6 +403,12 @@ export function EmployeeNotesDialog({ employeeId, employeeName, trigger, onNotes
                           </div>
                           
                           <p className="text-sm text-muted-foreground">{note.content}</p>
+                          
+                          {note.note_type === 'salary_advance' && (
+                            <div className="text-sm font-medium text-green-600">
+                              Amount: {note.amount ? `₹${note.amount.toLocaleString()}` : 'Not specified'}
+                            </div>
+                          )}
                           
                           <div className="flex items-center gap-4 text-xs text-muted-foreground">
                             <div className="flex items-center gap-1">

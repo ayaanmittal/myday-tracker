@@ -9,6 +9,7 @@ export interface EmployeeNote {
   title: string;
   content: string;
   note_type: 'general' | 'salary_advance' | 'disciplinary' | 'performance' | 'leave' | 'other';
+  amount?: number;
   is_private?: boolean;
   created_at?: string;
   updated_at?: string;
@@ -26,6 +27,7 @@ export interface CreateNoteRequest {
   title: string;
   content: string;
   note_type: 'general' | 'salary_advance' | 'disciplinary' | 'performance' | 'leave' | 'other';
+  amount?: number;
   is_private?: boolean;
 }
 
@@ -36,6 +38,7 @@ export interface UpdateNoteRequest {
   title?: string;
   content?: string;
   note_type?: 'general' | 'salary_advance' | 'disciplinary' | 'performance' | 'leave' | 'other';
+  amount?: number;
   is_private?: boolean;
 }
 
@@ -103,10 +106,11 @@ export class EmployeeNotesService {
           employee_id: noteData.employee_id,
           created_by: user.id, // Set the current user as the creator
           note_date: noteData.note_date,
-          note_time: noteData.note_time || null,
+          note_time: noteData.note_time && noteData.note_time.trim() !== '' ? noteData.note_time : null,
           title: noteData.title,
           content: noteData.content,
           note_type: noteData.note_type,
+          amount: noteData.amount || null,
           is_private: noteData.is_private ?? true
         })
         .select()
@@ -142,10 +146,11 @@ export class EmployeeNotesService {
       const updateData: any = {};
       
       if (noteData.note_date !== undefined) updateData.note_date = noteData.note_date;
-      if (noteData.note_time !== undefined) updateData.note_time = noteData.note_time;
+      if (noteData.note_time !== undefined) updateData.note_time = noteData.note_time && noteData.note_time.trim() !== '' ? noteData.note_time : null;
       if (noteData.title !== undefined) updateData.title = noteData.title;
       if (noteData.content !== undefined) updateData.content = noteData.content;
       if (noteData.note_type !== undefined) updateData.note_type = noteData.note_type;
+      if (noteData.amount !== undefined) updateData.amount = noteData.amount;
       if (noteData.is_private !== undefined) updateData.is_private = noteData.is_private;
 
       const { data, error } = await supabase

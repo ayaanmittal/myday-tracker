@@ -151,7 +151,7 @@ export async function getWorkDaysSummary(
     // Get attendance records
     const { data: attendanceData, error: attendanceError } = await supabase
       .from('unified_attendance')
-      .select('entry_date, status')
+      .select('entry_date, status, manual_status')
       .eq('user_id', userId)
       .gte('entry_date', startDate)
       .lte('entry_date', endDate);
@@ -195,17 +195,22 @@ export async function getWorkDaysSummary(
         );
 
         if (attendanceRecord) {
-          switch (attendanceRecord.status) {
-            case 'completed':
-            case 'in_progress':
-              presentDays++;
-              break;
-            case 'absent':
-              absentDays++;
-              break;
-            case 'holiday':
-              holidayDays++;
-              break;
+          // Check for office holidays first (manual_status = 'Office Holiday')
+          if (attendanceRecord.manual_status === 'Office Holiday') {
+            holidayDays++;
+          } else {
+            switch (attendanceRecord.status) {
+              case 'completed':
+              case 'in_progress':
+                presentDays++;
+                break;
+              case 'absent':
+                absentDays++;
+                break;
+              case 'holiday':
+                holidayDays++;
+                break;
+            }
           }
         } else {
           absentDays++; // No record on work day = absent

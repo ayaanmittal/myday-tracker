@@ -72,6 +72,32 @@ CREATE TABLE public.day_updates (
   CONSTRAINT day_updates_pkey PRIMARY KEY (id),
   CONSTRAINT day_updates_unified_attendance_id_fkey FOREIGN KEY (unified_attendance_id) REFERENCES public.unified_attendance(id)
 );
+CREATE TABLE public.employee_categories (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL UNIQUE,
+  description text,
+  is_paid_leave_eligible boolean NOT NULL DEFAULT false,
+  probation_period_months integer DEFAULT 3 CHECK (probation_period_months >= 0),
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT employee_categories_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.employee_leave_settings (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL UNIQUE,
+  employee_category_id uuid NOT NULL,
+  custom_leave_days jsonb DEFAULT '{}'::jsonb,
+  is_custom_settings boolean DEFAULT false,
+  notes text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  created_by uuid,
+  CONSTRAINT employee_leave_settings_pkey PRIMARY KEY (id),
+  CONSTRAINT employee_leave_settings_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT employee_leave_settings_employee_category_id_fkey FOREIGN KEY (employee_category_id) REFERENCES public.employee_categories(id),
+  CONSTRAINT employee_leave_settings_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
+);
 CREATE TABLE public.employee_mappings (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   teamoffice_emp_code text NOT NULL UNIQUE,
@@ -85,6 +111,42 @@ CREATE TABLE public.employee_mappings (
   CONSTRAINT employee_mappings_pkey PRIMARY KEY (id),
   CONSTRAINT employee_mappings_our_user_id_fkey FOREIGN KEY (our_user_id) REFERENCES auth.users(id),
   CONSTRAINT employee_mappings_our_profile_id_fkey FOREIGN KEY (our_profile_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.employee_notes (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  employee_id uuid NOT NULL,
+  created_by uuid NOT NULL,
+  note_date date NOT NULL,
+  note_time time without time zone,
+  title text NOT NULL,
+  content text NOT NULL,
+  note_type text DEFAULT 'general'::text CHECK (note_type = ANY (ARRAY['general'::text, 'salary_advance'::text, 'disciplinary'::text, 'performance'::text, 'leave'::text, 'other'::text])),
+  is_private boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  amount numeric DEFAULT NULL::numeric,
+  CONSTRAINT employee_notes_pkey PRIMARY KEY (id),
+  CONSTRAINT employee_notes_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES auth.users(id),
+  CONSTRAINT employee_notes_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
+);
+CREATE TABLE public.employee_salaries (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  profile_id uuid NOT NULL,
+  base_salary numeric NOT NULL CHECK (base_salary >= 0::numeric),
+  currency text NOT NULL DEFAULT 'INR'::text,
+  salary_frequency text NOT NULL DEFAULT 'monthly'::text CHECK (salary_frequency = ANY (ARRAY['monthly'::text, 'weekly'::text, 'daily'::text])),
+  effective_from date NOT NULL,
+  effective_to date,
+  is_active boolean DEFAULT true,
+  notes text,
+  created_by uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT employee_salaries_pkey PRIMARY KEY (id),
+  CONSTRAINT employee_salaries_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES public.profiles(id),
+  CONSTRAINT employee_salaries_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id),
+  CONSTRAINT employee_salaries_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
 );
 CREATE TABLE public.employee_work_days (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -122,12 +184,56 @@ CREATE TABLE public.leave_balances (
   year integer NOT NULL,
   total_days numeric NOT NULL DEFAULT 0,
   used_days numeric NOT NULL DEFAULT 0,
-  remaining_days numeric DEFAULT (total_days - used_days),
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  employee_category_id uuid,
+  probation_eligible boolean DEFAULT false,
+  employee_id uuid,
+  allocated_days integer DEFAULT 0,
+  probation_allocated_days integer DEFAULT 0,
+  probation_used_days integer DEFAULT 0,
+  is_paid boolean DEFAULT true,
+  requires_approval boolean DEFAULT true,
+  remaining_days integer DEFAULT ((allocated_days)::numeric - used_days),
+  probation_remaining_days integer DEFAULT (probation_allocated_days - probation_used_days),
   CONSTRAINT leave_balances_pkey PRIMARY KEY (id),
   CONSTRAINT leave_balances_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
-  CONSTRAINT leave_balances_leave_type_id_fkey FOREIGN KEY (leave_type_id) REFERENCES public.leave_types(id)
+  CONSTRAINT leave_balances_leave_type_id_fkey FOREIGN KEY (leave_type_id) REFERENCES public.leave_types(id),
+  CONSTRAINT leave_balances_employee_category_id_fkey FOREIGN KEY (employee_category_id) REFERENCES public.employee_categories(id),
+  CONSTRAINT leave_balances_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.profiles(id)
+);
+CREATE TABLE public.leave_deductions (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  salary_payment_id uuid NOT NULL,
+  user_id uuid NOT NULL,
+  leave_date date NOT NULL,
+  leave_type text NOT NULL,
+  is_paid_leave boolean DEFAULT false,
+  deduction_amount numeric DEFAULT 0,
+  daily_salary_rate numeric NOT NULL,
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT leave_deductions_pkey PRIMARY KEY (id),
+  CONSTRAINT leave_deductions_salary_payment_id_fkey FOREIGN KEY (salary_payment_id) REFERENCES public.salary_payments(id),
+  CONSTRAINT leave_deductions_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id)
+);
+CREATE TABLE public.leave_policies (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  name text NOT NULL,
+  description text,
+  employee_category_id uuid NOT NULL,
+  leave_type_id uuid NOT NULL,
+  max_days_per_year integer NOT NULL DEFAULT 0,
+  probation_max_days integer DEFAULT 0 CHECK (probation_max_days >= 0),
+  is_paid boolean NOT NULL DEFAULT true,
+  requires_approval boolean NOT NULL DEFAULT true,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  created_by uuid,
+  CONSTRAINT leave_policies_pkey PRIMARY KEY (id),
+  CONSTRAINT leave_policies_employee_category_id_fkey FOREIGN KEY (employee_category_id) REFERENCES public.employee_categories(id),
+  CONSTRAINT leave_policies_leave_type_id_fkey FOREIGN KEY (leave_type_id) REFERENCES public.leave_types(id),
+  CONSTRAINT leave_policies_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 );
 CREATE TABLE public.leave_requests (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -144,6 +250,7 @@ CREATE TABLE public.leave_requests (
   rejection_reason text,
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  processed boolean NOT NULL DEFAULT false,
   CONSTRAINT leave_requests_pkey PRIMARY KEY (id),
   CONSTRAINT leave_requests_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT leave_requests_leave_type_id_fkey FOREIGN KEY (leave_type_id) REFERENCES public.leave_types(id),
@@ -160,6 +267,30 @@ CREATE TABLE public.leave_types (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   updated_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT leave_types_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.leaves (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  profile_id uuid NOT NULL,
+  leave_date date NOT NULL,
+  leave_type_id uuid,
+  leave_type_name text NOT NULL,
+  is_paid_leave boolean NOT NULL DEFAULT true,
+  is_approved boolean NOT NULL DEFAULT true,
+  approved_by uuid,
+  approved_at timestamp with time zone DEFAULT now(),
+  leave_request_id uuid,
+  notes text,
+  created_by uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT leaves_pkey PRIMARY KEY (id),
+  CONSTRAINT leaves_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT leaves_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES public.profiles(id),
+  CONSTRAINT leaves_leave_type_id_fkey FOREIGN KEY (leave_type_id) REFERENCES public.leave_types(id),
+  CONSTRAINT leaves_approved_by_fkey FOREIGN KEY (approved_by) REFERENCES auth.users(id),
+  CONSTRAINT leaves_leave_request_id_fkey FOREIGN KEY (leave_request_id) REFERENCES public.leave_requests(id),
+  CONSTRAINT leaves_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id)
 );
 CREATE TABLE public.meetings (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -207,12 +338,19 @@ CREATE TABLE public.profiles (
   teamoffice_employees_id uuid,
   user_roles_id uuid,
   user_id uuid,
+  auth_user_id uuid,
+  phone text,
+  address text,
+  joined_on_date date NOT NULL DEFAULT CURRENT_DATE,
+  probation_period_months integer DEFAULT 3 CHECK (probation_period_months >= 0),
+  employee_category_id uuid NOT NULL,
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT profiles_user_roles_id_fkey FOREIGN KEY (user_roles_id) REFERENCES public.user_roles(id),
-  CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id),
   CONSTRAINT profiles_teamoffice_employees_id_fkey FOREIGN KEY (teamoffice_employees_id) REFERENCES public.teamoffice_employees(id),
-  CONSTRAINT profiles_id_fkey1 FOREIGN KEY (id) REFERENCES auth.users(id)
+  CONSTRAINT profiles_id_fkey1 FOREIGN KEY (id) REFERENCES auth.users(id),
+  CONSTRAINT profiles_auth_user_id_fkey FOREIGN KEY (auth_user_id) REFERENCES auth.users(id),
+  CONSTRAINT profiles_employee_category_id_fkey FOREIGN KEY (employee_category_id) REFERENCES public.employee_categories(id)
 );
 CREATE TABLE public.rule_acknowledgments (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -241,6 +379,31 @@ CREATE TABLE public.rule_violations (
   created_at timestamp with time zone NOT NULL DEFAULT now(),
   CONSTRAINT rule_violations_pkey PRIMARY KEY (id),
   CONSTRAINT rule_violations_rule_id_fkey FOREIGN KEY (rule_id) REFERENCES public.office_rules(id)
+);
+CREATE TABLE public.salary_payments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL,
+  profile_id uuid NOT NULL,
+  payment_month date NOT NULL,
+  base_salary numeric NOT NULL,
+  gross_salary numeric NOT NULL,
+  deductions numeric DEFAULT 0,
+  net_salary numeric NOT NULL,
+  leave_deductions numeric DEFAULT 0,
+  unpaid_leave_days integer DEFAULT 0,
+  deduction_percentage numeric DEFAULT 0,
+  is_paid boolean DEFAULT false,
+  payment_date date,
+  payment_method text,
+  payment_reference text,
+  notes text,
+  processed_by uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT salary_payments_pkey PRIMARY KEY (id),
+  CONSTRAINT salary_payments_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
+  CONSTRAINT salary_payments_profile_id_fkey FOREIGN KEY (profile_id) REFERENCES public.profiles(id),
+  CONSTRAINT salary_payments_processed_by_fkey FOREIGN KEY (processed_by) REFERENCES auth.users(id)
 );
 CREATE TABLE public.settings (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
@@ -386,7 +549,7 @@ CREATE TABLE public.unified_attendance (
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now(),
   profile_id uuid,
-  manual_status character varying DEFAULT NULL::character varying CHECK (manual_status IS NULL OR (manual_status::text = ANY (ARRAY['present'::character varying, 'absent'::character varying, 'leave_granted'::character varying]::text[]))),
+  manual_status character varying DEFAULT NULL::character varying CHECK (manual_status IS NULL OR (manual_status::text = ANY (ARRAY['present'::character varying, 'absent'::character varying, 'leave_granted'::character varying, 'holiday'::character varying, 'Office Holiday'::character varying]::text[]))),
   manual_override_by uuid,
   manual_override_at timestamp with time zone,
   manual_override_reason text,

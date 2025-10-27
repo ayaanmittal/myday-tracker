@@ -1,4 +1,4 @@
-import { Home, Calendar, Users, MessageSquare, Settings, LogOut, UserCog, FileText, Shield, BarChart3, LineChart, CheckSquare, ClipboardList, Plane, Megaphone, Bell, Wrench, Users2, AlertTriangle, Clock, CalendarDays, Timer } from 'lucide-react';
+import { Home, Calendar, Users, MessageSquare, Settings, LogOut, UserCog, FileText, Shield, BarChart3, LineChart, CheckSquare, ClipboardList, Plane, Megaphone, Bell, Wrench, Users2, AlertTriangle, Clock, CalendarDays, Timer, DollarSign, Receipt } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import {
   Sidebar,
@@ -115,6 +115,7 @@ export function AppSidebar() {
     { title: 'Analytics', url: '/analytics', icon: BarChart3 },
     { title: 'My Tasks', url: '/tasks', icon: CheckSquare, badge: pendingTaskCount },
     { title: 'Leave', url: '/leave', icon: Plane },
+    { title: 'My Leaves & Salary', url: '/my-leaves-salary', icon: Receipt },
     { title: 'Meetings', url: '/meetings', icon: Users2 },
     { title: 'Violations', url: '/violations', icon: AlertTriangle, badge: violationCount },
     { title: 'Office Rules', url: '/office-rules', icon: FileText },
@@ -130,7 +131,7 @@ export function AppSidebar() {
     { title: 'Manage Users', url: '/manage-employees', icon: UserCog },
     { title: 'Admin Tools', url: '/admin-tools', icon: Wrench },
     { title: 'Task Manager', url: '/task-manager', icon: ClipboardList },
-    { title: 'Leave Approval', url: '/leave-approval', icon: Plane, badge: leavePendingCount },
+    { title: 'Leaves', url: '/leave-approval', icon: Plane, badge: leavePendingCount },
     { title: 'Meetings', url: '/meetings', icon: Users2 },
     { title: 'Violations', url: '/violations', icon: AlertTriangle, badge: violationCount },
     { title: 'Announcements', url: '/announcements', icon: Megaphone, badge: unreadAnnouncementCount },
@@ -138,6 +139,7 @@ export function AppSidebar() {
     { title: 'Work Days Settings', url: '/work-days-settings', icon: Clock },
     { title: 'Holiday Manager', url: '/attendance-holiday-manager', icon: CalendarDays },
     { title: 'Auto Checkout', url: '/auto-checkout', icon: Timer },
+    { title: 'Salary Management', url: '/salary-management', icon: DollarSign },
     { title: 'Messages', url: '/messages', icon: MessageSquare, badge: unreadCount },
     { title: 'Settings', url: '/settings', icon: Settings },
   ];
@@ -150,6 +152,7 @@ export function AppSidebar() {
     { title: 'My Tasks', url: '/tasks', icon: CheckSquare, badge: pendingTaskCount },
     { title: 'Task Manager', url: '/task-manager', icon: ClipboardList },
     { title: 'Leave', url: '/leave', icon: Plane },
+    { title: 'My Leaves & Salary', url: '/my-leaves-salary', icon: Receipt },
     { title: 'Meetings', url: '/meetings', icon: Users2 },
     { title: 'Violations', url: '/violations', icon: AlertTriangle, badge: violationCount },
     { title: 'Office Rules', url: '/office-rules', icon: FileText },

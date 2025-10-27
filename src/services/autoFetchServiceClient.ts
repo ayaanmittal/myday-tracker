@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import { getInOutPunchData, getRawRangeMCID } from './teamOfficeClient';
+import { LateDetectionService } from './lateDetectionService';
 
 export interface FetchOptions {
   startDate?: string; // YYYY-MM-DD format
@@ -208,42 +209,14 @@ async function processAndInsertAttendanceRecordsClient(
         status = 'in_progress';
       }
 
-      // Calculate late status based on settings
+      // Use centralized late detection service
       let isLate = false;
       if (checkInAt) {
         try {
-          // Get late threshold from settings
-          const { data: settings } = await supabase
-            .from('settings')
-            .select('value')
-            .eq('key', 'late_threshold_minutes')
-            .single();
-          
-          const lateThresholdMinutes = settings?.value ? parseInt(settings.value) : 15;
-          
-          // Get workday start time from settings
-          const { data: workdaySettings } = await supabase
-            .from('settings')
-            .select('value')
-            .eq('key', 'workday_start_time')
-            .single();
-          
-          const workdayStartTime = workdaySettings?.value || '09:00';
-          
-          // Parse check-in time and workday start time
-          const checkInTime = new Date(checkInAt);
-          const [startHour, startMinute] = workdayStartTime.split(':').map(Number);
-          const workdayStart = new Date(checkInTime);
-          workdayStart.setHours(startHour, startMinute, 0, 0);
-          
-          // Calculate if check-in is after the late threshold
-          const lateThresholdTime = new Date(workdayStart);
-          lateThresholdTime.setMinutes(lateThresholdTime.getMinutes() + lateThresholdMinutes);
-          
-          isLate = checkInTime > lateThresholdTime;
+          const lateDetectionResult = await LateDetectionService.getLateStatus(checkInAt);
+          isLate = lateDetectionResult.isLate;
         } catch (error) {
           console.warn('Error calculating late status, defaulting to not late:', error);
-          // Fallback to not late if settings query fails
           isLate = false;
         }
       }

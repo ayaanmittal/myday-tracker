@@ -778,14 +778,24 @@ export default function History() {
           <div className="grid grid-cols-2 md:grid-cols-7 gap-4 mb-6">
             <Card className="border-gray-200 hover:shadow-md transition-shadow">
               <CardContent className="p-4">
-                <div className="text-2xl font-bold text-gray-900">{entries.length}</div>
+                <div className="text-2xl font-bold text-gray-900">
+                  {entries.filter(e => {
+                    // Filter by date range for stats calculation
+                    if (!startDate || !endDate) return true;
+                    return e.entry_date >= startDate && e.entry_date <= endDate;
+                  }).length}
+                </div>
                 <p className="text-sm text-muted-foreground">Total Days</p>
               </CardContent>
             </Card>
             <Card className="border-green-200 hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="text-2xl font-bold text-green-600">
-                  {entries.filter(e => e.status === 'completed').length}
+                  {entries.filter(e => {
+                    // Filter by date range and status
+                    if (!startDate || !endDate) return e.status === 'completed';
+                    return e.entry_date >= startDate && e.entry_date <= endDate && e.status === 'completed';
+                  }).length}
                 </div>
                 <p className="text-sm text-muted-foreground">Completed Days</p>
               </CardContent>
@@ -793,7 +803,11 @@ export default function History() {
             <Card className="border-amber-200 hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="text-2xl font-bold text-amber-600">
-                  {entries.filter(e => e.status === 'in_progress').length}
+                  {entries.filter(e => {
+                    // Filter by date range and status
+                    if (!startDate || !endDate) return e.status === 'in_progress';
+                    return e.entry_date >= startDate && e.entry_date <= endDate && e.status === 'in_progress';
+                  }).length}
                 </div>
                 <p className="text-sm text-muted-foreground">In Progress</p>
               </CardContent>
@@ -801,7 +815,11 @@ export default function History() {
             <Card className="border-red-200 hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="text-2xl font-bold text-red-600">
-                  {entries.filter(e => e.status === 'absent' && e.manual_status !== 'leave_granted').length}
+                  {entries.filter(e => {
+                    // Filter by date range and status
+                    if (!startDate || !endDate) return e.status === 'absent';
+                    return e.entry_date >= startDate && e.entry_date <= endDate && e.status === 'absent';
+                  }).length}
                 </div>
                 <p className="text-sm text-muted-foreground">Absent Days</p>
               </CardContent>
@@ -810,11 +828,10 @@ export default function History() {
               <CardContent className="p-4">
                 <div className="text-2xl font-bold text-blue-600">
                   {entries.filter(e => {
-                    const isHolidayLike = e.status === 'holiday' || e.manual_status === 'leave_granted';
-                    if (!isHolidayLike) return false;
-                    const d = new Date(e.entry_date);
-                    const isSunday = d.getDay() === 0; // 0 = Sunday
-                    return !isSunday;
+                    // Filter by date range and holiday status
+                    const isInDateRange = !startDate || !endDate || (e.entry_date >= startDate && e.entry_date <= endDate);
+                    const isHoliday = e.status === 'holiday' || e.manual_status === 'Office Holiday';
+                    return isInDateRange && isHoliday;
                   }).length}
                 </div>
                 <p className="text-sm text-muted-foreground">Holiday Days</p>
@@ -823,7 +840,11 @@ export default function History() {
             <Card className="border-orange-200 hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="text-2xl font-bold text-orange-600">
-                  {entries.filter(e => e.is_late).length}
+                  {entries.filter(e => {
+                    // Filter by date range and late status
+                    if (!startDate || !endDate) return e.is_late;
+                    return e.entry_date >= startDate && e.entry_date <= endDate && e.is_late;
+                  }).length}
                 </div>
                 <p className="text-sm text-muted-foreground">Late Entries</p>
               </CardContent>
@@ -831,7 +852,11 @@ export default function History() {
             <Card className="border-indigo-200 hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="text-2xl font-bold text-indigo-600">
-                  {Math.round(entries.reduce((sum, e) => sum + (e.total_work_time_minutes || 0), 0) / 60)}h
+                  {Math.round(entries.filter(e => {
+                    // Filter by date range for work hours calculation
+                    if (!startDate || !endDate) return true;
+                    return e.entry_date >= startDate && e.entry_date <= endDate;
+                  }).reduce((sum, e) => sum + (e.total_work_time_minutes || 0), 0) / 60)}h
                 </div>
                 <p className="text-sm text-muted-foreground">Total Work Hours</p>
               </CardContent>

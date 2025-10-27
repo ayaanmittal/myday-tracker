@@ -199,6 +199,26 @@ export default function Settings() {
                 </Link>
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                  <Users className="h-5 w-5" />
+                  Leave Settings
+                </CardTitle>
+                <CardDescription>
+                  Manage employee categories, leave types, and policies for comprehensive leave management
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Link 
+                  to="/leave-settings" 
+                  className="inline-flex items-center text-sm font-medium text-primary hover:text-primary/80"
+                >
+                  Configure Leave Settings →
+                </Link>
+              </CardContent>
+            </Card>
           </div>
         )}
 

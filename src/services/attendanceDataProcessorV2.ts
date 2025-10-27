@@ -1,4 +1,5 @@
 import { supabaseService } from '@/integrations/supabase/service';
+import { LateDetectionService } from './lateDetectionService';
 
 export interface TeamOfficeAttendanceRecord {
   Empcode: string;

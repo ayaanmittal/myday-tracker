@@ -58,6 +58,96 @@ export async function markUsersHolidayRange(
   }
 }
 
+export async function markOfficeHolidayRange(
+  startDate: string,
+  endDate: string,
+  userIds: string[] | null,
+  holidayName?: string,
+): Promise<BulkLeaveResult> {
+  try {
+    const { data, error } = await supabase.rpc('mark_office_holiday_range', {
+      start_date: startDate,
+      end_date: endDate,
+      user_ids: userIds,
+      holiday_name: holidayName || null,
+    });
+
+    if (error) {
+      // If authorization error, try the simple version
+      if (error.message.includes('Not authorized') || error.message.includes('Not authenticated')) {
+        console.log('Authorization error, trying simple version...');
+        return await markOfficeHolidayRangeSimple(startDate, endDate, userIds, holidayName);
+      }
+      return { success: false, inserted: 0, updated: 0, errors: [error.message] };
+    }
+
+    return {
+      success: true,
+      inserted: Number(data?.inserted_attendance || 0),
+      updated: Number(data?.updated_attendance || 0),
+      errors: []
+    };
+  } catch (e: any) {
+    return { success: false, inserted: 0, updated: 0, errors: [e?.message || 'Unknown error'] };
+  }
+}
+
+export async function markOfficeHolidayRangeSimple(
+  startDate: string,
+  endDate: string,
+  userIds: string[] | null,
+  holidayName?: string,
+): Promise<BulkLeaveResult> {
+  try {
+    const { data, error } = await supabase.rpc('mark_office_holiday_simple', {
+      start_date: startDate,
+      end_date: endDate,
+      user_ids: userIds,
+      holiday_name: holidayName || null,
+    });
+
+    if (error) {
+      return { success: false, inserted: 0, updated: 0, errors: [error.message] };
+    }
+
+    return {
+      success: true,
+      inserted: Number(data?.inserted_attendance || 0),
+      updated: Number(data?.updated_attendance || 0),
+      errors: []
+    };
+  } catch (e: any) {
+    return { success: false, inserted: 0, updated: 0, errors: [e?.message || 'Unknown error'] };
+  }
+}
+
+export async function markOfficeHolidayRangeTest(
+  startDate: string,
+  endDate: string,
+  userIds: string[] | null,
+): Promise<BulkLeaveResult> {
+  try {
+    const { data, error } = await supabase.rpc('mark_office_holiday_range_test', {
+      start_date: startDate,
+      end_date: endDate,
+      user_ids: userIds,
+    });
+
+    if (error) {
+      return { success: false, inserted: 0, updated: 0, errors: [error.message] };
+    }
+
+    return {
+      success: true,
+      inserted: Number(data?.inserted || 0),
+      updated: Number(data?.updated || 0),
+      errors: []
+    };
+  } catch (e: any) {
+    return { success: false, inserted: 0, updated: 0, errors: [e?.message || 'Unknown error'] };
+  }
+}
+
 /**
  * Generate missing attendance records for a date range
  * This will create records for days when employees didn't check in/out

@@ -6,6 +6,7 @@ import { Layout } from '@/components/Layout';
 import { useUserRole } from '@/hooks/useUserRole';
 import { AttendanceLogs } from '@/components/AttendanceLogs';
 import { AdminRefreshApiButton } from '@/components/AdminRefreshApiButton';
+import { LateDetectionService } from '@/services/lateDetectionService';
 import {
   Dialog,
   DialogContent,
@@ -206,21 +207,9 @@ export default function Today() {
     try {
       const now = new Date().toISOString();
       
-      // Simple late detection logic (will be replaced with database function after migration)
-      const nowDate = new Date(now);
-      const workdayStartTime = '10:30'; // Default from settings
-      const lateThresholdMinutes = 15; // Default from settings
-      
-      // Parse workday start time
-      const [hours, minutes] = workdayStartTime.split(':').map(Number);
-      const workdayStart = new Date(nowDate);
-      workdayStart.setHours(hours, minutes, 0, 0);
-      
-      // Calculate late threshold time
-      const lateThresholdTime = new Date(workdayStart.getTime() + (lateThresholdMinutes * 60 * 1000));
-      
-      // Check if check-in is late
-      const isLate = nowDate > lateThresholdTime;
+      // Use centralized late detection service
+      const lateDetectionResult = await LateDetectionService.getLateStatus(now);
+      const isLate = lateDetectionResult.isLate;
       
       const { data, error } = await supabase
         .from('unified_attendance')

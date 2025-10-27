@@ -45,6 +45,9 @@ import RoleManager from "./pages/RoleManager";
 import DebugRole from "./pages/DebugRole";
 import AttendanceHolidayManager from "./pages/AttendanceHolidayManager";
 import AutoCheckout from "./pages/AutoCheckout";
+import LeaveSettings from "./pages/LeaveSettings";
+import SalaryManagement from "./pages/SalaryManagement";
+import MyLeavesAndSalary from "./pages/MyLeavesAndSalary";
 import { MobileDebug } from "./pages/MobileDebug";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 
@@ -122,6 +125,21 @@ const App = () => (
             <Route path="/auto-checkout" element={
               <ErrorBoundary>
                 <AutoCheckout />
+              </ErrorBoundary>
+            } />
+            <Route path="/leave-settings" element={
+              <ErrorBoundary>
+                <LeaveSettings />
+              </ErrorBoundary>
+            } />
+            <Route path="/salary-management" element={
+              <ErrorBoundary>
+                <SalaryManagement />
+              </ErrorBoundary>
+            } />
+            <Route path="/my-leaves-salary" element={
+              <ErrorBoundary>
+                <MyLeavesAndSalary />
               </ErrorBoundary>
             } />
             <Route path="/mobile-debug" element={<MobileDebug />} />

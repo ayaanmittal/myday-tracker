@@ -14,7 +14,7 @@ import {
   AttendanceSummary 
 } from '@/services/attendanceHolidayService';
 import { supabase } from '@/integrations/supabase/client';
-import { markUsersHolidayRange } from '@/services/attendanceHolidayService';
+import { markUsersHolidayRange, markOfficeHolidayRange } from '@/services/attendanceHolidayService';
 import {
   Table,
   TableBody,
@@ -28,6 +28,7 @@ import { Badge } from '@/components/ui/badge';
 export default function AttendanceHolidayManager() {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [holidayName, setHolidayName] = useState('');
   const [employees, setEmployees] = useState<{ id: string; name: string; email: string }[]>([]);
   const [selectedEmployees, setSelectedEmployees] = useState<string[]>([]);
   const [processing, setProcessing] = useState(false);
@@ -38,6 +39,18 @@ export default function AttendanceHolidayManager() {
   const [totalGenerated, setTotalGenerated] = useState(0);
   const [approvedLeaves, setApprovedLeaves] = useState<{ user_id: string; start_date: string; end_date: string; approved_by: string | null; reason: string | null; processed: boolean; user_name?: string; user_email?: string; approver_name?: string }[]>([]);
   const [selectedApproved, setSelectedApproved] = useState<{ user_id: string; start_date: string; end_date: string }[]>([]);
+  const [selectAllEmployees, setSelectAllEmployees] = useState(false);
+  const [companyHolidays, setCompanyHolidays] = useState<{ id: string; holiday_date: string; title: string; created_at: string; created_by: string }[]>([]);
+
+  // Calculate day count for selected date range
+  const getDayCount = () => {
+    if (!startDate || !endDate) return 0;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1; // +1 to include both start and end dates
+    return diffDays;
+  };
 
   // Set default date range (last 30 days)
   const setDefaultDateRange = () => {
@@ -199,8 +212,28 @@ export default function AttendanceHolidayManager() {
     setApprovedLeaves(withDetails);
   };
 
+  const loadCompanyHolidays = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('company_holidays')
+        .select('*')
+        .order('holiday_date', { ascending: false })
+        .limit(50); // Show last 50 holidays
+
+      if (error) {
+        console.error('Error loading company holidays:', error);
+        return;
+      }
+
+      setCompanyHolidays(data || []);
+    } catch (error) {
+      console.error('Error loading company holidays:', error);
+    }
+  };
+
   useEffect(() => {
     void loadApprovedLeaves();
+    void loadCompanyHolidays();
   }, []);
 
   const toggleApprovedSelection = (row: { user_id: string; start_date: string; end_date: string; processed: boolean }) => {
@@ -263,6 +296,51 @@ export default function AttendanceHolidayManager() {
     }
   };
 
+  const handleSelectAllEmployees = (checked: boolean) => {
+    setSelectAllEmployees(checked);
+    if (checked) {
+      setSelectedEmployees(employees.map(emp => emp.id));
+    } else {
+      setSelectedEmployees([]);
+    }
+  };
+
+  const markAsOfficeHoliday = async () => {
+    if (!startDate || !endDate) {
+      toast({
+        title: 'Error',
+        description: 'Please select both start and end dates',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      // Mark all employees as office holiday for the selected date range
+      const res = await markOfficeHolidayRange(startDate, endDate, null, holidayName || undefined);
+      if (res.success) {
+        toast({
+          title: 'Office Holiday Applied',
+          description: `Marked ${res.inserted + res.updated} days as office holiday for all employees${holidayName ? ` (${holidayName})` : ''}`,
+        });
+        // Refresh company holidays list
+        void loadCompanyHolidays();
+      } else {
+        toast({ title: 'Error', description: res.errors.join(', '), variant: 'destructive' });
+      }
+    } catch (error) {
+      console.error('Error marking office holiday:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to mark as office holiday',
+        variant: 'destructive',
+      });
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -285,7 +363,7 @@ export default function AttendanceHolidayManager() {
             <CardDescription>Select the date range to process attendance records</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="startDate">Start Date</Label>
                 <Input
@@ -305,6 +383,16 @@ export default function AttendanceHolidayManager() {
                 />
               </div>
               <div className="space-y-2">
+                <Label htmlFor="holidayName">Holiday Name (Optional)</Label>
+                <Input
+                  id="holidayName"
+                  type="text"
+                  placeholder="e.g., Diwali, Christmas, New Year"
+                  value={holidayName}
+                  onChange={(e) => setHolidayName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
                 <Label>Quick Actions</Label>
                 <Button 
                   variant="outline" 
@@ -315,6 +403,19 @@ export default function AttendanceHolidayManager() {
                 </Button>
               </div>
             </div>
+            {startDate && endDate && (
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center gap-2 text-blue-700">
+                  <Calendar className="h-4 w-4" />
+                  <span className="font-medium">
+                    Selected Range: {getDayCount()} day{getDayCount() !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <div className="text-sm text-blue-600 mt-1">
+                  From {new Date(startDate).toLocaleDateString()} to {new Date(endDate).toLocaleDateString()}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -325,6 +426,16 @@ export default function AttendanceHolidayManager() {
             <CardDescription>Choose employees to mark as on leave for the selected range</CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="mb-3">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={selectAllEmployees}
+                  onChange={(e) => handleSelectAllEmployees(e.target.checked)}
+                />
+                <span>Select All Employees</span>
+              </label>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 max-h-72 overflow-y-auto">
               {employees.map(emp => {
                 const checked = selectedEmployees.includes(emp.id);
@@ -338,6 +449,14 @@ export default function AttendanceHolidayManager() {
                           ? [...prev, emp.id]
                           : prev.filter(id => id !== emp.id)
                         );
+                        // Update select all state
+                        if (e.target.checked) {
+                          if (selectedEmployees.length + 1 === employees.length) {
+                            setSelectAllEmployees(true);
+                          }
+                        } else {
+                          setSelectAllEmployees(false);
+                        }
                       }}
                     />
                     <span>{emp.name || emp.email}</span>
@@ -361,7 +480,6 @@ export default function AttendanceHolidayManager() {
           </CardHeader>
           <CardContent>
             <div className="flex gap-4 flex-wrap">
-              {/* Process Holidays button removed as requested */}
               <Button 
                 onClick={getSummary} 
                 variant="outline"
@@ -377,6 +495,14 @@ export default function AttendanceHolidayManager() {
                 className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 Mark Selected Employees Leave (Not Absent)
+              </Button>
+              <Button
+                onClick={markAsOfficeHoliday}
+                disabled={processing || !startDate || !endDate}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Calendar className="h-4 w-4" />
+                Mark as Office Holiday
               </Button>
             </div>
           </CardContent>
@@ -495,6 +621,50 @@ export default function AttendanceHolidayManager() {
                 )}
               </TableBody>
             </Table>
+          </CardContent>
+        </Card>
+
+        {/* Company Holidays Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-green-500" />
+              Company Holidays
+            </CardTitle>
+            <CardDescription>List of all company holidays in the system</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {companyHolidays.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No company holidays found</p>
+              </div>
+            ) : (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Holiday Name</TableHead>
+                      <TableHead>Created</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {companyHolidays.map((holiday) => (
+                      <TableRow key={holiday.id}>
+                        <TableCell className="font-medium">
+                          {new Date(holiday.holiday_date).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>{holiday.title}</TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {new Date(holiday.created_at).toLocaleDateString()}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </CardContent>
         </Card>
 
