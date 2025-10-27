@@ -28,7 +28,8 @@ import {
   Clock,
   AlertTriangle,
   Eye,
-  MoreHorizontal
+  MoreHorizontal,
+  Trash2
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -102,7 +103,8 @@ export default function SalaryManagement() {
     selectedEmployees: [] as string[],
     manualAdvances: {} as Record<string, number>,
     advanceReasons: {} as Record<string, string>,
-    unpaidLeavePercentage: 100 // Default 100% deduction for unpaid leaves
+    unpaidLeavePercentage: 100, // Default 100% deduction for unpaid leaves
+    manualUnpaidDays: {} as Record<string, number> // Manual override for unpaid days
   });
   const [showEmployeeNotes, setShowEmployeeNotes] = useState<string | null>(null);
   const [employeeNotes, setEmployeeNotes] = useState<Record<string, EmployeeNoteWithDetails[]>>({});
@@ -110,6 +112,7 @@ export default function SalaryManagement() {
   const [leaveDeductionData, setLeaveDeductionData] = useState<Record<string, any>>({});
   const [editingPayment, setEditingPayment] = useState<SalaryPayment | null>(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState<SalaryPayment | null>(null);
   const [editFormData, setEditFormData] = useState({
     base_salary: '',
     leave_deductions: '',
@@ -430,23 +433,52 @@ export default function SalaryManagement() {
 
       if (error) throw error;
 
-      // Update payments with manual advances if any
+      // Update payments with manual adjustments (advances and unpaid days) if any
       for (const employeeId of generateData.selectedEmployees) {
         const advanceAmount = generateData.manualAdvances[employeeId] || 0;
         const advanceReason = generateData.advanceReasons[employeeId] || '';
+        const manualUnpaidDays = generateData.manualUnpaidDays[employeeId];
+        const originalUnpaidDays = leaveDeductionData[employeeId]?.unpaid_leave_days || 0;
         
-        if (advanceAmount > 0) {
-          // Find the payment for this employee
-          const payment = salaryPayments.find(p => p.user_id === employeeId);
-          if (payment) {
+        // Find the payment for this employee
+        const monthDate = new Date(selectedMonth + '-01');
+        const totalDaysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
+        const dailyRate = leaveDeductionData[employeeId]?.daily_rate || (employees.find(e => e.id === employeeId)?.base_salary || 0) / totalDaysInMonth;
+        
+        const payment = data?.find((p: any) => p.user_id === employeeId);
+        if (payment) {
+          let updateData: any = {};
+          
+          // Handle manual unpaid days override
+          if (manualUnpaidDays !== undefined && manualUnpaidDays !== originalUnpaidDays) {
+            const manualLeaveDeduction = dailyRate * manualUnpaidDays * (generateData.unpaidLeavePercentage / 100);
+            updateData.leave_deductions = manualLeaveDeduction;
+            updateData.unpaid_leave_days = manualUnpaidDays;
+          }
+          
+          // Handle manual advances
+          if (advanceAmount > 0) {
+            updateData.deductions = (updateData.leave_deductions || payment.leave_deductions) + advanceAmount;
+            updateData.notes = `Manual advance: ${advanceAmount} - ${advanceReason}`;
+          } else if (manualUnpaidDays !== undefined && manualUnpaidDays !== originalUnpaidDays) {
+            updateData.notes = `Manual unpaid days adjustment: ${originalUnpaidDays} → ${manualUnpaidDays} days`;
+          }
+          
+          // Recalculate net salary
+          if (updateData.leave_deductions !== undefined || updateData.deductions !== undefined) {
+            updateData.net_salary = (payment.base_salary || payment.gross_salary) - (updateData.deductions || updateData.leave_deductions || 0);
+            
+            // Recalculate deduction percentage
+            if (updateData.deductions) {
+              updateData.deduction_percentage = ((updateData.deductions / (payment.base_salary || payment.gross_salary)) * 100).toFixed(2);
+            }
+          }
+          
+          if (Object.keys(updateData).length > 0) {
             await supabase
               .from('salary_payments')
-              .update({
-                deductions: payment.deductions + advanceAmount,
-                net_salary: payment.net_salary - advanceAmount,
-                notes: `Manual advance: ${advanceAmount} - ${advanceReason}`
-              })
-              .eq('id', payment.id);
+              .update(updateData)
+              .eq('id', payment.payment_id);
           }
         }
       }
@@ -550,6 +582,33 @@ export default function SalaryManagement() {
       toast({
         title: "Error",
         description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeletePayment = async () => {
+    if (!deleteConfirmDialog) return;
+
+    try {
+      const { error } = await supabase
+        .from('salary_payments')
+        .delete()
+        .eq('id', deleteConfirmDialog.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Salary payment deleted successfully",
+      });
+
+      setDeleteConfirmDialog(null);
+      loadSalaryData(); // Reload data to reflect changes
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete salary payment",
         variant: "destructive",
       });
     }
@@ -830,13 +889,23 @@ export default function SalaryManagement() {
                                   </Button>
                                 )}
                                 {role === 'admin' && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleEditPayment(payment)}
-                                  >
-                                    <Edit className="w-4 h-4" />
-                                  </Button>
+                                  <>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleEditPayment(payment)}
+                                    >
+                                      <Edit className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => setDeleteConfirmDialog(payment)}
+                                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </>
                                 )}
                               </div>
                             </TableCell>
@@ -1246,11 +1315,16 @@ export default function SalaryManagement() {
               {/* Leave Deductions Preview */}
               {generateData.selectedEmployees.length > 0 && (
                 <div>
-                  <Label className="text-base font-medium">Leave Deductions Preview</Label>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Calculated deductions based on employee work days and unpaid leave days
-                  </p>
-            <div className="space-y-2">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <Label className="text-base font-medium">Leave Deductions Preview</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Calculated deductions based on employee work days and unpaid leave days
+                      </p>
+                    </div>
+                    <AlertTriangle className="w-5 h-5 text-orange-600" />
+                  </div>
+            <div className="space-y-3">
               {generateData.selectedEmployees.map(employeeId => {
                 const employee = employees.find(emp => emp.id === employeeId);
                 if (!employee) return null;
@@ -1259,37 +1333,112 @@ export default function SalaryManagement() {
                 const deductionData = leaveDeductionData[employeeId];
                 const advanceAmount = generateData.manualAdvances[employeeId] || 0;
                 
+                // Use manual override if available, otherwise use calculated unpaid days
+                const originalUnpaidDays = deductionData?.unpaid_leave_days || 0;
+                const unpaidDays = generateData.manualUnpaidDays[employeeId] !== undefined 
+                  ? generateData.manualUnpaidDays[employeeId]
+                  : originalUnpaidDays;
+                
                 // Use actual data if available, otherwise fallback to basic calculation
                 const workDays = deductionData?.work_days_in_month || 27; // Work days for display
                 // Calculate total days in the month
                 const monthDate = new Date(selectedMonth + '-01');
                 const totalDaysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
                 const dailyRate = deductionData?.daily_rate || (employee.base_salary / totalDaysInMonth);
-                const unpaidDays = deductionData?.unpaid_leave_days || 0;
-                const leaveDeduction = deductionData?.leave_deduction_amount || 0;
+                const leaveDeduction = dailyRate * unpaidDays * (generateData.unpaidLeavePercentage / 100);
                 const totalDeductions = leaveDeduction + advanceAmount;
                 const netSalary = employee.base_salary - totalDeductions;
                       
                       return (
                         <Card key={employeeId}>
-                          <CardContent className="p-3">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h4 className="font-medium">{employee.name}</h4>
-                                <div className="text-sm text-muted-foreground space-y-1">
-                                  <p>Base Salary: {formatCurrency(employee.base_salary)}</p>
-                                  <p>Daily Rate: {formatCurrency(dailyRate)} (based on {totalDaysInMonth} days in month)</p>
-                                  <p>Unpaid Days: {unpaidDays} × {generateData.unpaidLeavePercentage}% = {formatCurrency(leaveDeduction)}</p>
-                                  <p>Advance: {formatCurrency(advanceAmount)}</p>
+                          <CardContent className="p-4">
+                            <div className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <h4 className="font-medium">{employee.name}</h4>
+                                  <p className="text-sm text-muted-foreground">{employee.designation}</p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="font-medium text-red-600 text-lg">
+                                    Net: {formatCurrency(netSalary)}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {((totalDeductions / employee.base_salary) * 100).toFixed(1)}% total deduction
+                                  </p>
                                 </div>
                               </div>
-                              <div className="text-right">
-                                <p className="font-medium text-red-600">
-                                  Net: {formatCurrency(netSalary)}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {((totalDeductions / employee.base_salary) * 100).toFixed(1)}% total deduction
-                                </p>
+                              
+                              <div className="grid grid-cols-2 gap-2 text-sm">
+                                <div>
+                                  <p className="text-muted-foreground">Base Salary:</p>
+                                  <p className="font-medium">{formatCurrency(employee.base_salary)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground">Daily Rate:</p>
+                                  <p className="font-medium">{formatCurrency(dailyRate)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground">Advance:</p>
+                                  <p className="font-medium text-orange-600">{formatCurrency(advanceAmount)}</p>
+                                </div>
+                                <div>
+                                  <p className="text-muted-foreground">Leave Deduction:</p>
+                                  <p className="font-medium text-red-600">{formatCurrency(leaveDeduction)}</p>
+                                </div>
+                              </div>
+
+                              <div className="border-t pt-3">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="flex-1">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <Label htmlFor={`unpaid-days-${employeeId}`} className="text-sm font-medium">
+                                        Unpaid Leave Days (Manual Override)
+                                      </Label>
+                                      {unpaidDays !== originalUnpaidDays && (
+                                        <Button
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-6 text-xs text-muted-foreground"
+                                          onClick={() => setGenerateData(prev => {
+                                            const newManualUnpaidDays = { ...prev.manualUnpaidDays };
+                                            delete newManualUnpaidDays[employeeId];
+                                            return {
+                                              ...prev,
+                                              manualUnpaidDays: newManualUnpaidDays
+                                            };
+                                          })}
+                                        >
+                                          Reset
+                                        </Button>
+                                      )}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <Input
+                                        id={`unpaid-days-${employeeId}`}
+                                        type="number"
+                                        min="0"
+                                        step="0.5"
+                                        value={unpaidDays}
+                                        onChange={(e) => setGenerateData(prev => ({
+                                          ...prev,
+                                          manualUnpaidDays: {
+                                            ...prev.manualUnpaidDays,
+                                            [employeeId]: Math.max(0, parseFloat(e.target.value) || 0)
+                                          }
+                                        }))}
+                                        className="max-w-[120px]"
+                                      />
+                                      <span className="text-xs text-muted-foreground">
+                                        (Original: {originalUnpaidDays})
+                                      </span>
+                                    </div>
+                                  </div>
+                                  {unpaidDays !== originalUnpaidDays && (
+                                    <Badge variant="warning" className="bg-orange-100 text-orange-800">
+                                      Adjusted
+                                    </Badge>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </CardContent>
@@ -1759,6 +1908,55 @@ export default function SalaryManagement() {
                 </Button>
                 <Button onClick={handleUpdatePayment}>
                   Update Payment
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={!!deleteConfirmDialog} onOpenChange={() => setDeleteConfirmDialog(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Salary Payment</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              {deleteConfirmDialog && (
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">
+                    Are you sure you want to delete the salary payment for:
+                  </p>
+                  <div className="p-4 bg-gray-50 rounded-lg space-y-1">
+                    <p className="font-medium">{deleteConfirmDialog.employee_name}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Payment Month: {deleteConfirmDialog.payment_month}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Net Salary: {formatCurrency(deleteConfirmDialog.net_salary)}
+                    </p>
+                  </div>
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      This action cannot be undone. This will permanently delete the salary payment record.
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+              
+              <div className="flex justify-end space-x-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setDeleteConfirmDialog(null)}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  variant="destructive"
+                  onClick={handleDeletePayment}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Payment
                 </Button>
               </div>
             </div>
