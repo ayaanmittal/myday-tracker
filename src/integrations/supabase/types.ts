@@ -173,36 +173,36 @@ export type Database = {
         Row: {
           blockers: string | null
           created_at: string
-          day_entry_id: string
           id: string
           progress: string
           today_focus: string
+          unified_attendance_id: string | null
           updated_at: string
         }
         Insert: {
           blockers?: string | null
           created_at?: string
-          day_entry_id: string
           id?: string
           progress: string
           today_focus: string
+          unified_attendance_id?: string | null
           updated_at?: string
         }
         Update: {
           blockers?: string | null
           created_at?: string
-          day_entry_id?: string
           id?: string
           progress?: string
           today_focus?: string
+          unified_attendance_id?: string | null
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "day_updates_day_entry_id_fkey"
-            columns: ["day_entry_id"]
+            foreignKeyName: "day_updates_unified_attendance_id_fkey"
+            columns: ["unified_attendance_id"]
             isOneToOne: false
-            referencedRelation: "day_entries"
+            referencedRelation: "unified_attendance"
             referencedColumns: ["id"]
           },
         ]
@@ -210,43 +210,50 @@ export type Database = {
       extra_work_logs: {
         Row: {
           created_at: string
-          day_entry_id: string
           description: string | null
           hours_worked: number
           id: string
           logged_at: string
+          unified_attendance_id: string | null
           updated_at: string
           user_id: string
           work_type: string
         }
         Insert: {
           created_at?: string
-          day_entry_id: string
           description?: string | null
           hours_worked: number
           id?: string
           logged_at?: string
+          unified_attendance_id?: string | null
           updated_at?: string
           user_id: string
           work_type?: string
         }
         Update: {
           created_at?: string
-          day_entry_id?: string
           description?: string | null
           hours_worked?: number
           id?: string
           logged_at?: string
+          unified_attendance_id?: string | null
           updated_at?: string
           user_id?: string
           work_type?: string
         }
         Relationships: [
           {
-            foreignKeyName: "extra_work_logs_day_entry_id_fkey"
-            columns: ["day_entry_id"]
+            foreignKeyName: "extra_work_logs_unified_attendance_id_fkey"
+            columns: ["unified_attendance_id"]
             isOneToOne: false
-            referencedRelation: "day_entries"
+            referencedRelation: "unified_attendance"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "extra_work_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]

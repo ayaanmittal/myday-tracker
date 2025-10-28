@@ -252,10 +252,52 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
     }
   }
 
+  async function updateTaskPriority(newPriority: 'low' | 'medium' | 'high' | 'urgent') {
+    if (!task || !canManageTask) return;
+    try {
+      const { error } = await supabase.from('tasks').update({ 
+        priority: newPriority, 
+        updated_at: new Date().toISOString() 
+      }).eq('id', task.id);
+      if (error) {
+        console.error('Error updating task priority:', error);
+        alert('Failed to update priority');
+        return;
+      }
+      await loadTask();
+    } catch (e) {
+      console.error('Error in updateTaskPriority:', e);
+    }
+  }
+
+  async function updateTaskDueDate(newDueDate: string | null) {
+    if (!task || !canManageTask) return;
+    try {
+      const { error } = await supabase.from('tasks').update({ 
+        due_date: newDueDate, 
+        updated_at: new Date().toISOString() 
+      }).eq('id', task.id);
+      if (error) {
+        console.error('Error updating task due date:', error);
+        alert('Failed to update due date');
+        return;
+      }
+      await loadTask();
+    } catch (e) {
+      console.error('Error in updateTaskDueDate:', e);
+    }
+  }
+
   function formatSeconds(s: number): string {
     const h = Math.floor(s / 3600);
     const m = Math.floor((s % 3600) / 60);
     return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  }
+
+  function getUserLabelById(userId?: string) {
+    if (!userId) return 'Unknown user';
+    const u = (allUsers || []).find((u: any) => u.id === userId);
+    return u?.name || u?.email || 'Unknown user';
   }
 
   async function loadUserTime() {
@@ -540,10 +582,11 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
         }
       }
 
-      // Filter out the assigned_by user from assignees list
+      // Filter out the assigned_by user from assignees list 
+      // Task creators should only be shown in "Assigned By" section, not as assignees
       const filteredAssignees = assigneesWithUsers.filter(a => a.user_id !== task?.assigned_by);
       
-      console.log('Loaded assignees:', filteredAssignees);
+      console.log('Loaded assignees (filtered):', filteredAssignees);
 
       setAssignees(filteredAssignees);
     } catch (err) {
@@ -742,63 +785,61 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
   }
 
   async function onFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !taskId) return;
-    setUploading(true);
+    const files = e.target.files;
+    if (!files || files.length === 0 || !taskId) return;
+
     try {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user?.user) {
+      const { data: authRes } = await supabase.auth.getUser();
+      if (!authRes?.user) {
         alert('You must be logged in to upload files');
-        setUploading(false);
         return;
       }
-      
-      console.log('Uploading file:', { fileName: file.name, fileSize: file.size, taskId, userId: user?.user?.id });
-      
-      // Use a simpler path structure that works better with RLS
-      const path = `${user?.user?.id}/${taskId}/${Date.now()}_${file.name}`;
-      console.log('Upload path:', path);
-      
-      const { error: upErr } = await supabase.storage
-        .from('task-attachments')
-        .upload(path, file, { 
-          upsert: false, 
-          contentType: file.type,
-          cacheControl: '3600'
-        });
-      
-      if (upErr) {
-        console.error('Storage upload error:', upErr);
-        console.error('Upload details:', { path, fileName: file.name, fileSize: file.size, contentType: file.type });
-        alert(`Failed to upload file: ${upErr.message}\n\nDetails: ${JSON.stringify(upErr, null, 2)}`);
-        return;
+
+      setUploading(true);
+
+      const uploads = Array.from(files).map(async (file) => {
+        const path = `${authRes.user.id}/${taskId}/${Date.now()}_${file.name}`;
+
+        const { error: upErr } = await supabase.storage
+          .from('task-attachments')
+          .upload(path, file, {
+            upsert: false,
+            contentType: file.type,
+            cacheControl: '3600'
+          });
+
+        if (upErr) {
+          console.error('Storage upload error:', upErr);
+          throw new Error(`Failed to upload ${file.name}: ${upErr.message}`);
+        }
+
+        const attachmentData = {
+          task_id: taskId,
+          uploaded_by: authRes.user.id,
+          file_name: file.name,
+          file_path: path,
+          mime_type: file.type,
+          size_bytes: file.size,
+        };
+
+        const { error: dbErr } = await supabase.from('task_attachments').insert(attachmentData);
+        if (dbErr) {
+          console.error('Database insert error:', dbErr);
+          console.error('Attachment data:', attachmentData);
+          throw new Error(`Failed to save ${file.name}: ${dbErr.message}`);
+        }
+      });
+
+      const results = await Promise.allSettled(uploads);
+      const failures = results.filter(r => r.status === 'rejected') as PromiseRejectedResult[];
+      if (failures.length > 0) {
+        alert(`Some files failed to upload:\n${failures.map(f => f.reason?.message || String(f.reason)).join('\n')}`);
       }
-      
-      console.log('File uploaded to storage, now saving to database');
-      const attachmentData: any = {
-        task_id: taskId,
-        uploaded_by: user?.user?.id,
-        file_name: file.name,
-        file_path: path,
-        mime_type: file.type,
-        size_bytes: file.size,
-      };
-      
-      console.log('Inserting attachment data:', attachmentData);
-      const { error: dbErr } = await supabase.from('task_attachments').insert(attachmentData);
-      
-      if (dbErr) {
-        console.error('Database insert error:', dbErr);
-        console.error('Attachment data:', attachmentData);
-        alert(`Failed to save file info: ${dbErr.message}\n\nDetails: ${JSON.stringify(dbErr, null, 2)}`);
-        return;
-      }
-      
-      console.log('File attachment saved successfully');
-      void loadAttachments();
-    } catch (err) {
+
+      await loadAttachments();
+    } catch (err: any) {
       console.error('Error in onFileChange:', err);
-      alert(`Failed to upload file: ${err}`);
+      alert(`Failed to upload files: ${err?.message || err}`);
     } finally {
       setUploading(false);
       e.currentTarget.value = '';
@@ -1102,34 +1143,45 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
               <h3 className="text-sm font-semibold mb-2">Attachments</h3>
               <div className="space-y-3">
                 {attachments.length > 0 && (
-                  <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
-                    {attachments.map(a => (
-                      <div key={a.id} className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
-                            <Paperclip className="h-4 w-4 text-blue-600" />
-                          </div>
-                          <div>
-                            <div className="font-medium text-sm">{a.file_name}</div>
-                            <div className="text-xs text-gray-500">
-                              {new Date(a.created_at).toLocaleDateString()} at {new Date(a.created_at).toLocaleTimeString()}
+                  <div className="max-h-64 overflow-y-auto space-y-3 pr-2">
+                    {Object.entries(
+                      attachments.reduce((acc: Record<string, Attachment[]>, a) => {
+                        (acc[a.uploaded_by] ||= []).push(a);
+                        return acc;
+                      }, {})
+                    ).map(([uploaderId, items]) => (
+                      <div key={uploaderId} className="space-y-2">
+                        <div className="text-xs font-medium text-muted-foreground">
+                          Uploaded by: {getUserLabelById(uploaderId)}
+                        </div>
+                        {items.map(a => (
+                          <div key={a.id} className="flex items-center justify-between p-3 border rounded-lg bg-gray-50">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center">
+                                <Paperclip className="h-4 w-4 text-blue-600" />
+                              </div>
+                              <div>
+                                <div className="text-sm font-medium break-all">{a.file_name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {(a.size_bytes / 1024).toFixed(1)} KB · {new Date(a.created_at).toLocaleString()}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <AttachmentLink fileName={a.file_name} filePath={a.file_path} />
+                              {canManageTask && (
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost" 
+                                  onClick={() => removeAttachment(a.id, a.file_path)}
+                                  className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              )}
                             </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <AttachmentLink fileName={a.file_name} filePath={a.file_path} />
-                          {canManageTask && (
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              onClick={() => removeAttachment(a.id, a.file_path)}
-                              className="text-red-600 hover:text-red-800 hover:bg-red-50"
-                              title="Remove attachment"
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          )}
-                        </div>
+                        ))}
                       </div>
                     ))}
                   </div>
@@ -1141,21 +1193,21 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                     disabled={uploading} 
                     className="hidden" 
                     id="file-upload"
+                    multiple
                   />
                   <label
                     htmlFor="file-upload" 
                     className="flex-1 cursor-pointer border border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50"
                   >
-                    {uploading ? 'Uploading...' : 'Click to upload files or drag and drop'}
+                    {uploading ? 'Uploading…' : 'Click to upload files or drag and drop'}
                   </label>
                   {attachments.length > 0 && (
                     <Button 
                       type="button" 
                       variant="outline" 
                       onClick={() => void downloadAllAsZip()} 
-                      disabled={generatingZip}
                     >
-                      {generatingZip ? 'Preparing...' : 'Download All (.zip)'}
+                      Download all as ZIP
                     </Button>
                   )}
                 </div>
@@ -1261,6 +1313,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                         disabled={uploading} 
                         className="hidden" 
                         id="comment-file-upload"
+                        multiple
                       />
                       <label 
                         htmlFor="comment-file-upload" 
@@ -1309,7 +1362,49 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                 )}
               </div>
               <div className="flex items-center justify-between"><span className="text-muted-foreground">Start Date:</span> <span>{task.created_at ? new Date(task.created_at).toLocaleDateString() : '-'}</span></div>
-              <div className="flex items-center justify-between"><span className="text-muted-foreground">Priority:</span> <span className="capitalize">{task.priority || 'medium'}</span></div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Priority:</span>
+                {canManageTask ? (
+                  <Select value={task.priority || 'medium'} onValueChange={(v) => void updateTaskPriority(v as any)}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="low">Low</SelectItem>
+                      <SelectItem value="medium">Medium</SelectItem>
+                      <SelectItem value="high">High</SelectItem>
+                      <SelectItem value="urgent">Urgent</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <span className="capitalize">{task.priority || 'medium'}</span>
+                )}
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground">Due Date:</span>
+                {canManageTask ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="date"
+                      value={task.due_date ? task.due_date.split('T')[0] : ''}
+                      onChange={(e) => void updateTaskDueDate(e.target.value || null)}
+                      className="w-32 h-8 text-xs"
+                    />
+                    {task.due_date && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0 text-red-600 hover:text-red-700"
+                        onClick={() => void updateTaskDueDate(null)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <span>{task.due_date ? new Date(task.due_date).toLocaleDateString() : '-'}</span>
+                )}
+              </div>
               <div className="flex items-center justify-between"><span className="text-muted-foreground">Your logged time:</span> <span>{formatSeconds(userSeconds)}</span></div>
             </div>
 

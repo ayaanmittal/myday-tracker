@@ -120,7 +120,7 @@ export default function Today() {
         const { data: updateData } = await supabase
           .from('day_updates')
           .select('*')
-          .eq('day_entry_id', entryData.id)
+          .eq('unified_attendance_id', entryData.id)
           .maybeSingle();
 
         if (updateData) {
@@ -378,7 +378,7 @@ export default function Today() {
       const { data: existingUpdate } = await supabase
         .from('day_updates')
         .select('id')
-        .eq('day_entry_id', entry.id)
+        .eq('unified_attendance_id', entry.id)
         .maybeSingle();
 
       if (existingUpdate) {
@@ -392,7 +392,7 @@ export default function Today() {
         const { error } = await supabase
           .from('day_updates')
           .insert({
-            day_entry_id: entry.id,
+            unified_attendance_id: entry.id,
             ...updateData,
           });
 
