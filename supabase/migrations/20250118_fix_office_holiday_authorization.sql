@@ -218,3 +218,4 @@ $$;
 
 -- Grant execute permissions to authenticated users
 GRANT EXECUTE ON FUNCTION public.mark_office_holiday_range_test(DATE, DATE, UUID[]) TO authenticated;
+

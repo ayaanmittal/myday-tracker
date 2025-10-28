@@ -66,3 +66,4 @@ SELECT
   COUNT(DISTINCT sp.user_id) as unique_employees
 FROM public.salary_payments sp
 WHERE sp.payment_month = '2025-10-01';
+

@@ -48,3 +48,4 @@ WHERE tablename = 'leaves';
 -- Step 5: Test a simple query that should work
 SELECT 'Testing simple query:' as step;
 SELECT * FROM public.leaves LIMIT 5;
+

@@ -197,3 +197,4 @@ SELECT
   (SELECT COUNT(*) FROM (SELECT generate_series('2025-10-01'::date, '2025-10-31'::date, '1 day'::interval)::date as holiday_date) sundays WHERE EXTRACT(DOW FROM holiday_date) = 0) as sundays,
   ((SELECT COUNT(*) FROM public.company_holidays WHERE holiday_date >= '2025-10-01' AND holiday_date <= '2025-10-31') + 
    (SELECT COUNT(*) FROM (SELECT generate_series('2025-10-01'::date, '2025-10-31'::date, '1 day'::interval)::date as holiday_date) sundays WHERE EXTRACT(DOW FROM holiday_date) = 0)) as total_expected;
+

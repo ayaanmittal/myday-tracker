@@ -151,3 +151,4 @@ $$ LANGUAGE plpgsql;
 
 -- Grant permissions
 GRANT EXECUTE ON FUNCTION refresh_employee_leave_balances(INTEGER) TO authenticated;
+

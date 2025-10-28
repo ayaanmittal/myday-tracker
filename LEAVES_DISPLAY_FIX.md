@@ -130,3 +130,4 @@ The leaves display now shows:
 - ✅ **Proper Management**: Delete entire leave periods at once
 
 The leaves display now provides comprehensive information similar to leave requests! 🎉
+

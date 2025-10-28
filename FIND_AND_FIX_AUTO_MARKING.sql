@@ -98,3 +98,4 @@ FROM information_schema.routines
 WHERE routine_schema = 'public' 
   AND routine_definition ILIKE '%work%day%'
   AND routine_definition ILIKE '%unified_attendance%';
+

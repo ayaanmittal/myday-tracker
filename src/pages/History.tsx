@@ -4,12 +4,15 @@ import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Calendar, Clock, Home, Edit, Save, X, Users, User, ArrowLeft } from 'lucide-react';
+import { Calendar, Clock, Home, Edit, Save, X, Users, User, ArrowLeft, Printer } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { toast } from '@/hooks/use-toast';
+import { generateWorkHistoryPDF } from '@/utils/pdfGenerator';
+import { generateProgressReportPDF } from '@/utils/progressReportGenerator';
 import {
   Dialog,
   DialogContent,
@@ -37,6 +40,8 @@ interface Employee {
   id: string;
   name: string;
   email: string;
+  designation?: string | null;
+  team?: string | null;
 }
 
 interface RuleViolation {
@@ -210,6 +215,270 @@ export default function History() {
         description: 'Failed to fetch employees',
         variant: 'destructive',
       });
+    }
+  };
+
+  const handlePrintPDF = async () => {
+    if (entries.length === 0) {
+      toast({
+        title: 'No Data',
+        description: 'No attendance data to print',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      // Get employee information
+      let employeeName = '';
+      let employeeEmail = '';
+
+      if (selectedEmployeeId && selectedEmployeeName) {
+        employeeName = selectedEmployeeName;
+        const employee = employees.find(emp => emp.id === selectedEmployeeId);
+        employeeEmail = employee?.email || '';
+      } else {
+        // For regular employees viewing their own data
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('name, email')
+          .eq('id', user?.id)
+          .single();
+        
+        if (profile) {
+          employeeName = profile.name;
+          employeeEmail = profile.email;
+        }
+      }
+
+      if (!employeeName) {
+        toast({
+          title: 'Error',
+          description: 'Could not find employee information',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      await generateWorkHistoryPDF(
+        entries.filter(e => e.entry_date >= startDate && e.entry_date <= endDate),
+        { name: employeeName, email: employeeEmail },
+        startDate,
+        endDate
+      );
+      
+      toast({
+        title: 'PDF Generated',
+        description: 'Your work history PDF has been generated successfully',
+      });
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to generate PDF',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handlePrintProgressReport = async () => {
+    if (entries.length === 0) {
+      toast({
+        title: 'No Data',
+        description: 'No attendance data to print',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // Get employee information
+      let employeeName = '';
+      let employeeEmail = '';
+      let employeeDesignation = null;
+      let employeeTeam = null;
+
+      let targetUserId: string;
+      if (selectedEmployeeId && selectedEmployeeName) {
+        targetUserId = selectedEmployeeId;
+        employeeName = selectedEmployeeName;
+        const employee = employees.find(emp => emp.id === selectedEmployeeId);
+        if (employee) {
+          employeeEmail = employee.email;
+          employeeDesignation = employee.designation;
+          employeeTeam = employee.team;
+        }
+      } else {
+        targetUserId = user!.id;
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('name, email, designation, team')
+          .eq('id', targetUserId)
+          .single();
+        
+        if (profile) {
+          employeeName = profile.name;
+          employeeEmail = profile.email;
+          employeeDesignation = profile.designation;
+          employeeTeam = profile.team;
+        }
+      }
+
+      if (!employeeName) {
+        toast({
+          title: 'Error',
+          description: 'Could not find employee information',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Fetch tasks - using any type to bypass type checking issues
+      let tasks: any[] = [];
+      try {
+        const { data: primaryTasks } = await supabase
+          .from('tasks' as any)
+          .select('id')
+          .eq('assigned_to', targetUserId);
+
+        const { data: additionalTasks } = await supabase
+          .from('task_assignees' as any)
+          .select('task_id')
+          .eq('user_id', targetUserId);
+
+        const allTaskIds = [
+          ...(primaryTasks?.map((t: any) => t.id) || []),
+          ...(additionalTasks?.map((t: any) => t.task_id) || [])
+        ];
+        const uniqueTaskIds = [...new Set(allTaskIds)];
+
+        if (uniqueTaskIds.length > 0) {
+          const { data: tasksData } = await supabase
+            .from('tasks' as any)
+            .select('*')
+            .in('id', uniqueTaskIds)
+            .gte('created_at', startDate)
+            .lte('created_at', endDate + 'T23:59:59');
+          tasks = tasksData || [];
+        }
+      } catch (error) {
+        console.warn('Error fetching tasks:', error);
+      }
+
+      // Fetch leaves
+      let leaves: any[] = [];
+      try {
+        const { data: leavesData } = await supabase
+          .from('leaves' as any)
+          .select('id, leave_date, is_paid_leave, is_approved, leave_types(name)')
+          .eq('user_id', targetUserId)
+          .gte('leave_date', startDate)
+          .lte('leave_date', endDate);
+        leaves = leavesData || [];
+      } catch (error) {
+        console.warn('Error fetching leaves:', error);
+      }
+
+      // Fetch day updates
+      let dayUpdates: any[] = [];
+      try {
+        const { data: dayUpdatesData } = await supabase
+          .from('day_updates' as any)
+          .select('id, today_focus, progress, blockers, created_at, day_entries(entry_date)')
+          .eq('day_entries.user_id', targetUserId)
+          .gte('day_entries.entry_date', startDate)
+          .lte('day_entries.entry_date', endDate);
+        dayUpdates = dayUpdatesData || [];
+      } catch (error) {
+        console.warn('Error fetching day updates:', error);
+      }
+
+      // Fetch salary data
+      let salaryData: any = null;
+      try {
+        const { data: salaryDataRaw } = await supabase
+          .rpc('get_employee_salary_summary' as any, {
+            p_user_id: targetUserId,
+            p_month: startDate
+          });
+        salaryData = salaryDataRaw;
+      } catch (error) {
+        console.warn('Error fetching salary data:', error);
+      }
+
+      // Prepare attendance data
+      const attendanceData = entries
+        .filter(e => e.entry_date >= startDate && e.entry_date <= endDate)
+        .map(entry => ({
+          entry_date: entry.entry_date,
+          check_in_at: entry.check_in_at,
+          check_out_at: entry.check_out_at,
+          total_work_time_minutes: entry.total_work_time_minutes,
+          status: entry.status,
+          is_late: entry.is_late || false,
+          lunch_break_start: entry.lunch_break_start,
+          lunch_break_end: entry.lunch_break_end
+        }));
+
+      // Generate PDF
+      await generateProgressReportPDF(
+        {
+          name: employeeName,
+          email: employeeEmail,
+          designation: employeeDesignation,
+          team: employeeTeam
+        },
+        attendanceData,
+        tasks.map(t => ({
+          id: t.id,
+          title: t.title,
+          description: t.description || '',
+          status: t.status,
+          priority: t.priority || 'medium',
+          created_at: t.created_at,
+          due_date: t.due_date
+        })),
+        (leaves || []).map(l => ({
+          id: l.id,
+          leave_date: l.leave_date,
+          is_paid_leave: l.is_paid_leave,
+          is_approved: l.is_approved,
+          leave_types: { name: l.leave_types?.name || 'N/A' }
+        })),
+        (dayUpdates || []).map(du => ({
+          id: du.id,
+          today_focus: du.today_focus,
+          progress: du.progress,
+          blockers: du.blockers,
+          created_at: du.created_at,
+          entry_date: du.day_entries?.entry_date || ''
+        })),
+        salaryData && salaryData[0] ? {
+          base_salary: salaryData[0].base_salary,
+          total_deductions: salaryData[0].total_deductions,
+          net_salary: salaryData[0].net_salary,
+          total_paid_leaves: salaryData[0].total_paid_leaves,
+          total_unpaid_leaves: salaryData[0].total_unpaid_leaves
+        } : null,
+        startDate,
+        endDate
+      );
+
+      toast({
+        title: 'Progress Report Generated',
+        description: 'Your comprehensive progress report has been generated successfully',
+      });
+    } catch (error) {
+      console.error('Error generating progress report:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to generate progress report',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -761,14 +1030,38 @@ export default function History() {
             )}
             <div className="flex flex-col gap-2">
               <Label className="text-sm font-medium text-transparent">Actions</Label>
-              <Button
-                variant="outline"
-                onClick={() => fetchHistory(true)}
-                disabled={loading}
-                className="w-full sm:w-auto"
-              >
-                {loading ? 'Loading...' : 'Fetch All Records'}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => fetchHistory(true)}
+                  disabled={loading}
+                  className="w-full sm:w-auto"
+                >
+                  {loading ? 'Loading...' : 'Fetch All Records'}
+                </Button>
+                {entries.length > 0 && (
+                  <>
+                    <Button
+                      variant="default"
+                      onClick={handlePrintPDF}
+                      disabled={loading}
+                      className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Printer className="h-4 w-4 mr-2" />
+                      Print PDF
+                    </Button>
+                    <Button
+                      variant="default"
+                      onClick={handlePrintProgressReport}
+                      disabled={loading}
+                      className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700"
+                    >
+                      <Printer className="h-4 w-4 mr-2" />
+                      Print Progress Report
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1212,14 +1505,25 @@ export default function History() {
                       </div>
                       <div>
                         <span className="text-muted-foreground">Lunch duration:</span>
-                        <p className="font-medium">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">
+                            {Math.floor(
+                              (new Date(selectedEntry.lunch_break_end).getTime() -
+                                new Date(selectedEntry.lunch_break_start).getTime()) /
+                                60000
+                            )}{' '}
+                            minutes
+                          </p>
                           {Math.floor(
                             (new Date(selectedEntry.lunch_break_end).getTime() -
                               new Date(selectedEntry.lunch_break_start).getTime()) /
                               60000
-                          )}{' '}
-                          minutes
-                        </p>
+                          ) > 50 && (
+                            <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-200">
+                              Long Break
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </>
                   )}
@@ -1352,7 +1656,7 @@ export default function History() {
                 </div>
               )}
 
-c              {/* Rule violations section */}
+              {/* Rule violations section */}
               {selectedEntry.rule_violations && selectedEntry.rule_violations.length > 0 && (
                 <div className="space-y-3 border-t pt-3">
                   <h4 className="font-semibold text-sm text-red-600">⚠️ Rule Violations</h4>

@@ -99,3 +99,4 @@ SELECT
 FROM profiles p
 WHERE p.is_active = true
 LIMIT 5;
+

@@ -153,3 +153,4 @@
 5. **Manage Payments**: Use the Payments tab to track and update payment status
 
 The enhanced salary management system now provides a comprehensive, user-friendly interface for managing all aspects of employee compensation with advanced features for manual advances, leave deductions, and batch payment generation!
+

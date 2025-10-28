@@ -352,3 +352,4 @@ SELECT
 FROM public.profiles p
 WHERE p.is_active = true
 LIMIT 5;
+

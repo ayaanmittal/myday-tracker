@@ -190,3 +190,4 @@ const getMonthOptions = () => {
 5. **Performance Check**: Ensure data loading is fast and responsive
 
 **The My Leaves & Salary page now has separate month and year selectors and properly shows only the employee's own data!** 🎯
+

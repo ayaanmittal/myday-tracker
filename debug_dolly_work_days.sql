@@ -212,3 +212,4 @@ SELECT * FROM calculate_daily_salary_rate(
   (SELECT user_id FROM profiles WHERE name ILIKE '%dolly%' OR name ILIKE '%jhamb%' LIMIT 1),
   '2024-01-01'::DATE
 );
+

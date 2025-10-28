@@ -278,3 +278,4 @@ SELECT calculate_unpaid_leave_days(
   (SELECT user_id FROM profiles WHERE name ILIKE '%arjan%' OR name ILIKE '%singh%' LIMIT 1),
   '2024-01-01'::DATE
 ) as unpaid_leave_days;
+

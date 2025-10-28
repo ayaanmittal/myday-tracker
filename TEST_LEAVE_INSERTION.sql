@@ -61,3 +61,4 @@ SELECT 'Each row should have: user_id, profile_id, leave_date (single date), lea
 
 -- Step 5: Clean up test function
 DROP FUNCTION IF EXISTS test_leave_insertion();
+

@@ -207,3 +207,4 @@ SELECT
 FROM public.profiles p
 WHERE p.is_active = true
 ORDER BY p.name;
+

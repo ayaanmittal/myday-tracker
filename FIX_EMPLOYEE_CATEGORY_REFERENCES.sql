@@ -52,3 +52,4 @@ SELECT 'Check for any remaining null values:' as step;
 SELECT COUNT(*) as null_count
 FROM public.profiles 
 WHERE employee_category IS NULL;
+

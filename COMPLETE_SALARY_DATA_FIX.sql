@@ -383,3 +383,4 @@ SELECT
 FROM public.profiles p 
 WHERE p.email = 'sakshisaglotia@gmail.com'
 ON CONFLICT DO NOTHING;
+

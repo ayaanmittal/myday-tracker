@@ -237,3 +237,4 @@ SELECT
   COUNT(*) as record_count,
   COUNT(*) as total_salary
 FROM public.leaves;
+

@@ -173,3 +173,4 @@ FROM (
   SELECT generate_series('2025-10-01'::date, '2025-10-31'::date, '1 day'::interval)::date as holiday_date
 ) sundays
 WHERE EXTRACT(DOW FROM holiday_date) = 0;
+

@@ -124,3 +124,4 @@ SELECT * FROM calculate_month_leave_deductions(
   (SELECT user_id FROM profiles WHERE name ILIKE '%arjan%' OR name ILIKE '%singh%' LIMIT 1),
   '2024-01-01'::DATE
 );
+

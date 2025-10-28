@@ -454,3 +454,4 @@ SELECT 'Tables created successfully' as status;
 
 -- Verify sample data
 SELECT 'Sample data inserted' as status;
+

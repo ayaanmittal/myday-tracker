@@ -286,3 +286,4 @@ $$ LANGUAGE plpgsql;
 GRANT EXECUTE ON FUNCTION refresh_employee_leave_balances(INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION rollover_leave_balances(INTEGER, INTEGER, INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_rollover_summary(INTEGER, INTEGER) TO authenticated;
+

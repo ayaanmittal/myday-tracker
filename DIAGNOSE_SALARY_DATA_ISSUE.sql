@@ -68,3 +68,4 @@ SELECT
   full_name
 FROM public.profiles 
 WHERE email = 'sakshisaglotia@gmail.com';
+

@@ -83,3 +83,4 @@ FROM public.leave_requests
 WHERE status = 'pending'
 ORDER BY created_at DESC
 LIMIT 5;
+

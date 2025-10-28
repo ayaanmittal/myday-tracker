@@ -365,3 +365,4 @@ FROM public.get_employee_salary_summary(
   (SELECT id FROM public.profiles WHERE email = 'sakshisaglotia@gmail.com' LIMIT 1),
   '2025-10-01'
 );
+

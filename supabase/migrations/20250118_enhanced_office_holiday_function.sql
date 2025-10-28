@@ -153,3 +153,4 @@ EXCEPTION
     RAISE NOTICE 'Test completed with expected behavior: %', SQLERRM;
 END;
 $$;
+

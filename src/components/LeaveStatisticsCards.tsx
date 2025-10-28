@@ -277,3 +277,4 @@ const LeaveStatisticsCards: React.FC<LeaveStatisticsCardsProps> = ({
 };
 
 export default LeaveStatisticsCards;
+

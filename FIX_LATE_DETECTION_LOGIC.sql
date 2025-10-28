@@ -248,3 +248,4 @@ GRANT EXECUTE ON FUNCTION public.update_late_status_for_unified_attendance() TO 
 
 -- Step 6: Run the update function to fix existing records
 SELECT * FROM public.update_late_status_for_unified_attendance();
+

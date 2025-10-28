@@ -125,3 +125,4 @@ generateData.selectedEmployees = ['emp1', 'emp2', 'emp3'];
 4. **Verify Results**: Confirm only selected employees get salary payments
 
 **The salary generation now respects the selected employees from the frontend!** 🎯
+

@@ -138,3 +138,4 @@ psql -h your-host -U your-user -d your-database -f test_amount_field_migration.s
 8. **Data Precision**: Proper numeric storage with decimal support
 
 The migration is now ready to be applied and will successfully add the amount field to the employee notes system!
+

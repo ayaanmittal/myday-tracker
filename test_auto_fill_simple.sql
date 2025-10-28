@@ -19,3 +19,4 @@ SELECT * FROM backfill_unified_attendance_profile_data(
 -- Test 4: Check stats after backfill
 SELECT 'Stats After Backfill:' as test_step;
 SELECT * FROM get_unified_attendance_profile_stats();
+

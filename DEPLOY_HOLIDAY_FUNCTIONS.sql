@@ -311,3 +311,4 @@ GRANT EXECUTE ON FUNCTION public.mark_office_holiday_range_complete(DATE, DATE, 
 GRANT EXECUTE ON FUNCTION public.mark_office_holiday_simple(DATE, DATE, UUID[], TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.mark_office_holiday_range(DATE, DATE, UUID[], TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.mark_office_holiday_single(DATE, UUID[], TEXT) TO authenticated;
+

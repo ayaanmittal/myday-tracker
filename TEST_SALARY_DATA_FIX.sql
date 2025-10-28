@@ -44,3 +44,4 @@ SELECT
   COUNT(*) as holiday_count,
   string_agg(title, ', ') as holiday_titles
 FROM public.company_holidays;
+

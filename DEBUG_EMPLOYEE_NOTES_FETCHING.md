@@ -126,3 +126,4 @@ Advance notes: [array of salary_advance notes]
 4. **Check Permissions**: Verify RLS policies allow note access
 
 The debugging enhancements will help identify exactly where the issue is occurring in the employee notes fetching process!
+

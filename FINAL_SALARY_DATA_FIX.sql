@@ -218,3 +218,4 @@ SELECT
   'Total Deductions: ₹12,903.20 (8 days × ₹1,612.90)' as total_deductions,
   'Net Salary: ₹37,096.80 (₹50,000 - ₹12,903.20)' as net_salary,
   'Deduction %: 25.81%' as deduction_percentage;
+

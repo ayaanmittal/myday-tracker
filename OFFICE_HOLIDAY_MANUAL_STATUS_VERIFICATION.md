@@ -127,3 +127,4 @@ The system already correctly:
 The requested functionality is **already implemented and working correctly**. When "Mark as Office Holiday" is clicked in the holiday manager, it automatically forces the `manual_status` in `unified_attendance` to "Office Holiday" for all employees in the selected date range.
 
 No additional changes are needed! 🎉
+

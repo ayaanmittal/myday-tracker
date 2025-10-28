@@ -191,3 +191,4 @@ SELECT
   MIN(holiday_date) as earliest_holiday,
   MAX(holiday_date) as latest_holiday
 FROM public.company_holidays;
+

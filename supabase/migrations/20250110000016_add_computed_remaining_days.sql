@@ -14,3 +14,4 @@ ADD COLUMN probation_remaining_days INTEGER GENERATED ALWAYS AS (probation_alloc
 -- Add indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_leave_balances_employee_year ON leave_balances(employee_id, year);
 CREATE INDEX IF NOT EXISTS idx_leave_balances_leave_type ON leave_balances(leave_type_id);
+

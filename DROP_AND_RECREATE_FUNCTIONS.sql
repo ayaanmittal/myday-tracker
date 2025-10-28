@@ -406,3 +406,4 @@ GRANT EXECUTE ON FUNCTION fix_user_id_constraint() TO authenticated;
 
 -- Step 12: Verify the fix
 SELECT 'All functions recreated successfully!' as result;
+

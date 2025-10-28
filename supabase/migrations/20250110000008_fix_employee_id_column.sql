@@ -308,3 +308,4 @@ $$ LANGUAGE plpgsql;
 GRANT EXECUTE ON FUNCTION refresh_employee_leave_balances(INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_employee_leave_summary(UUID, INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION update_leave_usage(UUID, UUID, INTEGER, INTEGER) TO authenticated;
+

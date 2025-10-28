@@ -179,3 +179,4 @@ RETURNS TABLE(
 - **Authentication Required**: Must be logged in to access
 
 The "My Leaves & Salary" page provides complete transparency into leave history and salary deductions! 🎉
+

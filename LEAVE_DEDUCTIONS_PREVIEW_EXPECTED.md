@@ -141,3 +141,4 @@ Net: ₹14,000.00
 5. **Net Salary**: Base salary - deduction
 
 The system should now correctly calculate all these values based on the actual leave records and work days configuration!
+

@@ -120,3 +120,4 @@ SELECT
 FROM public.unified_attendance 
 WHERE entry_date BETWEEN '2025-10-20' AND '2025-10-21'
 ORDER BY entry_date, user_id;
+

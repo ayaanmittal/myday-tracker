@@ -163,3 +163,4 @@ const [notesLoading, setNotesLoading] = useState(false);
 7. **User-friendly Interface**: Intuitive workflow for managing advances and notes
 
 The employee notes integration now provides a complete solution for managing salary advances with full historical tracking and seamless integration with the existing employee notes system!
+

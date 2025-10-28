@@ -56,3 +56,4 @@ SELECT
   COUNT(*) as active_employees
 FROM public.profiles 
 WHERE COALESCE(is_active, TRUE) = TRUE;
+

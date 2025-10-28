@@ -125,3 +125,4 @@ FROM public.unified_attendance ua
 JOIN public.profiles p ON p.id = ua.user_id
 WHERE ua.entry_date = '2025-02-14'
   AND p.name ILIKE '%dolly%';
+

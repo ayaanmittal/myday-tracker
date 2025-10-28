@@ -112,3 +112,4 @@ SELECT
   'Debug office holidays count' as test_name,
   *
 FROM debug_office_holidays_count('2025-10-01');
+

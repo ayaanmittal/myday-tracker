@@ -17,3 +17,4 @@ FROM (
 ) all_days
 WHERE EXTRACT(DOW FROM holiday_date) = 0
 ORDER BY holiday_date;
+

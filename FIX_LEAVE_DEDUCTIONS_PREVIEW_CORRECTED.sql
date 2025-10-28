@@ -211,3 +211,4 @@ FROM public.calculate_employee_leave_deductions(
 
 -- Step 3: Grant execute permissions
 GRANT EXECUTE ON FUNCTION public.calculate_employee_leave_deductions(UUID, DATE, NUMERIC) TO authenticated;
+

@@ -220,3 +220,4 @@ SELECT * FROM get_work_history_stats(
     '2025-02-01'::DATE,
     '2025-02-28'::DATE
 );
+

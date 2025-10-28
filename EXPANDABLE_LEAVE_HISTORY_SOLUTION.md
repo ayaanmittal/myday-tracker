@@ -116,3 +116,4 @@ When clicked, shows:
 5. **Better UX**: Expandable design reduces clutter while maintaining detail access
 
 **The expandable leave history now provides the perfect balance between overview and detail!** 🎯
+

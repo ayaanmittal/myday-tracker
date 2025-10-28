@@ -118,3 +118,4 @@ EXCEPTION
     RAISE NOTICE 'Error during manual update: %', SQLERRM;
 END;
 $$;
+

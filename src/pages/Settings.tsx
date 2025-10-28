@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Layout } from '@/components/Layout';
 import { toast } from '@/hooks/use-toast';
-import { Settings as SettingsIcon, Clock, Bell, Users, Edit, Save, X, Calendar } from 'lucide-react';
+import { Settings as SettingsIcon, Clock, Bell, Users, Edit, Save, X, Calendar, Wrench } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
   Table,
@@ -219,6 +219,28 @@ export default function Settings() {
                 </Link>
               </CardContent>
             </Card>
+
+            {role === 'admin' && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Wrench className="h-5 w-5" />
+                    Admin Tools
+                  </CardTitle>
+                  <CardDescription>
+                    Access advanced admin tools for system configuration and management
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Link 
+                    to="/admin-tools" 
+                    className="inline-flex items-center text-sm font-medium text-primary hover:text-primary/80"
+                  >
+                    Open Admin Tools →
+                  </Link>
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
 

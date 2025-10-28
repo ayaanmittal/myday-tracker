@@ -66,3 +66,4 @@ FROM information_schema.routines
 WHERE routine_schema = 'public' 
   AND routine_name LIKE '%leave%'
   AND routine_name NOT LIKE '%simple%';
+

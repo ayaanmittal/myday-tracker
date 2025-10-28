@@ -68,3 +68,4 @@ END $$;
 -- Additional permissions for the service role (if needed)
 GRANT ALL ON employee_categories TO service_role;
 GRANT USAGE ON SCHEMA public TO service_role;
+

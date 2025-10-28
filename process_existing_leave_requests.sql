@@ -124,3 +124,4 @@ SELECT
   COUNT(*) as value
 FROM public.leave_requests
 WHERE status = 'approved' AND processed = false;
+

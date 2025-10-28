@@ -154,3 +154,4 @@ if (noteData.is_private !== undefined) updateData.is_private = noteData.is_priva
 6. **Edit Support**: Can modify amounts after creation
 
 The amount field should now display correctly for salary advance notes!
+

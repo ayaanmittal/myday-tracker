@@ -276,3 +276,4 @@ WHERE p.name ILIKE '%arjan%';
 ```
 
 The enhanced leaves system now automatically detects paid/unpaid status based on employee settings and categories, ensuring accurate salary calculations while maintaining policy compliance!
+

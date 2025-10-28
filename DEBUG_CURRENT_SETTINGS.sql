@@ -75,3 +75,4 @@ WHERE check_in_at IS NOT NULL
   AND entry_date >= CURRENT_DATE - INTERVAL '7 days'
 ORDER BY entry_date DESC, check_in_at DESC
 LIMIT 10;
+

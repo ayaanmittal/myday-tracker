@@ -41,3 +41,4 @@ CREATE TRIGGER refresh_balances_on_category_change
     AFTER INSERT OR UPDATE OR DELETE ON employee_categories
     FOR EACH STATEMENT
     EXECUTE FUNCTION trigger_refresh_leave_balances();
+

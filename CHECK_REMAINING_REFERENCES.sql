@@ -50,3 +50,4 @@ SELECT
     THEN 'reject_leave_request_simple exists'
     ELSE 'reject_leave_request_simple MISSING'
   END as reject_function_status;
+

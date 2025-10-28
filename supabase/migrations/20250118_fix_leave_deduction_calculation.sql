@@ -158,3 +158,4 @@ $$;
 -- Grant execute permissions
 GRANT EXECUTE ON FUNCTION public.calculate_month_leave_deductions(UUID, DATE) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_employee_work_days_config(UUID) TO authenticated;
+

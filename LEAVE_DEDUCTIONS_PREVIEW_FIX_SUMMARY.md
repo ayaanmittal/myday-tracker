@@ -154,3 +154,4 @@ The Leave Deductions Preview will now show:
 - ✅ **Correct net salaries** (base_salary - deductions)
 
 **The system will now properly calculate leave deductions based on actual leave records and work days configuration!** 🎯
+

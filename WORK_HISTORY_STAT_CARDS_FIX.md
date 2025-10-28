@@ -84,3 +84,4 @@ Now the work history stat cards will correctly calculate:
 - **Individual Leave**: `status = 'absent'` AND `manual_status = 'leave_granted'`
 
 The stat cards will now accurately reflect the attendance status and properly distinguish between different types of days.
+

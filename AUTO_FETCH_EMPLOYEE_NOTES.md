@@ -130,3 +130,4 @@ const loadEmployeeNotes = async (employeeId: string) => {
 - ✅ **Seamless Experience**: Smooth workflow from selection to import
 
 The employee notes now auto-fetch when the dialog opens, providing a seamless user experience without requiring manual button clicks or showing test elements!
+

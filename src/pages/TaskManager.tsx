@@ -94,6 +94,7 @@ export default function TaskManager() {
     priority: 'medium' as 'low' | 'medium' | 'high' | 'urgent',
     due_date: '',
     assignToAll: false,
+    createMode: 'single' as 'single' | 'separate', // 'single' = one task with multiple assignees, 'separate' = multiple tasks
   });
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploadingFiles, setUploadingFiles] = useState(false);
@@ -266,17 +267,20 @@ export default function TaskManager() {
           // Remove existing assignees
           await (supabase as any).from('task_assignees').delete().eq('task_id', editingTask.id);
           
-          // Add new assignees
-          const assigneeData = formData.selectedAssignees.map(userId => ({
-            task_id: editingTask.id,
-            user_id: userId
-          }));
-          
-          const { error: assigneeError } = await (supabase as any)
-            .from('task_assignees')
-            .insert(assigneeData);
-          
-          if (assigneeError) throw assigneeError;
+          // Add new assignees (only if not the primary assignee)
+          const additionalAssignees = formData.selectedAssignees.filter(id => id !== formData.selectedAssignees[0]);
+          if (additionalAssignees.length > 0) {
+            const assigneeData = additionalAssignees.map(userId => ({
+              task_id: editingTask.id,
+              user_id: userId
+            }));
+            
+            const { error: assigneeError } = await (supabase as any)
+              .from('task_assignees')
+              .insert(assigneeData);
+            
+            if (assigneeError) throw assigneeError;
+          }
         }
 
         toast({
@@ -287,14 +291,21 @@ export default function TaskManager() {
         // Create new task(s)
         const assignees = formData.assignToAll ? employees.map(e => e.id) : formData.selectedAssignees;
         
-        if (assignees.length === 1) {
-          // Create single task with multiple assignees
+        if (assignees.length === 0) {
+          throw new Error('Please select at least one assignee');
+        }
+
+        if (formData.createMode === 'single') {
+          // Create a SINGLE task with multiple assignees
+          // The first selected assignee becomes the primary assignee
+          const primaryAssignee = assignees[0];
+          
           const { data: taskData, error: taskError } = await supabase
             .from('tasks')
             .insert({
               title: formData.title,
               description: formData.description || null,
-              assigned_to: assignees[0], // Primary assignee
+              assigned_to: primaryAssignee, // Primary assignee (first one)
               assigned_by: user?.id,
               priority: formData.priority,
               due_date: formData.due_date || null,
@@ -304,17 +315,24 @@ export default function TaskManager() {
 
           if (taskError) throw taskError;
 
-          // Add all assignees to task_assignees table
-          const assigneeData = assignees.map(userId => ({
-            task_id: taskData.id,
-            user_id: userId
-          }));
-          
-          const { error: assigneeError } = await (supabase as any)
-            .from('task_assignees')
-            .insert(assigneeData);
-          
-          if (assigneeError) throw assigneeError;
+          // Add all other assignees as additional assignees to the task_assignees table
+          // Note: Primary assignee is automatically added by trigger, so duplicates will be handled by the unique constraint
+          const additionalAssignees = assignees.slice(1); // All except the first one
+          if (additionalAssignees.length > 0) {
+            const assigneeData = additionalAssignees.map(userId => ({
+              task_id: taskData.id,
+              user_id: userId
+            }));
+            
+            const { error: assigneeError } = await (supabase as any)
+              .from('task_assignees')
+              .insert(assigneeData);
+            
+            // Ignore duplicate key errors (primary assignee already exists)
+            if (assigneeError && !assigneeError.message?.includes('duplicate key')) {
+              throw assigneeError;
+            }
+          }
 
           // Upload files if any were selected
           if (selectedFiles.length > 0) {
@@ -323,10 +341,11 @@ export default function TaskManager() {
 
           toast({
             title: 'Task created',
-            description: `Task has been created with ${assignees.length} assignee(s).`,
+            description: `Task created with ${assignees.length} assignee(s) on the same task.`,
           });
         } else {
-          // Create separate task for each assignee (legacy behavior for "assign to all")
+          // Create SEPARATE independent tasks for each assignee
+          // Each task has different task_id but same content
           const taskData = assignees.map(assigneeId => ({
             title: formData.title,
             description: formData.description || null,
@@ -343,20 +362,6 @@ export default function TaskManager() {
 
           if (taskError) throw taskError;
 
-          // Add assignees to task_assignees table for each task
-          const assigneeData = createdTasks.flatMap(task => 
-            assignees.map(userId => ({
-              task_id: task.id,
-              user_id: userId
-            }))
-          );
-          
-          const { error: assigneeError } = await (supabase as any)
-            .from('task_assignees')
-            .insert(assigneeData);
-          
-          if (assigneeError) throw assigneeError;
-
           // Upload files to all created tasks if any were selected
           if (selectedFiles.length > 0) {
             for (const task of createdTasks) {
@@ -366,7 +371,7 @@ export default function TaskManager() {
 
           toast({
             title: 'Tasks created',
-            description: `Task has been created for ${assignees.length} employees.`,
+            description: `${assignees.length} separate task(s) created, one for each assignee.`,
           });
         }
       }
@@ -405,6 +410,7 @@ export default function TaskManager() {
       priority: task.priority,
       due_date: task.due_date || '',
       assignToAll: false,
+      createMode: 'single',
     });
     setDialogOpen(true);
   };
@@ -472,6 +478,7 @@ export default function TaskManager() {
       priority: 'medium',
       due_date: '',
       assignToAll: false,
+      createMode: 'single',
     });
     setSelectedFiles([]);
     setEditingTask(null);
@@ -567,7 +574,7 @@ export default function TaskManager() {
                 Create Task
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-hidden">
               <DialogHeader>
                 <DialogTitle>
                   {editingTask ? 'Edit Task' : 'Create New Task'}
@@ -578,80 +585,137 @@ export default function TaskManager() {
                     : 'Assign a new task to an employee or all employees'}
                 </DialogDescription>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="title">Task Title</Label>
-                  <Input
-                    id="title"
-                    value={formData.title}
-                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    required
-                    placeholder="Enter task title"
-                  />
-                </div>
+              <div className="max-h-[70vh] overflow-y-auto pr-2">
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="title">Task Title</Label>
+                    <Input
+                      id="title"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      required
+                      placeholder="Enter task title"
+                    />
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Enter task description"
-                    rows={3}
-                  />
-                </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="description">Description</Label>
+                    <Textarea
+                      id="description"
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                      placeholder="Enter task description"
+                      rows={3}
+                    />
+                  </div>
 
-                {/* Assign to all employees checkbox */}
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="assignToAll"
-                    checked={formData.assignToAll}
-                    onCheckedChange={(checked) => {
-                      setFormData({ 
-                        ...formData, 
-                        assignToAll: checked as boolean,
-                        selectedAssignees: checked ? employees.map(e => e.id) : [] // Select all employees when checked
-                      });
-                    }}
-                  />
-                  <Label htmlFor="assignToAll" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                    Assign to all employees ({employees.length} employees)
-                  </Label>
-                </div>
+                  {/* Assign to all employees checkbox */}
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="assignToAll"
+                      checked={formData.assignToAll}
+                      onCheckedChange={(checked) => {
+                        setFormData({ 
+                          ...formData, 
+                          assignToAll: checked as boolean,
+                          selectedAssignees: checked ? employees.map(e => e.id) : [] // Select all employees when checked
+                        });
+                      }}
+                    />
+                    <Label htmlFor="assignToAll" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                      Assign to all employees ({employees.length} employees)
+                    </Label>
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="assignees">
-                    Select Assignees {formData.assignToAll && <span className="text-muted-foreground">(all selected)</span>}
-                  </Label>
-                  <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto border rounded p-2">
-                    {employees.map((employee) => (
-                      <div key={employee.id} className="flex items-center space-x-2">
-                        <Checkbox
-                          id={`assignee-${employee.id}`}
-                          checked={formData.selectedAssignees.includes(employee.id)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setFormData({
-                                ...formData,
-                                selectedAssignees: [...formData.selectedAssignees, employee.id]
-                              });
-                            } else {
-                              setFormData({
-                                ...formData,
-                                selectedAssignees: formData.selectedAssignees.filter(id => id !== employee.id)
-                              });
-                            }
-                          }}
-                          disabled={formData.assignToAll}
+                  {/* Task Creation Mode Selection */}
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">Task Creation Mode</Label>
+                    <div className="space-y-2">
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          id="createModeSingle"
+                          name="createMode"
+                          checked={formData.createMode === 'single'}
+                          onChange={() => setFormData({ ...formData, createMode: 'single' })}
+                          className="h-4 w-4"
                         />
-                        <Label 
-                          htmlFor={`assignee-${employee.id}`} 
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                          {employee.name} {employee.designation && `(${employee.designation})`}
+                        <Label htmlFor="createModeSingle" className="text-sm font-normal cursor-pointer">
+                          Single Task: Create one task with multiple assignees (first selected is primary)
                         </Label>
                       </div>
-                    ))}
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="radio"
+                          id="createModeSeparate"
+                          name="createMode"
+                          checked={formData.createMode === 'separate'}
+                          onChange={() => setFormData({ ...formData, createMode: 'separate' })}
+                          className="h-4 w-4"
+                        />
+                        <Label htmlFor="createModeSeparate" className="text-sm font-normal cursor-pointer">
+                          Separate Tasks: Create independent tasks for each assignee (same content, different task IDs)
+                        </Label>
+                      </div>
+                    </div>
+                    {formData.createMode === 'single' && (
+                      <p className="text-xs text-muted-foreground ml-6">
+                        The first selected assignee becomes the primary assignee. Other assignees will be added as additional assignees on the same task.
+                      </p>
+                    )}
+                    {formData.createMode === 'separate' && (
+                      <p className="text-xs text-muted-foreground ml-6">
+                        Each selected assignee will get their own independent task with the same content but different task ID.
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                  <Label htmlFor="assignees">
+                    Select Assignees {formData.assignToAll && <span className="text-muted-foreground">(all selected)</span>}
+                    {!formData.assignToAll && formData.createMode === 'single' && formData.selectedAssignees.length > 0 && (
+                      <span className="text-muted-foreground text-xs block">(First selected is primary assignee, others are additional)</span>
+                    )}
+                  </Label>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-60 overflow-y-auto border rounded p-2 bg-gray-50">
+                    {employees.map((employee) => {
+                      const isChecked = formData.selectedAssignees.includes(employee.id);
+                      const isPrimaryAssignee = formData.createMode === 'single' && formData.selectedAssignees[0] === employee.id;
+                      return (
+                        <div key={employee.id} className="flex items-center space-x-2 min-w-0">
+                          <div className="relative flex items-center">
+                            <Checkbox
+                              id={`assignee-${employee.id}`}
+                              checked={isChecked}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setFormData({
+                                    ...formData,
+                                    selectedAssignees: [...formData.selectedAssignees, employee.id]
+                                  });
+                                } else {
+                                  setFormData({
+                                    ...formData,
+                                    selectedAssignees: formData.selectedAssignees.filter(id => id !== employee.id)
+                                  });
+                                }
+                              }}
+                              disabled={formData.assignToAll}
+                              className={isPrimaryAssignee && isChecked ? 'border-green-600 data-[state=checked]:bg-green-600 data-[state=checked]:text-white' : ''}
+                            />
+                            {isPrimaryAssignee && isChecked && (
+                              <span className="ml-2 bg-green-600 text-white text-xs px-2 py-0.5 rounded-full whitespace-nowrap">Primary</span>
+                            )}
+                          </div>
+                          <Label 
+                            htmlFor={`assignee-${employee.id}`} 
+                            className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 truncate ${isPrimaryAssignee && isChecked ? 'text-green-600 font-semibold' : ''}`}
+                          >
+                            {employee.name} {employee.designation && `(${employee.designation})`}
+                          </Label>
+                        </div>
+                      );
+                    })}
                   </div>
                   {formData.selectedAssignees.length > 0 && (
                     <p className="text-sm text-muted-foreground">
@@ -749,13 +813,18 @@ export default function TaskManager() {
                         ? 'Saving...' 
                         : editingTask 
                           ? 'Update Task' 
-                          : formData.assignToAll 
-                            ? `Create Tasks for All (${employees.length})` 
-                            : 'Create Task'
+                          : formData.assignToAll && formData.createMode === 'separate'
+                            ? `Create ${employees.length} Separate Tasks`
+                          : formData.assignToAll && formData.createMode === 'single'
+                            ? `Create Single Task for ${employees.length} People`
+                          : formData.createMode === 'separate'
+                            ? `Create ${formData.selectedAssignees.length} Separate Tasks`
+                          : 'Create Task'
                     }
                   </Button>
                 </div>
               </form>
+            </div>
             </DialogContent>
           </Dialog>
         </div>

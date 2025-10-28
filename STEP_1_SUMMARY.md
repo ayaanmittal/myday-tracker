@@ -65,3 +65,4 @@ The script processes each approved leave request by:
 5. **Marking requests as processed** to avoid duplicates
 
 This is the foundation step that will populate the `leaves` table with actual leave data!
+

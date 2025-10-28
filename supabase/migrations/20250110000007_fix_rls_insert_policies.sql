@@ -42,3 +42,4 @@ GRANT ALL ON leave_balances TO authenticated;
 
 -- Grant usage on sequences
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+

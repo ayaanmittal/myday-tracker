@@ -38,3 +38,4 @@ SELECT 'Check for null employee_category_id:' as step;
 SELECT COUNT(*) as null_count
 FROM public.profiles 
 WHERE employee_category_id IS NULL;
+

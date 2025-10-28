@@ -134,3 +134,4 @@ Leaves Management
 - **Same Experience**: Leave requests still work as before
 
 The system now provides a complete leave management solution with both historical leave tracking and active request management! 🎉
+

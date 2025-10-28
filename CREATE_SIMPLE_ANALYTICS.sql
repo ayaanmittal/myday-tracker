@@ -160,3 +160,4 @@ SELECT
   'Testing get_simple_leave_deductions_analytics for October 2025' as test_step,
   *
 FROM public.get_simple_leave_deductions_analytics('2025-10-01'::DATE, '2025-10-31'::DATE);
+

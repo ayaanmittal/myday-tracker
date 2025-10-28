@@ -297,3 +297,4 @@ SELECT calculate_unpaid_leave_days(
 2. **`quick_fix_arjan_mon_sat.sql`**: Quick fix for Arjan Singh's work days configuration
 
 The fix ensures that Arjan Singh's work schedule is correctly recognized as Mon-Sat, office holidays are excluded from unpaid leave calculation, and his salary is not deducted when he has 0 unpaid leaves!
+

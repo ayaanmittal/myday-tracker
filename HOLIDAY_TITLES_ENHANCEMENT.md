@@ -146,3 +146,4 @@ After deployment, the "My Leaves & Salary" page should show:
 - ✅ **Consistent formatting** across all holiday types
 
 **The enhancement now provides clear, specific holiday information instead of generic text!** 🎯
+

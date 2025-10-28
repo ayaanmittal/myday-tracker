@@ -183,3 +183,4 @@ The fix ensures that:
 - ✅ **Consistent behavior** across all employees
 
 The salary management system now properly calculates work days, daily rates, and leave deductions based on actual employee work schedules!
+

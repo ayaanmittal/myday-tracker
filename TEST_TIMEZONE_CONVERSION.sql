@@ -82,3 +82,4 @@ SELECT
   'Early 04:00 UTC (09:30 IST)' as test_case,
   public.is_checkin_late_with_timezone('2025-10-25 04:00:00+00'::timestamptz) as is_late,
   'Should be FALSE (09:30 IST < 10:30 IST)' as expected;
+

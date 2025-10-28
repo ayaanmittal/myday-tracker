@@ -132,3 +132,4 @@ $$ LANGUAGE plpgsql;
 GRANT EXECUTE ON FUNCTION get_employee_category_id(TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_leave_type_id(TEXT) TO authenticated;
 
+

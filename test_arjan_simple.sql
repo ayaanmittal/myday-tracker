@@ -231,3 +231,4 @@ SELECT
   si.base_salary - ((si.base_salary / wdi.work_days) * 2) as net_salary
 FROM salary_info si
 CROSS JOIN work_days_info wdi;
+

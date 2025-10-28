@@ -273,3 +273,4 @@ GRANT EXECUTE ON FUNCTION public.get_employee_leaves_with_salary_deductions(UUID
 GRANT EXECUTE ON FUNCTION public.get_employee_salary_summary(UUID, DATE) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_employee_work_days(UUID, DATE) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_employee_salary_payment(UUID, DATE) TO authenticated;
+

@@ -132,3 +132,4 @@ CREATE OR REPLACE FUNCTION public.is_checkin_late(
 - ✅ **Test all entry methods** for consistent late detection
 - ✅ **Verify settings respect** across all processing
 - ✅ **Ensure fallback behavior** works correctly
+

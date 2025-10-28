@@ -213,3 +213,4 @@ ORDER BY routine_name;
 
 -- Step 8: Final verification
 SELECT 'All problematic functions dropped and clean functions created!' as result;
+

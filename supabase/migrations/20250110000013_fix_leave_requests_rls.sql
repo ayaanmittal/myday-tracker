@@ -30,3 +30,4 @@ CREATE POLICY "Authenticated users can delete leave requests" ON public.leave_re
 
 -- Grant permissions
 GRANT ALL ON public.leave_requests TO authenticated;
+

@@ -75,3 +75,4 @@ SELECT
 FROM information_schema.routines 
 WHERE routine_name = 'mark_office_holiday_range' 
   AND routine_schema = 'public';
+

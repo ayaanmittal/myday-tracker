@@ -16,6 +16,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -404,14 +410,21 @@ export default function Employees() {
                       </div>
                       {employee.rulesAgreement.contractSignedAt && (
                         <div className="text-xs text-muted-foreground">
-                          Signed: {new Date(employee.rulesAgreement.contractSignedAt).toLocaleDateString()}
+                          Signed: {new Date(employee.rulesAgreement.contractSignedAt).toLocaleString('en-US', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            hour12: true
+                          })}
                         </div>
                       )}
                     </div>
                   </div>
                 )}
 
-                <div className="flex items-center justify-between pt-2">
+                <div className="flex items-center justify-between pt-2 flex-wrap gap-2">
                   <Badge
                     variant={employee.is_active ? 'default' : 'secondary'}
                     className={
@@ -423,58 +436,82 @@ export default function Employees() {
                     {employee.is_active ? 'Active' : 'Inactive'}
                   </Badge>
                   
-                  <div className="flex gap-2">
-                    <EmployeeDetailsDialog
-                      employeeId={employee.id}
-                      employeeName={employee.name}
-                      onSaved={fetchEmployees}
-                      trigger={
-                        <Button size="sm" variant="outline" className="text-xs">
-                          <User className="h-3 w-3 mr-1" />
-                          Details
-                        </Button>
-                      }
-                    />
-                    
-                    {(role === 'admin' || role === 'manager') && (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => navigate(`/history?employee=${employee.id}`)}
-                          className="text-xs"
-                        >
-                          <Calendar className="h-3 w-3 mr-1" />
-                          History
-                        </Button>
-                        {role === 'admin' && (
-                          <EmployeeNotesDialog
-                            employeeId={employee.id}
-                            employeeName={employee.name}
-                            onNotesChange={fetchEmployees}
-                            trigger={
+                  <TooltipProvider>
+                    <div className="flex gap-1.5 flex-wrap">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div>
+                            <EmployeeDetailsDialog
+                              employeeId={employee.id}
+                              employeeName={employee.name}
+                              onSaved={fetchEmployees}
+                              trigger={
+                                <Button size="sm" variant="outline" className="text-xs px-2">
+                                  <User className="h-3 w-3" />
+                                </Button>
+                              }
+                            />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Details</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      
+                      {(role === 'admin' || role === 'manager') && (
+                        <>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="text-xs relative"
+                                onClick={() => navigate(`/history?employee=${employee.id}`)}
+                                className="text-xs px-2"
                               >
-                                <FileText className="h-3 w-3 mr-1" />
-                                Notes
-                                {employee.noteCount > 0 && (
-                                  <Badge 
-                                    variant="destructive" 
-                                    className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center text-xs p-0"
-                                  >
-                                    {employee.noteCount}
-                                  </Badge>
-                                )}
+                                <Calendar className="h-3 w-3" />
                               </Button>
-                            }
-                          />
-                        )}
-                      </>
-                    )}
-                  </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>History</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          {role === 'admin' && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div>
+                                  <EmployeeNotesDialog
+                                    employeeId={employee.id}
+                                    employeeName={employee.name}
+                                    onNotesChange={fetchEmployees}
+                                    trigger={
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="text-xs px-2 relative"
+                                      >
+                                        <FileText className="h-3 w-3" />
+                                        {employee.noteCount > 0 && (
+                                          <Badge 
+                                            variant="destructive" 
+                                            className="absolute -top-1 -right-1 h-4 w-4 flex items-center justify-center text-[10px] p-0"
+                                          >
+                                            {employee.noteCount}
+                                          </Badge>
+                                        )}
+                                      </Button>
+                                    }
+                                  />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Notes {employee.noteCount > 0 && `(${employee.noteCount})`}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </>
+                      )}
+                    </div>
+                  </TooltipProvider>
                 </div>
               </CardContent>
             </Card>
@@ -689,7 +726,14 @@ export default function Employees() {
                             </div>
                             {selectedEmployeeRules.contractSignedAt && (
                               <div className="text-xs text-muted-foreground">
-                                Signed on: {new Date(selectedEmployeeRules.contractSignedAt).toLocaleDateString()}
+                                Signed on: {new Date(selectedEmployeeRules.contractSignedAt).toLocaleString('en-US', {
+                                  year: 'numeric',
+                                  month: '2-digit',
+                                  day: '2-digit',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  hour12: true
+                                })}
                               </div>
                             )}
                             {selectedEmployeeRules.contractInitials && (
@@ -708,7 +752,14 @@ export default function Employees() {
                             </div>
                             {selectedEmployeeRules.lastAcknowledgmentAt && (
                               <div className="text-xs text-muted-foreground">
-                                Last acknowledgment: {new Date(selectedEmployeeRules.lastAcknowledgmentAt).toLocaleDateString()}
+                                Last acknowledgment: {new Date(selectedEmployeeRules.lastAcknowledgmentAt).toLocaleString('en-US', {
+                                  year: 'numeric',
+                                  month: '2-digit',
+                                  day: '2-digit',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  hour12: true
+                                })}
                               </div>
                             )}
                           </div>

@@ -117,3 +117,4 @@ SELECT
   COUNT(*) FILTER (WHERE is_paid_leave = true) as paid_leaves,
   COUNT(*) FILTER (WHERE is_paid_leave = false) as unpaid_leaves
 FROM public.leaves;
+

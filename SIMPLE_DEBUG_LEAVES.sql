@@ -58,3 +58,4 @@ FROM public.calculate_employee_leave_deductions(
   '2025-11-01'::date,
   100.00
 );
+

@@ -191,3 +191,4 @@ SELECT * FROM calculate_employee_leave_deductions(
   '2024-01-01'::DATE,
   100.00
 );
+

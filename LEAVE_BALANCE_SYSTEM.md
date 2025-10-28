@@ -270,3 +270,4 @@ WHERE lb.year = 2024;
 ```
 
 This system provides a comprehensive solution for managing employee leave balances with automatic calculations, real-time tracking, and detailed reporting capabilities.
+

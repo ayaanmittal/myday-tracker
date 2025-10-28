@@ -26,3 +26,4 @@ ORDER BY entry_date, user_id;
 
 -- Test 2: Try to call the function directly
 SELECT public.mark_office_holiday_range('2025-10-20'::date, '2025-10-21'::date, null);
+

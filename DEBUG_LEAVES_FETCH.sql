@@ -57,3 +57,4 @@ FROM public.leaves l
 LEFT JOIN public.profiles p ON p.id = l.profile_id
 ORDER BY l.leave_date DESC
 LIMIT 5;
+

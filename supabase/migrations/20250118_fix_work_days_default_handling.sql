@@ -286,3 +286,4 @@ $$;
 GRANT EXECUTE ON FUNCTION public.get_employee_work_days(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_employee_work_days_summary(UUID, DATE) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.calculate_employee_leave_deductions(UUID, DATE, NUMERIC) TO authenticated;
+

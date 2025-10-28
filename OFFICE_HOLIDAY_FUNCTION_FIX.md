@@ -182,3 +182,4 @@ After applying the fix:
 - Function uses `SECURITY DEFINER` for proper permissions
 
 The fix ensures that when "Mark as Office Holiday" is clicked, all attendance records are properly updated with `manual_status = 'Office Holiday'`! 🎉
+

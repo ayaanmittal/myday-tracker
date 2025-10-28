@@ -351,7 +351,14 @@ export default function Violations() {
                               </span>
                             </div>
                             <span className="text-xs text-muted-foreground">
-                              {new Date(violation.flagged_at).toLocaleDateString()}
+                              {new Date(violation.flagged_at).toLocaleString('en-US', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true
+                              })}
                             </span>
                           </div>
                           {violation.reason && (

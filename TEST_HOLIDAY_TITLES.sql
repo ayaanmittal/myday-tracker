@@ -23,3 +23,4 @@ ORDER BY l.leave_date;
 -- 2025-10-25: "Unpaid leave deduction"
 -- 2025-10-26: "Sunday - no deduction"
 -- 2025-10-27: "Unpaid leave deduction"
+

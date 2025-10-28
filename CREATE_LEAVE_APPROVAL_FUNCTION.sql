@@ -161,3 +161,4 @@ $$;
 
 -- Grant execute permission to authenticated users
 GRANT EXECUTE ON FUNCTION public.reject_leave_request TO authenticated;
+

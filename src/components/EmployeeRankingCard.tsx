@@ -173,3 +173,4 @@ const EmployeeRankingCard: React.FC<EmployeeRankingCardProps> = ({ rankings, onE
 };
 
 export default EmployeeRankingCard;
+

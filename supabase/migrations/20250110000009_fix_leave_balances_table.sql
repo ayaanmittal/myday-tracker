@@ -354,3 +354,4 @@ GRANT EXECUTE ON FUNCTION update_leave_usage(UUID, UUID, INTEGER, INTEGER) TO au
 
 -- Grant table permissions
 GRANT ALL ON leave_balances TO authenticated;
+

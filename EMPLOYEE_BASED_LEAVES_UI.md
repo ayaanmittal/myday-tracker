@@ -146,3 +146,4 @@ const fetchEmployeeLeaves = async (userId: string) => {
 - **Leave Types**: Comma-separated list of leave types used
 
 The new employee-based UI provides a much better user experience for managing leaves! 🎉
+

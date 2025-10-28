@@ -180,3 +180,4 @@ Net Salary: ₹4,318.19
 4. **Test salary calculations** with actual leave data
 
 The issue is that approved leave requests exist but haven't been processed into the `leaves` table, and work days configuration may be missing. Once both issues are fixed, the system will correctly calculate daily rates and unpaid leave days!
+

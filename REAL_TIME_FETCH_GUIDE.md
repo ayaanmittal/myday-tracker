@@ -251,3 +251,5 @@ console.log(`Total work time: ${allData.summary.totalWorkMinutes} minutes`);
 
 
 
+
+

@@ -111,3 +111,4 @@ WHERE ua.entry_date BETWEEN '2025-02-01' AND '2025-02-28'
   AND p.name ILIKE '%dolly%'
   AND ua.manual_status = 'Office Holiday'
 ORDER BY ua.entry_date;
+

@@ -154,3 +154,4 @@ You could modify the function to remove authorization checks, but this is not re
 - [ ] Frontend shows success message
 
 The authorization fix ensures that only authorized users can mark office holidays while providing fallback options for testing! 🎉
+

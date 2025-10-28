@@ -194,3 +194,4 @@ This migration:
 - **Notifications**: Can trigger notifications based on leave settings changes
 
 This system provides a comprehensive foundation for managing employee leave entitlements with flexibility for different employee types and individual customization when needed.
+

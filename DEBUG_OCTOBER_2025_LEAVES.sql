@@ -118,3 +118,4 @@ SELECT
 FROM public.leaves
 WHERE leave_date >= '2025-10-01' 
   AND leave_date < '2025-11-01';
+

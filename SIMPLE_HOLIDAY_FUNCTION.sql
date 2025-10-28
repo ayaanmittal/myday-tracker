@@ -125,3 +125,4 @@ $$;
 
 -- Grant execute permissions
 GRANT EXECUTE ON FUNCTION public.mark_office_holiday_simple(DATE, DATE, UUID[], TEXT) TO authenticated;
+

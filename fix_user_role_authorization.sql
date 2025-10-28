@@ -100,3 +100,4 @@ JOIN public.profiles p ON p.id = ua.user_id
 WHERE ua.entry_date = '2025-01-25'::DATE
   AND (ua.modification_reason LIKE '%office holiday%' OR ua.manual_status = 'Office Holiday')
 ORDER BY p.name;
+

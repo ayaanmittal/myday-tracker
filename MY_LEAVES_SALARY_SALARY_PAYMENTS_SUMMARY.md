@@ -238,3 +238,4 @@ CREATE POLICY "Admins can view all salary payments" ON public.salary_payments
 **Create the missing database tables and RPC functions** to enable the full salary payments functionality. The UI is ready and working - we just need the backend database support.
 
 **The My Leaves & Salary page now has separate month/year selectors and a salary payments table UI ready for when the database tables are created!** 🎯
+

@@ -228,3 +228,4 @@ GRANT EXECUTE ON FUNCTION reject_leave_request_isolated(uuid, uuid, text) TO aut
 
 -- Step 4: Verify the functions exist
 SELECT 'Corrected isolated leave approval functions created successfully!' as result;
+

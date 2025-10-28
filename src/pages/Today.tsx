@@ -331,12 +331,28 @@ export default function Today() {
 
       if (error) throw error;
 
-      setEntry({ ...entry, lunch_break_end: now });
+      // Calculate lunch break duration
+      const lunchStart = new Date(entry.lunch_break_start!);
+      const lunchEnd = new Date(now);
+      const lunchDurationMinutes = Math.floor(
+        (lunchEnd.getTime() - lunchStart.getTime()) / 60000
+      );
 
-      toast({
-        title: 'Lunch break ended!',
-        description: 'Your lunch break has been completed.',
-      });
+      // Show warning if lunch break exceeded 50 minutes
+      if (lunchDurationMinutes > 50) {
+        toast({
+          title: 'Lunch break ended!',
+          description: `Your lunch break was ${lunchDurationMinutes} minutes. This is a long break (>50 minutes).`,
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Lunch break ended!',
+          description: 'Your lunch break has been completed.',
+        });
+      }
+
+      setEntry({ ...entry, lunch_break_end: now });
     } catch (error: any) {
       toast({
         title: 'Error',

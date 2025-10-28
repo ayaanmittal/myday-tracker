@@ -122,3 +122,4 @@ After running the scripts, check:
 3. Check Supabase logs for errors
 
 **The solution is ready to deploy! Run the two SQL scripts and the "My Leaves & Salary" page will show real data instead of empty values.** 🎯
+

@@ -153,3 +153,4 @@ After running the scripts, the page should show:
 - ✅ **Net Salary**: ₹41,935.50
 
 **The solution properly handles office holidays within leave periods and shows accurate deductions!** 🎯
+

@@ -206,3 +206,4 @@ SELECT
 
 -- 9. Force schema refresh
 NOTIFY pgrst, 'reload schema';
+
