@@ -22,6 +22,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, Clock, Users, User } from 'lucide-react';
+import { logger } from '@/utils/logger';
 
 interface DayEntry {
   id: string;
@@ -151,7 +152,7 @@ export default function Today() {
         setCheckOutSource(checkOutSource);
       }
     } catch (error) {
-      console.error('Error fetching today entry:', error);
+      logger.error('Error fetching today entry:', error);
       toast({
         title: 'Error',
         description: 'Failed to load today\'s data',
@@ -189,13 +190,13 @@ export default function Today() {
         }
       } catch (error) {
         // If table doesn't exist or has issues, default to Manual
-        console.log('Attendance logs table not accessible:', error);
+        logger.debug('Attendance logs table not accessible:', error);
       }
 
       // If no attendance log found, it's likely manual
       return 'Manual';
     } catch (error) {
-      console.error('Error checking attendance source:', error);
+      logger.error('Error checking attendance source:', error);
       return 'Manual';
     }
   };
@@ -206,35 +207,82 @@ export default function Today() {
     setLoading(true);
     try {
       const now = new Date().toISOString();
-      
+      const today = new Date().toISOString().split('T')[0];
+
       // Use centralized late detection service
       const lateDetectionResult = await LateDetectionService.getLateStatus(now);
       const isLate = lateDetectionResult.isLate;
-      
-      const { data, error } = await supabase
+
+      // First, try to find an existing record for today
+      const { data: existing, error: fetchError } = await supabase
         .from('unified_attendance')
-        .insert({
-          user_id: user.id,
-          entry_date: new Date().toISOString().split('T')[0],
-          check_in_at: now,
-          status: 'in_progress',
-          is_late: isLate,
-          device_info: 'Manual',
-          source: 'manual',
-          modification_reason: 'Manual check-in via web interface'
-        })
-        .select()
-        .single();
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('entry_date', today)
+        .maybeSingle();
 
-      if (error) throw error;
+      if (fetchError) throw fetchError;
 
-      setEntry(data);
-      setCheckInSource('Manual');
-      
-      toast({
-        title: 'Checked in!',
-        description: isLate ? 'You have checked in late.' : 'You have successfully checked in.',
-      });
+      if (existing) {
+        // If already checked in, just inform the user and refresh state
+        if (existing.check_in_at) {
+          setEntry(existing as any);
+          setCheckInSource(await getCheckInOutSource(existing.check_in_at, 'checkin'));
+          toast({
+            title: 'Already checked in',
+            description: 'You have already checked in for today.',
+          });
+        } else {
+          // Update the existing row to set check-in
+          const { data: updated, error: updateError } = await supabase
+            .from('unified_attendance')
+            .update({
+              check_in_at: now,
+              status: 'in_progress',
+              is_late: isLate,
+              device_info: 'Manual',
+              source: 'manual',
+              modification_reason: 'Manual check-in via web interface'
+            })
+            .eq('id', (existing as any).id)
+            .select()
+            .single();
+
+          if (updateError) throw updateError;
+
+          setEntry(updated as any);
+          setCheckInSource('Manual');
+          toast({
+            title: 'Checked in!',
+            description: isLate ? 'You have checked in late.' : 'You have successfully checked in.',
+          });
+        }
+      } else {
+        // No existing row -> insert a fresh one
+        const { data, error } = await supabase
+          .from('unified_attendance')
+          .insert({
+            user_id: user.id,
+            entry_date: today,
+            check_in_at: now,
+            status: 'in_progress',
+            is_late: isLate,
+            device_info: 'Manual',
+            source: 'manual',
+            modification_reason: 'Manual check-in via web interface'
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        setEntry(data as any);
+        setCheckInSource('Manual');
+        toast({
+          title: 'Checked in!',
+          description: isLate ? 'You have checked in late.' : 'You have successfully checked in.',
+        });
+      }
     } catch (error: any) {
       toast({
         title: 'Error',

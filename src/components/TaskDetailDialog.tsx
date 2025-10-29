@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import {
   Plus, Edit, Trash2, CheckCircle, Clock, AlertCircle, User, Calendar, Paperclip, MessageSquare, Bell, ListChecks, Play, StopCircle, ArrowUp, ArrowDown
 } from 'lucide-react';
+import { logger } from '@/utils/logger';
 
 interface TaskDetailDialogProps {
   taskId: string | null;
@@ -132,7 +133,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
   // Debug logging
   useEffect(() => {
     if (task && user) {
-      console.log('TaskDetailDialog Access Debug:', {
+      logger.debug('TaskDetailDialog Access Debug:', {
         userId: user.id,
         taskAssignedTo: task.assigned_to,
         isPrimaryAssignee: task.assigned_to === user.id,
@@ -163,7 +164,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
 
   useEffect(() => {
     if (!taskId || !open) return;
-    console.log('Loading task data for taskId:', taskId);
+    logger.debug('Loading task data for taskId:', taskId);
     void loadTask();
     void loadComments();
     void loadAttachments();
@@ -178,7 +179,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
 
   // Debug: Log comments whenever they change
   useEffect(() => {
-    console.log('Comments state updated:', comments);
+    logger.debug('Comments state updated:', comments);
   }, [comments]);
 
   async function loadTask() {
@@ -190,7 +191,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
         .maybeSingle();
       
       if (taskError) {
-        console.error('Error loading task:', taskError);
+        logger.error('Error loading task:', taskError);
       }
       let effectiveTask = taskData;
       // Fallback for followers: try RPC if direct select returned null due to RLS or timing
@@ -223,10 +224,10 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
         assigned_by_user: assignedByUser
       };
 
-      console.log('Task loaded:', taskWithUsers);
+      logger.debug('Task loaded:', taskWithUsers);
       setTask(taskWithUsers);
     } catch (err) {
-      console.error('Error in loadTask:', err);
+      logger.error('Error in loadTask:', err);
       setTask(null);
     }
   }
@@ -242,13 +243,13 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
       }
       const { error } = await supabase.from('tasks').update(update).eq('id', task.id);
       if (error) {
-        console.error('Error updating task status:', error);
+        logger.error('Error updating task status:', error);
         alert('Failed to update status');
         return;
       }
       await loadTask();
     } catch (e) {
-      console.error('Error in updateTaskStatus:', e);
+      logger.error('Error in updateTaskStatus:', e);
     }
   }
 
@@ -260,13 +261,13 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
         updated_at: new Date().toISOString() 
       }).eq('id', task.id);
       if (error) {
-        console.error('Error updating task priority:', error);
+        logger.error('Error updating task priority:', error);
         alert('Failed to update priority');
         return;
       }
       await loadTask();
     } catch (e) {
-      console.error('Error in updateTaskPriority:', e);
+      logger.error('Error in updateTaskPriority:', e);
     }
   }
 
@@ -278,13 +279,13 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
         updated_at: new Date().toISOString() 
       }).eq('id', task.id);
       if (error) {
-        console.error('Error updating task due date:', error);
+        logger.error('Error updating task due date:', error);
         alert('Failed to update due date');
         return;
       }
       await loadTask();
     } catch (e) {
-      console.error('Error in updateTaskDueDate:', e);
+      logger.error('Error in updateTaskDueDate:', e);
     }
   }
 
@@ -313,7 +314,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
         .eq('user_id', user.user.id);
 
       if (error) {
-        console.error('Error loading user time:', error);
+        logger.error('Error loading user time:', error);
         setUserSeconds(0);
         return;
       }
@@ -322,7 +323,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
       const totalMinutes = data?.reduce((sum, timer) => sum + (timer.duration_minutes || 0), 0) || 0;
       setUserSeconds(totalMinutes * 60);
     } catch (err) {
-      console.error('Error loading user time:', err);
+      logger.error('Error loading user time:', err);
       setUserSeconds(0);
     }
   }
@@ -345,7 +346,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
       
       setRunningTimer(data);
     } catch (err) {
-      console.error('Error loading running timer:', err);
+      logger.error('Error loading running timer:', err);
     }
   }
 
@@ -369,7 +370,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
       });
       
       if (error) {
-        console.error('Error starting timer:', error);
+        logger.error('Error starting timer:', error);
         alert(`Failed to start timer: ${error.message}`);
         return;
       }
@@ -377,7 +378,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
       void loadRunningTimer();
       void loadUserTime();
     } catch (err) {
-      console.error('Error in startTimer:', err);
+      logger.error('Error in startTimer:', err);
       alert(`Failed to start timer: ${err}`);
     }
   }
@@ -393,7 +394,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
         .eq('id', runningTimer.id);
       
       if (error) {
-        console.error('Error stopping timer:', error);
+        logger.error('Error stopping timer:', error);
         alert(`Failed to stop timer: ${error.message}`);
         return;
       }
@@ -401,7 +402,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
       setRunningTimer(null);
       void loadUserTime();
     } catch (err) {
-      console.error('Error in stopTimer:', err);
+      logger.error('Error in stopTimer:', err);
       alert(`Failed to stop timer: ${err}`);
     }
   }
@@ -409,7 +410,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
   async function loadComments() {
     setLoadingComments(true);
     try {
-      console.log('Loading comments for taskId:', taskId);
+      logger.debug('Loading comments for taskId:', taskId);
       
       // First, get all comments for this task
       const { data: commentsData, error: commentsError } = await supabase
@@ -419,22 +420,22 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
         .order('created_at', { ascending: true }); // Show oldest first for thread-like display
       
       if (commentsError) {
-        console.error('Error loading comments:', commentsError);
+        logger.error('Error loading comments:', commentsError);
         setComments([]);
         return;
       }
 
-      console.log('Raw comments data:', commentsData);
+      logger.debug('Raw comments data:', commentsData);
 
       if (!commentsData || commentsData.length === 0) {
-        console.log('No comments found for this task');
+        logger.debug('No comments found for this task');
         setComments([]);
         return;
       }
 
       // Get unique author IDs
       const authorIds = [...new Set(commentsData.map(c => c.author_id).filter(Boolean))];
-      console.log('Author IDs to fetch:', authorIds);
+      logger.debug('Author IDs to fetch:', authorIds);
       
       // Fetch author profiles
       const { data: profilesData, error: profilesError } = await supabase
@@ -443,10 +444,10 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
         .in('id', authorIds);
 
       if (profilesError) {
-        console.error('Error loading profiles:', profilesError);
+        logger.error('Error loading profiles:', profilesError);
       }
 
-      console.log('Profiles data:', profilesData);
+      logger.debug('Profiles data:', profilesData);
 
       // Combine comments with author data
       const commentsWithAuthors = commentsData.map(comment => ({
@@ -458,10 +459,10 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
         }
       }));
 
-      console.log('Final comments with authors:', commentsWithAuthors);
+      logger.debug('Final comments with authors:', commentsWithAuthors);
       setComments(commentsWithAuthors);
     } catch (err) {
-      console.error('Error in loadComments:', err);
+      logger.error('Error in loadComments:', err);
       setComments([]);
     } finally {
       setLoadingComments(false);
@@ -477,7 +478,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
         return;
       }
       
-      console.log('Adding comment:', { taskId, userId: user?.user?.id, content: newComment.trim(), assignee: commentAssignee });
+      logger.debug('Adding comment:', { taskId, userId: user?.user?.id, content: newComment.trim(), assignee: commentAssignee });
       
       // Build comment data object
       const commentData: any = {
@@ -494,16 +495,16 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
       const { error } = await supabase.from('task_comments').insert(commentData);
       
       if (error) {
-        console.error('Error adding comment:', error);
+        logger.error('Error adding comment:', error);
         alert(`Failed to add comment: ${error.message}`);
         return;
       }
       
-      console.log('Comment added successfully');
+      logger.debug('Comment added successfully');
       setNewComment('');
       void loadComments();
     } catch (err) {
-      console.error('Error in addComment:', err);
+      logger.error('Error in addComment:', err);
       alert(`Failed to add comment: ${err}`);
     }
   }
@@ -517,19 +518,19 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
         .order('created_at', { ascending: false });
       
       if (error) {
-        console.error('Error loading attachments:', error);
+        logger.error('Error loading attachments:', error);
       }
-      console.log('Loaded attachments:', data);
+      logger.debug('Loaded attachments:', data);
       setAttachments(data || []);
     } catch (err) {
-      console.error('Error in loadAttachments:', err);
+      logger.error('Error in loadAttachments:', err);
       setAttachments([]);
     }
   }
 
   async function loadAssignees() {
     try {
-      console.log('Loading assignees for task:', taskId);
+      logger.debug('Loading assignees for task:', taskId);
       const { data, error } = await supabase
         .from('task_assignees')
         .select('id, user_id, assigned_at')
@@ -537,12 +538,12 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
         .order('assigned_at', { ascending: false });
       
       if (error) {
-        console.error('Error loading assignees:', error);
+        logger.error('Error loading assignees:', error);
         setAssignees([]);
         return;
       }
       
-      console.log('Raw assignees data from DB:', data);
+      logger.debug('Raw assignees data from DB:', data);
 
       // Get user details for each assignee
       const assigneesWithUsers = await Promise.all(
@@ -586,11 +587,11 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
       // Task creators should only be shown in "Assigned By" section, not as assignees
       const filteredAssignees = assigneesWithUsers.filter(a => a.user_id !== task?.assigned_by);
       
-      console.log('Loaded assignees (filtered):', filteredAssignees);
+      logger.debug('Loaded assignees (filtered):', filteredAssignees);
 
       setAssignees(filteredAssignees);
     } catch (err) {
-      console.error('Error in loadAssignees:', err);
+      logger.error('Error in loadAssignees:', err);
       setAssignees([]);
     }
   }
@@ -604,7 +605,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
         .order('followed_at', { ascending: false });
       
       if (error) {
-        console.error('Error loading followers:', error);
+        logger.error('Error loading followers:', error);
         setFollowers([]);
         return;
       }
@@ -627,7 +628,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
 
       setFollowers(followersWithUsers);
     } catch (err) {
-      console.error('Error in loadFollowers:', err);
+      logger.error('Error in loadFollowers:', err);
       setFollowers([]);
     }
   }
@@ -668,7 +669,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
       });
     
     if (error) {
-      console.error('Error adding reminder:', error);
+      logger.error('Error adding reminder:', error);
       toast({
         title: 'Error',
         description: 'Failed to add reminder',
@@ -691,7 +692,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
       .eq('id', id);
     
     if (error) {
-      console.error('Error removing reminder:', error);
+      logger.error('Error removing reminder:', error);
       toast({
         title: 'Error',
         description: 'Failed to remove reminder',
@@ -714,13 +715,13 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
       created_by: (await supabase.auth.getUser()).data.user?.id,
       sort_order: checklist.length
     });
-    if (error) console.error('Error adding checklist item:', error);
+    if (error) logger.error('Error adding checklist item:', error);
     else void loadChecklist();
   }
 
   async function toggleChecklist(item: ChecklistItem) {
     const { error } = await supabase.from('task_checklist').update({ is_done: !item.is_done }).eq('id', item.id);
-    if (error) console.error('Error toggling checklist item:', error);
+    if (error) logger.error('Error toggling checklist item:', error);
     else void loadChecklist();
   }
 
@@ -741,7 +742,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
 
   async function deleteChecklist(id: string) {
     const { error } = await supabase.from('task_checklist').delete().eq('id', id);
-    if (error) console.error('Error deleting checklist item:', error);
+    if (error) logger.error('Error deleting checklist item:', error);
     else void loadChecklist();
   }
 
@@ -767,7 +768,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
       .eq('id', itemId);
     
     if (error) {
-      console.error('Error updating checklist item:', error);
+      logger.error('Error updating checklist item:', error);
     } else {
       void loadChecklist();
     }
@@ -809,7 +810,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
           });
 
         if (upErr) {
-          console.error('Storage upload error:', upErr);
+          logger.error('Storage upload error:', upErr);
           throw new Error(`Failed to upload ${file.name}: ${upErr.message}`);
         }
 
@@ -824,8 +825,8 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
 
         const { error: dbErr } = await supabase.from('task_attachments').insert(attachmentData);
         if (dbErr) {
-          console.error('Database insert error:', dbErr);
-          console.error('Attachment data:', attachmentData);
+          logger.error('Database insert error:', dbErr);
+          logger.error('Attachment data:', attachmentData);
           throw new Error(`Failed to save ${file.name}: ${dbErr.message}`);
         }
       });
@@ -838,7 +839,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
 
       await loadAttachments();
     } catch (err: any) {
-      console.error('Error in onFileChange:', err);
+      logger.error('Error in onFileChange:', err);
       alert(`Failed to upload files: ${err?.message || err}`);
     } finally {
       setUploading(false);
@@ -870,7 +871,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
       link.download = `task-${taskId}-attachments.zip`;
       link.click();
     } catch (err) {
-      console.error('Error generating zip:', err);
+      logger.error('Error generating zip:', err);
       alert(`Failed to generate zip: ${err}`);
     } finally {
       setGeneratingZip(false);
@@ -912,7 +913,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
     
     const { error } = await supabase.from('task_assignees').insert({ task_id: taskId, user_id: userId });
     if (error) {
-      console.error('Error adding assignee:', error);
+      logger.error('Error adding assignee:', error);
       toast({
         title: 'Error',
         description: 'Failed to add assignee',
@@ -941,7 +942,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
     
     const { error } = await supabase.from('task_assignees').delete().eq('id', id);
     if (error) {
-      console.error('Error removing assignee:', error);
+      logger.error('Error removing assignee:', error);
       toast({
         title: 'Error',
         description: 'Failed to remove assignee',
@@ -959,13 +960,13 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
   async function addFollower(userId: string) {
     if (!taskId) return;
     const { error } = await supabase.from('task_followers').insert({ task_id: taskId, user_id: userId });
-    if (error) console.error('Error adding follower:', error);
+    if (error) logger.error('Error adding follower:', error);
     else void loadFollowers();
   }
 
   async function removeFollower(id: string) {
     const { error } = await supabase.from('task_followers').delete().eq('id', id);
-    if (error) console.error('Error removing follower:', error);
+    if (error) logger.error('Error removing follower:', error);
     else void loadFollowers();
   }
 
@@ -990,7 +991,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
         .remove([filePath]);
 
       if (storageError) {
-        console.error('Error removing file from storage:', storageError);
+        logger.error('Error removing file from storage:', storageError);
         alert('Failed to remove file from storage');
         return;
       }
@@ -1002,7 +1003,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
         .eq('id', attachmentId);
 
       if (dbError) {
-        console.error('Error removing attachment from database:', dbError);
+        logger.error('Error removing attachment from database:', dbError);
         alert('Failed to remove attachment from database');
         return;
       }
@@ -1014,7 +1015,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
 
       void loadAttachments();
     } catch (error) {
-      console.error('Error removing attachment:', error);
+      logger.error('Error removing attachment:', error);
       alert('Failed to remove attachment');
     }
   }
