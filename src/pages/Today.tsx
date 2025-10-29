@@ -22,7 +22,6 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { CheckCircle, Clock, Users, User } from 'lucide-react';
-import { logger } from '@/utils/logger';
 
 interface DayEntry {
   id: string;
@@ -152,7 +151,7 @@ export default function Today() {
         setCheckOutSource(checkOutSource);
       }
     } catch (error) {
-      logger.error('Error fetching today entry:', error);
+      console.error('Error fetching today entry:', error);
       toast({
         title: 'Error',
         description: 'Failed to load today\'s data',
@@ -190,13 +189,13 @@ export default function Today() {
         }
       } catch (error) {
         // If table doesn't exist or has issues, default to Manual
-        logger.debug('Attendance logs table not accessible:', error);
+        console.log('Attendance logs table not accessible:', error);
       }
 
       // If no attendance log found, it's likely manual
       return 'Manual';
     } catch (error) {
-      logger.error('Error checking attendance source:', error);
+      console.error('Error checking attendance source:', error);
       return 'Manual';
     }
   };

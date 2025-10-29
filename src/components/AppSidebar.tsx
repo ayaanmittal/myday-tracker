@@ -190,11 +190,11 @@ export function AppSidebar() {
     <Sidebar className={`${collapsed ? 'w-16' : 'w-64'} bg-white border-r border-gray-200 shadow-sm`} collapsible="icon" side="left">
       <SidebarContent className="bg-transparent">
         {/* Logo Section */}
-        <div className={`p-4 ${collapsed ? 'flex justify-center' : 'px-4'}`}>
+        <div className={`${collapsed ? 'p-4 flex justify-center items-center' : 'p-4 px-4'}`}>
           <img 
             src={logo} 
             alt="Logo" 
-            className={`${collapsed ? 'h-8 w-8' : 'h-10 w-auto'} object-contain`}
+            className={`${collapsed ? 'max-h-8 max-w-full w-auto h-auto' : 'h-10 w-auto'} object-contain`}
           />
         </div>
 
