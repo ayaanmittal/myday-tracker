@@ -2,7 +2,7 @@ module.exports = {
   apps: [{
     name: 'myday-tracker-server',
     script: 'node_modules/tsx/dist/cli.mjs',
-    args: 'src/server.ts',
+    args: 'backend/server.ts',
     instances: 1,
     exec_mode: 'fork',
     env: {

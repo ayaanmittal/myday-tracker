@@ -172,3 +172,5 @@ After creating your user, try logging in with:
 
 If successful, you should be redirected to `/today`!
 
+
+
