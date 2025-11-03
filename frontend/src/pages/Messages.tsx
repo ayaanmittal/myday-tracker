@@ -398,11 +398,11 @@ export default function Messages() {
 
   return (
     <Layout>
-      <div className="container max-w-6xl mx-auto p-6 h-[calc(100vh-8rem)]">
-        <div className="flex gap-4 h-full">
+      <div className="container mx-auto p-3 sm:p-6 h-[calc(100vh-3.5rem)] sm:h-[calc(100vh-8rem)] max-w-7xl">
+        <div className="flex h-full gap-3 sm:gap-4 flex-col sm:flex-row">
           {/* Conversations List */}
-          <Card className="w-80 flex-shrink-0 flex flex-col">
-            <CardHeader className="pb-3 flex-shrink-0 border-b">
+          <Card className={`flex-shrink-0 flex flex-col w-full sm:w-80 ${selectedConversation ? 'hidden sm:flex' : 'flex'}`}>
+            <CardHeader className="pb-3 flex-shrink-0 border-b sticky top-0 bg-card z-[1]">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg">Messages</CardTitle>
                 <Button
@@ -564,11 +564,19 @@ export default function Messages() {
           </Card>
 
           {/* Chat Area */}
-          <Card className="flex-1 flex flex-col">
+          <Card className={`flex-1 flex flex-col ${selectedConversation ? 'flex' : 'hidden sm:flex'}`}>
             {selectedConversation ? (
               <>
-                <CardHeader className="pb-3 border-b">
+                <CardHeader className="pb-3 border-b sticky top-0 bg-card z-[1]">
                   <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="sm:hidden mr-1"
+                      onClick={() => setSelectedConversationId(null)}
+                    >
+                      <ArrowLeft className="h-5 w-5" />
+                    </Button>
                     <Avatar>
                       <AvatarFallback>{selectedConversation.other_user?.name?.[0]}</AvatarFallback>
                     </Avatar>
@@ -580,7 +588,7 @@ export default function Messages() {
                     </div>
             </div>
           </CardHeader>
-                <ScrollArea className="flex-1 p-4">
+                <ScrollArea className="flex-1 p-3 sm:p-4">
                   {messagesLoading ? (
                     <div className="flex items-center justify-center h-full">
                       <p className="text-sm text-muted-foreground">Loading messages...</p>
@@ -594,17 +602,17 @@ export default function Messages() {
                       </div>
                     </div>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       {messages.map((msg) => {
                         const isOwnMessage = msg.sender_id === user?.id;
                         return (
                           <div
                             key={msg.id}
-                            className={`flex ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
+                            className={`flex px-1 ${isOwnMessage ? 'justify-end' : 'justify-start'}`}
                           >
                             <div
-                              className={`max-w-[70%] rounded-lg p-2 space-y-2 ${
-                                isOwnMessage ? 'bg-primary text-primary-foreground' : 'bg-muted'
+                              className={`max-w-[80%] sm:max-w-[70%] rounded-2xl px-3 py-2 space-y-2 whitespace-pre-wrap break-words shadow-sm ${
+                                isOwnMessage ? 'bg-primary text-primary-foreground rounded-br-md' : 'bg-muted rounded-bl-md'
                               }`}
                             >
                               {/* Display Attachments */}
@@ -681,8 +689,8 @@ export default function Messages() {
                                   return null;
                                 }
                               })()}
-                              <p className="text-sm">{msg.content}</p>
-                              <div className="flex items-center gap-1.5 mt-1">
+                              <p className="text-sm leading-relaxed">{msg.content}</p>
+                              <div className="flex items-center gap-1.5 mt-1 justify-end">
                                 <p
                                   className={`text-xs ${
                                     isOwnMessage ? 'text-primary-foreground/70' : 'text-muted-foreground'
@@ -711,7 +719,7 @@ export default function Messages() {
             </div>
                   )}
                 </ScrollArea>
-                <div className="p-4 border-t space-y-3">
+                <div className="p-3 sm:p-4 border-t space-y-3">
                   {/* Selected Files Preview */}
                   {selectedFiles.length > 0 && (
                     <div className="flex flex-wrap gap-2 p-2 bg-muted rounded-lg">
@@ -770,7 +778,7 @@ export default function Messages() {
                         setNewMessage(e.target.value);
                         handleTyping();
                       }}
-                      placeholder="Type a message..."
+                      placeholder="Type a message"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                           e.preventDefault();

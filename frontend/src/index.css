@@ -137,6 +137,29 @@
 }
 
 @layer components {
+  /* Shared responsive container for pages */
+  .page-container {
+    @apply px-3 sm:px-6 lg:px-8 py-3 sm:py-6 mx-auto w-full;
+  }
+
+  /* Responsive grid helper: stacks on mobile */
+  .responsive-grid-2 {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4;
+  }
+  .responsive-grid-3 {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4;
+  }
+
+  /* Card spacing standard */
+  .section-card {
+    @apply p-4 sm:p-6 rounded-xl;
+  }
+
+  /* Mobile-safe horizontal scrolling for wide content */
+  .mobile-overflow-x {
+    @apply overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0;
+  }
+
   .elegant-card {
     @apply bg-gradient-to-br from-white to-gray-50/50 border border-gray-200/80 shadow-sm hover:shadow-lg transition-all duration-300 rounded-lg;
   }
@@ -224,6 +247,17 @@
       min-height: 100vh;
       width: 100%;
       overflow-x: hidden;
+    }
+
+    /* Reduce paddings for tighter mobile fit */
+    .tight-mobile {
+      @apply p-3;
+    }
+    .hide-on-mobile {
+      @apply hidden sm:block;
+    }
+    .show-on-mobile {
+      @apply block sm:hidden;
     }
   }
 }

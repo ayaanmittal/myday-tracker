@@ -528,7 +528,7 @@ export default function Today() {
   if (role === 'admin') {
   return (
     <Layout>
-        <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-6 sm:space-y-8">
+        <div className="page-container max-w-6xl space-y-6 sm:space-y-8">
         <div className="text-center space-y-2">
             <h1 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight gradient-text">
               Admin Dashboard
@@ -745,7 +745,7 @@ export default function Today() {
   if (role === 'manager') {
     return (
       <Layout>
-        <div className="p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto space-y-6 sm:space-y-8">
+        <div className="page-container max-w-6xl space-y-6 sm:space-y-8">
           <div className="text-center space-y-2">
             <h1 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight gradient-text">
               Manager Dashboard
@@ -966,7 +966,7 @@ export default function Today() {
   // For employee role, show employee dashboard
   return (
     <Layout>
-      <div className="p-4 sm:p-6 lg:p-8 max-w-4xl mx-auto space-y-6 sm:space-y-8">
+      <div className="page-container max-w-4xl space-y-6 sm:space-y-8">
         <div className="text-center space-y-2">
           <h1 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight gradient-text">
             Your Work Today

@@ -18,14 +18,14 @@ export function Layout({ children }: LayoutProps) {
         <div className="min-h-screen flex w-full bg-gradient-to-br from-background via-background to-secondary/20 mobile-layout">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <header className="h-14 sm:h-16 border-b border-gray-200 bg-white backdrop-blur-sm flex items-center px-3 sm:px-6 sticky top-0 z-10 shadow-sm">
-            <SidebarTrigger className="text-gray-600 hover:text-gray-900" />
-            <div className="ml-2 sm:ml-4 font-heading font-bold text-lg sm:text-xl text-gray-900">
+          <header className="h-14 sm:h-16 border-b bg-card/80 backdrop-blur-sm flex items-center px-3 sm:px-6 sticky top-0 z-10 elegant-shadow">
+            <SidebarTrigger />
+            <div className="ml-2 sm:ml-4 font-heading font-bold text-lg sm:text-xl gradient-text">
               MyDay
             </div>
           </header>
-          <main className="flex-1 overflow-auto bg-gray-50/30">
-            <div className="min-h-full w-full px-3 sm:px-6 py-3 sm:py-4">
+          <main className="flex-1 overflow-auto bg-gradient-to-br from-background/50 to-secondary/10">
+            <div className="min-h-full w-full">
               {children}
             </div>
           </main>

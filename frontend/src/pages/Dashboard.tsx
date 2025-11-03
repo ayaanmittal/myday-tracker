@@ -130,7 +130,7 @@ export default function Dashboard() {
 
   return (
     <Layout>
-      <div className="p-4 sm:p-6 lg:p-8 space-y-6 sm:space-y-8">
+      <div className="page-container space-y-6 sm:space-y-8">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight gradient-text">Dashboard</h1>
