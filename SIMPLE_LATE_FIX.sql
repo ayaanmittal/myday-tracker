@@ -111,3 +111,5 @@ LIMIT 10;
 -- Step 7: Grant permissions
 GRANT EXECUTE ON FUNCTION public.is_late_final(TIMESTAMPTZ) TO authenticated;
 
+
+

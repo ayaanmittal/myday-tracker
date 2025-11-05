@@ -183,3 +183,5 @@ GRANT EXECUTE ON FUNCTION reject_leave_request_minimal(uuid, uuid, text) TO auth
 -- Step 4: Verify the functions exist
 SELECT 'Minimal leave approval functions created successfully!' as result;
 
+
+

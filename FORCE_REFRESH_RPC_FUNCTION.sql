@@ -163,3 +163,5 @@ FROM public.get_employee_salary_summary(
 -- 6. Force refresh the schema cache (this might help with caching issues)
 NOTIFY pgrst, 'reload schema';
 
+
+

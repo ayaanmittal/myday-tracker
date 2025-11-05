@@ -259,3 +259,5 @@ const totalAdvance = advanceNotes.reduce((sum, note) => {
 
 The employee notes system now has a dedicated amount field for salary advance notes, providing better data structure, improved user experience, and enhanced functionality for salary management workflows!
 
+
+

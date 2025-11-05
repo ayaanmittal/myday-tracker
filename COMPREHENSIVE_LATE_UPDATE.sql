@@ -127,3 +127,5 @@ ORDER BY entry_date DESC;
 -- Step 8: Grant permissions
 GRANT EXECUTE ON FUNCTION public.update_late_status_for_date_range(DATE, DATE) TO authenticated;
 
+
+

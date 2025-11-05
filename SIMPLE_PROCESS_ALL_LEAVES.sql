@@ -161,3 +161,5 @@ LEFT JOIN public.employee_work_days ewd ON ewd.user_id = p.user_id
 WHERE p.is_active = true
 ORDER BY p.name;
 
+
+

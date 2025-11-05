@@ -133,3 +133,5 @@ CREATE OR REPLACE FUNCTION public.is_checkin_late(
 - ✅ **Verify settings respect** across all processing
 - ✅ **Ensure fallback behavior** works correctly
 
+
+

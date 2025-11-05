@@ -69,3 +69,5 @@ SELECT
   COUNT(*) - COUNT(employee_category_id) as missing_employee_category_id
 FROM public.profiles;
 
+
+

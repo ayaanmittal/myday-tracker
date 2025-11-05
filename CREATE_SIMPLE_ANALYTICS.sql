@@ -161,3 +161,5 @@ SELECT
   *
 FROM public.get_simple_leave_deductions_analytics('2025-10-01'::DATE, '2025-10-31'::DATE);
 
+
+

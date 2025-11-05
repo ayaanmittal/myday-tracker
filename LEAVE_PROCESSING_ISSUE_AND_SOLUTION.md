@@ -175,3 +175,5 @@ Leave Deduction: ₹1,000 (1 day × ₹1,000 daily rate)
 
 The issue is that approved leave requests exist but haven't been processed into the `leaves` table, which is why all employees show 0 unpaid days. Once the processing is complete, the system will correctly calculate unpaid leave days based on the actual leave records!
 
+
+

@@ -123,3 +123,5 @@ FROM public.profiles p
 JOIN public.employee_salaries es ON es.user_id = p.user_id
 WHERE p.name ILIKE '%arjan%' OR p.name ILIKE '%singh%';
 
+
+

@@ -225,3 +225,5 @@ ORDER BY trigger_name;
 -- Step 9: Final verification
 SELECT 'All problematic functions and triggers dropped with CASCADE!' as result;
 
+
+

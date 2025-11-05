@@ -63,3 +63,5 @@ The frontend calculation now matches the database calculation:
 
 The frontend should now show the correct work days (27), daily rate (₹185.19), and unpaid days (4) that match the database calculations.
 
+
+

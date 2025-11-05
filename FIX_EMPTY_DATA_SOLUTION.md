@@ -123,3 +123,5 @@ After running the scripts, check:
 
 **The solution is ready to deploy! Run the two SQL scripts and the "My Leaves & Salary" page will show real data instead of empty values.** 🎯
 
+
+

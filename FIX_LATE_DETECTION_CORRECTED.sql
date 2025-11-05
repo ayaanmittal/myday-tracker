@@ -342,3 +342,5 @@ SELECT * FROM public.test_late_detection();
 -- Step 8: Update existing records
 SELECT * FROM public.update_late_status_for_unified_attendance();
 
+
+

@@ -20,3 +20,5 @@ SELECT * FROM backfill_unified_attendance_profile_data(
 SELECT 'Stats After Backfill:' as test_step;
 SELECT * FROM get_unified_attendance_profile_stats();
 
+
+

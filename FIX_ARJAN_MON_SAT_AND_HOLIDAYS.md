@@ -298,3 +298,5 @@ SELECT calculate_unpaid_leave_days(
 
 The fix ensures that Arjan Singh's work schedule is correctly recognized as Mon-Sat, office holidays are excluded from unpaid leave calculation, and his salary is not deducted when he has 0 unpaid leaves!
 
+
+

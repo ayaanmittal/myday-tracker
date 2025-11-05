@@ -161,3 +161,5 @@ ORDER BY updated_at DESC;
 -- Step 6: Grant execute permissions
 GRANT EXECUTE ON FUNCTION public.generate_monthly_salary_payments(DATE, UUID) TO authenticated;
 
+
+

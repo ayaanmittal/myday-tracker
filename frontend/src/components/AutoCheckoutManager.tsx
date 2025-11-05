@@ -279,17 +279,19 @@ export function AutoCheckoutManager() {
             {/* Specific Date */}
             <div className="space-y-2">
               <Label htmlFor="selectedDate">Specific Date</Label>
-              <div className="flex gap-2">
+              <div className="flex gap-2 min-w-0">
                 <Input
                   id="selectedDate"
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
+                  className="flex-1 min-w-0"
                 />
                 <Button 
                   onClick={loadDateRecords}
                   variant={viewMode === 'date' ? 'default' : 'outline'}
                   size="sm"
+                  className="flex-shrink-0"
                 >
                   Check
                 </Button>
@@ -299,23 +301,24 @@ export function AutoCheckoutManager() {
             {/* Date Range */}
             <div className="space-y-2">
               <Label>Date Range</Label>
-              <div className="flex gap-2">
+              <div className="flex gap-2 min-w-0">
                 <Input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="text-xs"
+                  className="text-xs flex-1 min-w-0"
                 />
                 <Input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="text-xs"
+                  className="text-xs flex-1 min-w-0"
                 />
                 <Button 
                   onClick={loadRangeRecords}
                   variant={viewMode === 'range' ? 'default' : 'outline'}
                   size="sm"
+                  className="flex-shrink-0"
                 >
                   Check
                 </Button>

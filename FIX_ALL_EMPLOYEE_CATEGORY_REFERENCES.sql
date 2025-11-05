@@ -385,3 +385,5 @@ $$ LANGUAGE plpgsql;
 -- Step 10: Verify the fix
 SELECT 'All functions updated successfully!' as result;
 
+
+

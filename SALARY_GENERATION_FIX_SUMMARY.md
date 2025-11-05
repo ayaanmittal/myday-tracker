@@ -116,3 +116,5 @@ GRANT EXECUTE ON FUNCTION public.generate_monthly_salary_payments(DATE, UUID) TO
 
 **The salary generation should now work without errors!** 🎯
 
+
+

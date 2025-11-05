@@ -161,3 +161,5 @@ GRANT EXECUTE ON FUNCTION public.update_late_status_with_timezone() TO authentic
 -- Step 9: Run the timezone-aware update
 SELECT * FROM public.update_late_status_with_timezone();
 
+
+

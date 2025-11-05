@@ -112,3 +112,5 @@ If this returns 0, the table is empty. If it returns a number > 0, the issue is 
 
 The updated fetch function should now provide better debugging information to identify the exact issue! 🎉
 
+
+

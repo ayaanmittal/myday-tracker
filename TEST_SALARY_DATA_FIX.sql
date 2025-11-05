@@ -45,3 +45,5 @@ SELECT
   string_agg(title, ', ') as holiday_titles
 FROM public.company_holidays;
 
+
+

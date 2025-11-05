@@ -32,3 +32,5 @@ console.log(`Base Salary: ₹${baseSalary}`);
 console.log(`October 2025 days: ${octoberDays}`);
 console.log(`Daily Rate: ₹${dailyRate.toFixed(2)}`);
 
+
+

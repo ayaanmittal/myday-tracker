@@ -201,3 +201,5 @@ ORDER BY routine_name;
 -- Step 9: Final verification
 SELECT 'Aggressive cleanup completed!' as result;
 
+
+

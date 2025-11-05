@@ -69,3 +69,5 @@ SELECT
 FROM public.profiles 
 WHERE email = 'sakshisaglotia@gmail.com';
 
+
+

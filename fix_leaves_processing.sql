@@ -208,3 +208,5 @@ LEFT JOIN public.employee_salaries es ON es.user_id = p.user_id AND es.is_active
 WHERE p.is_active = true
 ORDER BY p.name;
 
+
+

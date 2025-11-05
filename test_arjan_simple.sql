@@ -232,3 +232,5 @@ SELECT
 FROM salary_info si
 CROSS JOIN work_days_info wdi;
 
+
+

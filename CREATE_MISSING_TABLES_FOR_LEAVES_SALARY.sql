@@ -193,3 +193,5 @@ FROM public.profiles p
 WHERE p.email = 'sakshisaglotia@gmail.com'
 ON CONFLICT (user_id, payment_month) DO NOTHING;
 
+
+

@@ -129,3 +129,5 @@ JOIN public.profiles p ON p.id = ua.user_id
 WHERE ua.entry_date = '2025-01-31'::DATE
   AND ua.user_id = 'e048e5ea-9aed-4f1e-9058-218937fc136b';
 
+
+

@@ -85,3 +85,5 @@ Now the work history stat cards will correctly calculate:
 
 The stat cards will now accurately reflect the attendance status and properly distinguish between different types of days.
 
+
+

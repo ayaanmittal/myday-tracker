@@ -193,3 +193,5 @@ FROM pg_proc
 WHERE proname = 'approve_leave_request' 
   AND pronamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public');
 
+
+

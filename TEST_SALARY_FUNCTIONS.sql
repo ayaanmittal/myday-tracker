@@ -51,3 +51,5 @@ JOIN public.profiles p ON p.user_id = sp.user_id
 WHERE sp.payment_month = '2025-10-01'
 ORDER BY p.name;
 
+
+

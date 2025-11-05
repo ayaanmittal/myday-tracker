@@ -187,3 +187,5 @@ FROM public.generate_monthly_salary_payments('2025-10-01'::DATE);
 GRANT EXECUTE ON FUNCTION public.calculate_month_leave_deductions(UUID, DATE) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.generate_monthly_salary_payments(DATE, UUID) TO authenticated;
 
+
+

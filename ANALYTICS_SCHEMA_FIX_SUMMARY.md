@@ -142,3 +142,5 @@ COUNT(*) FILTER (WHERE l.is_office_holiday = true) as office_holiday_count
 
 **The analytics functions now use the correct schema and should work without column reference errors!** 🎯
 
+
+

@@ -210,3 +210,5 @@ toast({
 
 The Generate Salary Payments dialog now provides a complete solution for managing salary advances with real employee notes integration, automatic calculation, and seamless deduction from base salaries!
 
+
+

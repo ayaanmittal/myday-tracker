@@ -244,3 +244,5 @@ SELECT * FROM public.calculate_month_leave_deductions('arjan_user_id', '2024-01-
 
 The new leaves tracking system ensures accurate salary calculations by properly tracking paid and unpaid leaves, considering work days, and providing comprehensive leave management capabilities!
 
+
+

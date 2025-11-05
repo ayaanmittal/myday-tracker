@@ -183,3 +183,5 @@ After applying the fix:
 
 The fix ensures that when "Mark as Office Holiday" is clicked, all attendance records are properly updated with `manual_status = 'Office Holiday'`! 🎉
 
+
+

@@ -192,3 +192,5 @@ SELECT
   MAX(holiday_date) as latest_holiday
 FROM public.company_holidays;
 
+
+

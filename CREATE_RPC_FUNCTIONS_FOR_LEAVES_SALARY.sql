@@ -274,3 +274,5 @@ GRANT EXECUTE ON FUNCTION public.get_employee_salary_summary(UUID, DATE) TO auth
 GRANT EXECUTE ON FUNCTION public.get_employee_work_days(UUID, DATE) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_employee_salary_payment(UUID, DATE) TO authenticated;
 
+
+

@@ -84,3 +84,5 @@ The "Generate Payments" dialog will now show:
 
 **The frontend now correctly calculates and displays total days in the month for accurate daily rate calculations!** 🎯
 
+
+

@@ -169,3 +169,5 @@ FROM (
 ) sundays
 WHERE EXTRACT(DOW FROM holiday_date) = 0;
 
+
+

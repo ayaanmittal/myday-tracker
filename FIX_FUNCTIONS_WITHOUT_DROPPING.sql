@@ -132,3 +132,5 @@ GRANT EXECUTE ON FUNCTION test_clean_functions() TO authenticated;
 -- Step 5: Verify the functions exist and work
 SELECT 'Functions updated successfully!' as result;
 
+
+

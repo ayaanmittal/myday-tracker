@@ -139,3 +139,5 @@ psql -h your-host -U your-user -d your-database -f test_amount_field_migration.s
 
 The migration is now ready to be applied and will successfully add the amount field to the employee notes system!
 
+
+

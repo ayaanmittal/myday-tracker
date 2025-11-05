@@ -182,3 +182,5 @@ $$;
 -- Grant execute permissions
 GRANT EXECUTE ON FUNCTION public.debug_leave_deduction_calculation(UUID, DATE) TO authenticated;
 
+
+

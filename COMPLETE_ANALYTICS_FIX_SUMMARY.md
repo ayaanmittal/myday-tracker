@@ -140,3 +140,5 @@ salary_payments (if exists) → employee_salaries (if exists) → default values
 
 **The analytics will now always show meaningful data instead of "No analytics data available"!** 🎯
 
+
+

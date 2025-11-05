@@ -53,3 +53,5 @@ SELECT COUNT(*) as null_count
 FROM public.profiles 
 WHERE employee_category IS NULL;
 
+
+

@@ -125,3 +125,5 @@ SELECT * FROM calculate_month_leave_deductions(
   '2024-01-01'::DATE
 );
 
+
+

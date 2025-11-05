@@ -76,3 +76,5 @@ WHERE check_in_at IS NOT NULL
 ORDER BY entry_date DESC, check_in_at DESC
 LIMIT 10;
 
+
+

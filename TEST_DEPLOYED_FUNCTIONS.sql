@@ -57,3 +57,5 @@ SELECT
 FROM public.profiles 
 WHERE COALESCE(is_active, TRUE) = TRUE;
 
+
+

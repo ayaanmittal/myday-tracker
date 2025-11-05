@@ -131,3 +131,5 @@ const loadEmployeeNotes = async (employeeId: string) => {
 
 The employee notes now auto-fetch when the dialog opens, providing a seamless user experience without requiring manual button clicks or showing test elements!
 
+
+

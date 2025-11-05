@@ -67,3 +67,5 @@ SELECT
 FROM public.salary_payments sp
 WHERE sp.payment_month = '2025-10-01';
 
+
+

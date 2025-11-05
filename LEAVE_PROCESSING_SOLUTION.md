@@ -171,3 +171,5 @@ ORDER BY p.name;
 
 The issue is that approved leave requests exist but haven't been processed into the `leaves` table. Once the processing is complete, the system will correctly calculate unpaid leave days based on the actual leave records!
 
+
+

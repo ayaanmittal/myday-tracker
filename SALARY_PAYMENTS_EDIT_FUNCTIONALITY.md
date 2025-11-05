@@ -139,3 +139,5 @@ const { error } = await supabase
 
 **The edit functionality provides admins with full control over salary payment data while maintaining security and data integrity!** 🎯
 
+
+

@@ -223,3 +223,5 @@ JOIN public.profiles p ON p.id = ua.user_id
 WHERE ua.entry_date = '2025-02-02'::DATE
 ORDER BY p.name;
 
+
+

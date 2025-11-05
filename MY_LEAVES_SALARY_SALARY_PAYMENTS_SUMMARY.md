@@ -239,3 +239,5 @@ CREATE POLICY "Admins can view all salary payments" ON public.salary_payments
 
 **The My Leaves & Salary page now has separate month/year selectors and a salary payments table UI ready for when the database tables are created!** 🎯
 
+
+

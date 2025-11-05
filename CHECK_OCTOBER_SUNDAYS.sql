@@ -18,3 +18,5 @@ FROM (
 WHERE EXTRACT(DOW FROM holiday_date) = 0
 ORDER BY holiday_date;
 
+
+

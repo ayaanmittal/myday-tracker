@@ -213,3 +213,5 @@ SELECT * FROM calculate_daily_salary_rate(
   '2024-01-01'::DATE
 );
 
+
+

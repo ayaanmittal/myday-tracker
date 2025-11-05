@@ -34,7 +34,7 @@
     <style>
       #root {
         min-height: 100vh;
-        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        background: linear-gradient(135deg, #111827 0%, #1f2937 50%, #111827 100%);
       }
       
       .mobile-loading {
@@ -43,32 +43,113 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+        background: linear-gradient(135deg, #111827 0%, #1f2937 50%, #111827 100%);
         display: flex;
         align-items: center;
         justify-content: center;
         z-index: 9999;
+        font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       }
       
       .loading-spinner {
-        width: 40px;
-        height: 40px;
-        border: 4px solid #e2e8f0;
-        border-top: 4px solid #3b82f6;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
+        width: 64px;
+        height: 64px;
+        position: relative;
+        margin: 0 auto;
       }
       
-      @keyframes spin {
+      .loading-spinner::before,
+      .loading-spinner::after {
+        content: '';
+        position: absolute;
+        border-radius: 50%;
+        border: 4px solid transparent;
+      }
+      
+      .loading-spinner::before {
+        width: 64px;
+        height: 64px;
+        border-top-color: #dc2626;
+        border-right-color: #dc2626;
+        animation: spin-smooth 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+      }
+      
+      .loading-spinner::after {
+        width: 48px;
+        height: 48px;
+        top: 8px;
+        left: 8px;
+        border-bottom-color: #ef4444;
+        border-left-color: #ef4444;
+        animation: spin-smooth-reverse 1.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+      }
+      
+      @keyframes spin-smooth {
         0% { transform: rotate(0deg); }
         100% { transform: rotate(360deg); }
       }
       
+      @keyframes spin-smooth-reverse {
+        0% { transform: rotate(360deg); }
+        100% { transform: rotate(0deg); }
+      }
+      
+      .loading-dots {
+        display: flex;
+        justify-content: center;
+        gap: 4px;
+        margin-top: 8px;
+      }
+      
+      .loading-dot {
+        width: 4px;
+        height: 4px;
+        background-color: #dc2626;
+        border-radius: 50%;
+        animation: bounce-elegant 1.4s ease-in-out infinite;
+      }
+      
+      .loading-dot:nth-child(1) {
+        animation-delay: 0s;
+      }
+      
+      .loading-dot:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+      
+      .loading-dot:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+      
+      @keyframes bounce-elegant {
+        0%, 80%, 100% {
+          transform: translateY(0) scale(1);
+          opacity: 0.5;
+        }
+        40% {
+          transform: translateY(-8px) scale(1.2);
+          opacity: 1;
+        }
+      }
+      
       .loading-text {
-        margin-top: 16px;
-        color: #64748b;
-        font-size: 14px;
+        margin-top: 24px;
+        color: #ffffff;
+        font-size: 16px;
+        font-weight: 500;
+        font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         text-align: center;
+        animation: pulse-smooth 2s ease-in-out infinite;
+        letter-spacing: 0.5px;
+      }
+      
+      @keyframes pulse-smooth {
+        0%, 100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.6;
+        }
       }
       
       .mobile-error {
@@ -94,23 +175,29 @@
         color: #dc2626;
         font-size: 18px;
         font-weight: 600;
+        font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         margin-bottom: 8px;
       }
       
       .error-message {
         color: #7f1d1d;
         font-size: 14px;
+        font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         margin-bottom: 16px;
       }
       
       .retry-button {
-        background: #3b82f6;
+        background: #dc2626;
         color: white;
         border: none;
         padding: 12px 24px;
         border-radius: 6px;
         font-size: 14px;
         cursor: pointer;
+      }
+      
+      .retry-button:hover {
+        background: #b91c1c;
       }
     </style>
   </head>
@@ -120,7 +207,12 @@
       <div class="mobile-loading" id="mobile-loading">
         <div>
           <div class="loading-spinner"></div>
-          <div class="loading-text">Loading MyDay | ERCMAX...</div>
+          <div class="loading-text">Loading</div>
+          <div class="loading-dots">
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+            <div class="loading-dot"></div>
+          </div>
         </div>
       </div>
     </div>

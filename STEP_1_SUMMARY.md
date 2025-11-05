@@ -66,3 +66,5 @@ The script processes each approved leave request by:
 
 This is the foundation step that will populate the `leaves` table with actual leave data!
 
+
+

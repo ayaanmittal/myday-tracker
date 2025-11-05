@@ -125,3 +125,5 @@ SELECT
 FROM public.leave_requests
 WHERE status = 'approved' AND processed = false;
 
+
+

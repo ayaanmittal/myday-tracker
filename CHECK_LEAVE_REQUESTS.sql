@@ -91,3 +91,5 @@ SELECT
   COUNT(*) FILTER (WHERE is_paid_leave = false) as unpaid_leaves
 FROM public.leaves;
 
+
+

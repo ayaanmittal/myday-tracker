@@ -160,3 +160,5 @@ ORDER BY entry_date DESC;
 -- Step 10: Grant permissions
 GRANT EXECUTE ON FUNCTION public.is_late_final(TIMESTAMPTZ) TO authenticated;
 
+
+

@@ -81,3 +81,5 @@ INSERT INTO public.leave_types (name, description, max_days_per_year, is_paid, r
   ('Annual Leave', 'Annual vacation leave', 21, true, true, true)
 ON CONFLICT DO NOTHING;
 
+
+

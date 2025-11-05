@@ -144,3 +144,5 @@ Sick Leave [Paid] [1 day] - Oct 20, 2025
 
 The leave history now shows proper date ranges for consecutive leaves! 🎉
 
+
+

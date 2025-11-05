@@ -152,3 +152,5 @@ ON CONFLICT (user_id, payment_month) DO UPDATE SET
   unpaid_leave_days = EXCLUDED.unpaid_leave_days,
   deduction_percentage = EXCLUDED.deduction_percentage;
 
+
+

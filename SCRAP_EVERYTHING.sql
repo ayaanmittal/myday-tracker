@@ -70,3 +70,5 @@ ORDER BY routine_name;
 -- Step 7: Final verification
 SELECT 'All leave-related functions and triggers dropped! Clean slate ready!' as result;
 
+
+

@@ -86,3 +86,5 @@ The "Generate Payments" dialog will now show:
 
 **The frontend now correctly displays daily rates based on total days in the month, matching the updated database function!** 🎯
 
+
+
