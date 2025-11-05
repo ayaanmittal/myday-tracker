@@ -221,7 +221,7 @@ export default function Violations() {
     return (
       <Layout>
         <div className="flex items-center justify-center h-full">
-          <div className="text-muted-foreground">Loading...</div>
+          <div className="text-gray-600">Loading...</div>
         </div>
       </Layout>
     );
@@ -237,7 +237,7 @@ export default function Violations() {
             <h1 className="text-3xl font-bold tracking-tight">
               {role === 'admin' ? 'Employee Violations' : 'Rule Violations'}
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-gray-600">
               {role === 'admin' 
                 ? 'View and manage rule violations for all employees' 
                 : 'Your rule violation history and warnings'
@@ -246,7 +246,7 @@ export default function Violations() {
           </div>
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-red-500" />
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm text-gray-600">
               {role === 'admin' 
                 ? `${getViolationsByEmployee().length} employees with violations`
                 : `${stats.total} ${stats.total === 1 ? 'violation' : 'violations'}`
@@ -261,25 +261,25 @@ export default function Violations() {
             <Card>
               <CardContent className="p-4">
                 <div className="text-2xl font-bold text-red-600">{stats.total}</div>
-                <p className="text-sm text-muted-foreground">Total Violations</p>
+                <p className="text-sm text-gray-600">Total Violations</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
                 <div className="text-2xl font-bold text-yellow-600">{stats.byLevel[1] || 0}</div>
-                <p className="text-sm text-muted-foreground">Warnings</p>
+                <p className="text-sm text-gray-600">Warnings</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
                 <div className="text-2xl font-bold text-orange-600">{stats.byLevel[2] || 0}</div>
-                <p className="text-sm text-muted-foreground">Serious Warnings</p>
+                <p className="text-sm text-gray-600">Serious Warnings</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="p-4">
                 <div className="text-2xl font-bold text-red-600">{stats.byLevel[3] || 0}</div>
-                <p className="text-sm text-muted-foreground">Final Warnings</p>
+                <p className="text-sm text-gray-600">Final Warnings</p>
               </CardContent>
             </Card>
           </div>
@@ -290,7 +290,7 @@ export default function Violations() {
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <AlertTriangle className="h-12 w-12 text-green-500 mb-4" />
-                <p className="text-muted-foreground text-center">
+                <p className="text-gray-600 text-center">
                   <span className="font-medium text-green-600">
                     {role === 'admin' ? 'No violations found' : 'Great job!'}
                   </span><br />
@@ -312,7 +312,7 @@ export default function Violations() {
                         <User className="h-5 w-5" />
                         {employeeName}
                         {employee?.email && (
-                          <span className="text-sm text-muted-foreground">({employee.email})</span>
+                          <span className="text-sm text-gray-600">({employee.email})</span>
                         )}
                       </CardTitle>
                       <CardDescription>
@@ -350,7 +350,7 @@ export default function Violations() {
                                 {violation.office_rules.title}
                               </span>
                             </div>
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-xs text-gray-600">
                               {new Date(violation.flagged_at).toLocaleString('en-US', {
                                 year: 'numeric',
                                 month: '2-digit',
@@ -362,7 +362,7 @@ export default function Violations() {
                             </span>
                           </div>
                           {violation.reason && (
-                            <p className="text-sm text-muted-foreground mt-2">
+                            <p className="text-sm text-gray-600 mt-2">
                               <strong>Reason:</strong> {violation.reason}
                             </p>
                           )}
@@ -408,7 +408,7 @@ export default function Violations() {
                           </span>
                         </div>
                         {violation.reason && (
-                          <div className="text-sm text-muted-foreground">
+                          <div className="text-sm text-gray-600">
                             <strong>Reason:</strong> {violation.reason}
                           </div>
                         )}
@@ -453,13 +453,13 @@ export default function Violations() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <span className="text-sm font-medium text-muted-foreground">Warning Level</span>
+                    <span className="text-sm font-medium text-gray-600">Warning Level</span>
                     <p className={`px-2 py-1 rounded-full text-xs font-medium border inline-block mt-1 ${getWarningLevelColor(selectedViolation.warning_level)}`}>
                       {getWarningLevelLabel(selectedViolation.warning_level)}
                     </p>
                   </div>
                   <div>
-                    <span className="text-sm font-medium text-muted-foreground">Date & Time</span>
+                    <span className="text-sm font-medium text-gray-600">Date & Time</span>
                     <p className="font-medium">
                       {new Date(selectedViolation.flagged_at).toLocaleString()}
                     </p>
@@ -467,15 +467,15 @@ export default function Violations() {
                 </div>
 
                 <div>
-                  <span className="text-sm font-medium text-muted-foreground">Rule Description</span>
-                  <p className="text-sm mt-1 p-3 bg-muted/50 rounded-md">
+                  <span className="text-sm font-medium text-gray-600">Rule Description</span>
+                  <p className="text-sm mt-1 p-3 bg-gray-100/50 rounded-md">
                     {selectedViolation.office_rules.description}
                   </p>
                 </div>
 
                 {selectedViolation.reason && (
                   <div>
-                    <span className="text-sm font-medium text-muted-foreground">Reason for Violation</span>
+                    <span className="text-sm font-medium text-gray-600">Reason for Violation</span>
                     <p className="text-sm mt-1 p-3 bg-red-50 border border-red-200 rounded-md">
                       {selectedViolation.reason}
                     </p>
@@ -483,7 +483,7 @@ export default function Violations() {
                 )}
 
                 <div className="pt-4 border-t">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
                     <User className="h-4 w-4" />
                     <span>Flagged by: {selectedViolation.flagged_by_profile?.name || 'Unknown User'}</span>
                   </div>

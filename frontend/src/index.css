@@ -175,7 +175,7 @@
   }
 
   .gradient-text {
-    @apply bg-gradient-to-r from-blue-900 to-blue-700 bg-clip-text text-transparent font-bold;
+    @apply text-white font-bold;
   }
 
   .glass-effect {
@@ -262,4 +262,20 @@
       @apply block sm:hidden;
     }
   }
+
+  /* Ensure all text in dialogs is readable on white backgrounds */
+  [data-radix-dialog-content] {
+    color: #111827 !important;
+  }
+
+  [data-radix-dialog-content] h1,
+  [data-radix-dialog-content] h2,
+  [data-radix-dialog-content] h3,
+  [data-radix-dialog-content] h4,
+  [data-radix-dialog-content] h5,
+  [data-radix-dialog-content] h6 {
+    color: #111827 !important;
+  }
+
+  /* Button variants within dialogs/white cards - handled by component classes */
 }

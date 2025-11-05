@@ -749,7 +749,7 @@ export default function LeaveApproval() {
     return (
       <Layout>
         <div className="flex items-center justify-center h-full">
-          <div className="text-muted-foreground">Loading...</div>
+          <div className="text-gray-600">Loading...</div>
         </div>
       </Layout>
     );
@@ -760,7 +760,7 @@ export default function LeaveApproval() {
       <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6 sm:space-y-8">
         <div className="text-center space-y-2">
           <h1 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight gradient-text">Leaves Management</h1>
-          <p className="text-muted-foreground text-base sm:text-lg font-medium">Manage employee leaves and approve leave requests</p>
+          <p className="text-gray-300 text-base sm:text-lg font-medium">Manage employee leaves and approve leave requests</p>
         </div>
 
         <Tabs defaultValue="leaves" className="w-full">
@@ -796,8 +796,8 @@ export default function LeaveApproval() {
               {filteredEmployees.length === 0 ? (
                 <Card className="elegant-card elegant-shadow">
                   <CardContent className="text-center py-12">
-                    <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground text-lg">No employees with leaves found</p>
+                    <AlertCircle className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+                    <p className="text-gray-600 text-lg">No employees with leaves found</p>
                   </CardContent>
                 </Card>
               ) : (
@@ -815,30 +815,30 @@ export default function LeaveApproval() {
                           </div>
                           <div>
                             <div className="flex items-center space-x-2">
-                              <h3 className="font-semibold text-lg">{userProfiles[employee.user_id]?.name || 'Unknown User'}</h3>
+                              <h3 className="font-semibold text-lg text-gray-900">{userProfiles[employee.user_id]?.name || 'Unknown User'}</h3>
                               <Badge className="bg-blue-100 text-blue-800">
                                 {employee.total_leaves} leave{employee.total_leaves !== 1 ? 's' : ''}
                               </Badge>
                             </div>
-                            <p className="text-muted-foreground">{userProfiles[employee.user_id]?.email || 'No email'}</p>
+                            <p className="text-gray-600">{userProfiles[employee.user_id]?.email || 'No email'}</p>
                             <div className="flex items-center space-x-4 mt-2">
                               <div className="flex items-center space-x-1">
                                 <CheckCircle className="h-4 w-4 text-green-500" />
-                                <span className="text-sm">{employee.paid_leaves} paid</span>
+                                <span className="text-sm text-gray-700">{employee.paid_leaves} paid</span>
                               </div>
                               <div className="flex items-center space-x-1">
                                 <XCircle className="h-4 w-4 text-red-500" />
-                                <span className="text-sm">{employee.unpaid_leaves} unpaid</span>
+                                <span className="text-sm text-gray-700">{employee.unpaid_leaves} unpaid</span>
                               </div>
                               <div className="flex items-center space-x-1">
-                                <Calendar className="h-4 w-4 text-muted-foreground" />
-                                <span className="text-sm">
+                                <Calendar className="h-4 w-4 text-gray-600" />
+                                <span className="text-sm text-gray-700">
                                   Latest: {employee.latest_leave ? new Date(employee.latest_leave.leave_date).toLocaleDateString() : 'N/A'}
                                 </span>
                               </div>
                             </div>
                             <div className="mt-2">
-                              <p className="text-sm text-muted-foreground">
+                              <p className="text-sm text-gray-600">
                                 Leave types: {Array.from(employee.leave_types).join(', ')}
                               </p>
                             </div>
@@ -847,11 +847,11 @@ export default function LeaveApproval() {
 
                         <div className="flex items-center space-x-4">
                           <div className="text-right">
-                            <p className="font-medium">Click to view details</p>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="font-medium text-gray-900">Click to view details</p>
+                            <p className="text-sm text-gray-700">
                               View leave history
                             </p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-gray-700 font-medium">
                               {employee.total_leaves} total entries
                             </p>
                           </div>
@@ -904,8 +904,8 @@ export default function LeaveApproval() {
           {filteredRequests.length === 0 ? (
             <Card className="elegant-card elegant-shadow">
               <CardContent className="text-center py-12">
-                <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground text-lg">No leave requests found</p>
+                <AlertCircle className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+                <p className="text-gray-600 text-lg">No leave requests found</p>
               </CardContent>
             </Card>
           ) : (
@@ -917,21 +917,21 @@ export default function LeaveApproval() {
                       {getStatusIcon(request.status)}
                       <div>
                         <div className="flex items-center space-x-2">
-                          <h3 className="font-semibold text-lg">{userProfiles[request.user_id]?.name || 'Unknown User'}</h3>
+                          <h3 className="font-semibold text-lg text-gray-900">{userProfiles[request.user_id]?.name || 'Unknown User'}</h3>
                           <Badge className={getStatusColor(request.status)}>
                             {request.status.charAt(0).toUpperCase() + request.status.slice(1)}
                           </Badge>
                         </div>
-                        <p className="text-muted-foreground">{userProfiles[request.user_id]?.email || 'No email'}</p>
+                        <p className="text-gray-600">{userProfiles[request.user_id]?.email || 'No email'}</p>
                         <div className="flex items-center space-x-4 mt-2">
                           <div className="flex items-center space-x-1">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
+                            <Calendar className="h-4 w-4 text-gray-600" />
                             <span className="text-sm">
                               {new Date(request.start_date).toLocaleDateString()} - {new Date(request.end_date).toLocaleDateString()}
                             </span>
                           </div>
                           <div className="flex items-center space-x-1">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
+                            <Clock className="h-4 w-4 text-gray-600" />
                             <span className="text-sm">{request.days_requested} days</span>
                           </div>
                           {request.work_from_home && (
@@ -947,10 +947,10 @@ export default function LeaveApproval() {
                     <div className="flex items-center space-x-4">
                       <div className="text-right">
                         <p className="font-medium">{request.leave_types.name}</p>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-gray-600">
                           Leave Request
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-gray-600">
                           {new Date(request.created_at).toLocaleDateString()}
                         </p>
                       </div>
@@ -980,13 +980,13 @@ export default function LeaveApproval() {
                               <div className="grid gap-4 md:grid-cols-2">
                                 <div>
                                   <Label className="text-sm font-semibold">Employee</Label>
-                                  <p className="text-lg font-medium">{userProfiles[request.user_id]?.name || 'Unknown User'}</p>
-                                  <p className="text-sm text-muted-foreground">{userProfiles[request.user_id]?.email || 'No email'}</p>
+                                  <p className="text-lg font-medium text-gray-900">{userProfiles[request.user_id]?.name || 'Unknown User'}</p>
+                                  <p className="text-sm text-gray-600">{userProfiles[request.user_id]?.email || 'No email'}</p>
                                 </div>
                                 <div>
                                   <Label className="text-sm font-semibold">Leave Type</Label>
                                   <p className="text-lg font-medium">{request.leave_types.name}</p>
-                                  <p className="text-sm text-muted-foreground">
+                                  <p className="text-sm text-gray-600">
                                     Leave Request
                                   </p>
                                 </div>
@@ -1018,7 +1018,7 @@ export default function LeaveApproval() {
                               {request.reason && (
                                 <div>
                                   <Label className="text-sm font-semibold">Reason</Label>
-                                  <p className="text-sm bg-muted p-3 rounded-lg">{request.reason}</p>
+                                  <p className="text-sm bg-gray-100 p-3 rounded-lg">{request.reason}</p>
                                 </div>
                               )}
 
@@ -1219,8 +1219,8 @@ export default function LeaveApproval() {
               {employeeLeaves.length === 0 ? (
                 <Card>
                   <CardContent className="text-center py-8">
-                    <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <p className="text-muted-foreground">No leave history found</p>
+                    <AlertCircle className="h-12 w-12 text-gray-600 mx-auto mb-4" />
+                    <p className="text-gray-600">No leave history found</p>
                   </CardContent>
                 </Card>
               ) : (
@@ -1247,7 +1247,7 @@ export default function LeaveApproval() {
                               </div>
                               <div className="flex items-center space-x-4 mt-1">
                                 <div className="flex items-center space-x-1">
-                                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                                  <Calendar className="h-4 w-4 text-gray-600" />
                                   <span className="text-sm">
                                     {group.start_date === group.end_date 
                                       ? new Date(group.start_date).toLocaleDateString()
@@ -1256,14 +1256,14 @@ export default function LeaveApproval() {
                                   </span>
                                 </div>
                                 <div className="flex items-center space-x-1">
-                                  <Clock className="h-4 w-4 text-muted-foreground" />
+                                  <Clock className="h-4 w-4 text-gray-600" />
                                   <span className="text-sm">
                                     {new Date(group.created_at).toLocaleDateString()}
                                   </span>
                                 </div>
                               </div>
                               {group.notes && (
-                                <p className="text-sm text-muted-foreground mt-1 bg-gray-50 p-2 rounded">
+                                <p className="text-sm text-gray-600 mt-1 bg-gray-50 p-2 rounded">
                                   {group.notes}
                                 </p>
                               )}

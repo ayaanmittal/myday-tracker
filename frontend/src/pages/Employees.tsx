@@ -135,6 +135,16 @@ export default function Employees() {
     }
   };
 
+  const getRoleBadgeClassName = (role: string) => {
+    if (role === 'admin') {
+      return 'bg-red-600 text-white border-0';
+    } else if (role === 'manager') {
+      return 'bg-blue-600 text-white border-0';
+    } else {
+      return 'bg-gray-100 text-gray-800 border-0';
+    }
+  };
+
   const getTeamColor = (team: string | null) => {
     if (!team) return 'bg-gray-100 text-gray-800';
     
@@ -240,7 +250,7 @@ export default function Employees() {
     return (
       <Layout>
         <div className="flex items-center justify-center h-full">
-          <div className="text-muted-foreground">Loading employees...</div>
+          <div className="text-gray-600">Loading employees...</div>
         </div>
       </Layout>
     );
@@ -252,7 +262,7 @@ export default function Employees() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Employees</h1>
-            <p className="text-muted-foreground">View and manage your team members</p>
+            <p className="text-gray-300">View and manage your team members</p>
           </div>
           {role === 'admin' && (
             <Button onClick={() => navigate('/manage-employees')}>
@@ -266,12 +276,12 @@ export default function Employees() {
         <div className={`grid grid-cols-1 gap-6 ${role === 'admin' ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Employees</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-gray-900">Total Employees</CardTitle>
+              <Users className="h-4 w-4 text-gray-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{employees.length}</div>
-              <p className="text-xs text-muted-foreground">
+              <div className="text-2xl font-bold text-gray-900">{employees.length}</div>
+              <p className="text-xs text-gray-600">
                 Active team members
               </p>
             </CardContent>
@@ -279,14 +289,14 @@ export default function Employees() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Managers</CardTitle>
-              <User className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-gray-900">Managers</CardTitle>
+              <User className="h-4 w-4 text-gray-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="text-2xl font-bold text-gray-900">
                 {employees.filter(emp => emp.role === 'manager').length}
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-gray-600">
                 Team leaders
               </p>
             </CardContent>
@@ -294,14 +304,14 @@ export default function Employees() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Teams</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-gray-900">Teams</CardTitle>
+              <Users className="h-4 w-4 text-gray-600" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
+              <div className="text-2xl font-bold text-gray-900">
                 {new Set(employees.map(emp => emp.team).filter(Boolean)).size}
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-gray-600">
                 Different teams
               </p>
             </CardContent>
@@ -311,8 +321,8 @@ export default function Employees() {
           {role === 'admin' && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Rules Compliance</CardTitle>
-                <FileText className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-gray-900">Rules Compliance</CardTitle>
+                <FileText className="h-4 w-4 text-gray-600" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-green-600">
@@ -321,10 +331,10 @@ export default function Employees() {
                     RulesAgreementService.isFullyCompliant(emp.rulesAgreement)
                   ).length}
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-gray-600">
                   Fully compliant
                 </p>
-                <div className="mt-2 text-xs text-muted-foreground">
+                <div className="mt-2 text-xs text-gray-600">
                   {employees.filter(emp => 
                     emp.rulesAgreement && 
                     !RulesAgreementService.isFullyCompliant(emp.rulesAgreement)
@@ -345,12 +355,12 @@ export default function Employees() {
                     <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
                       <User className="h-6 w-6 text-primary" />
                     </div>
-                    <div>
-                      <h3 className="font-semibold">{employee.name}</h3>
-                      <p className="text-sm text-muted-foreground">{employee.email}</p>
+                    <div className="min-w-0 flex-1">
+                      <h3 className="font-semibold truncate text-gray-900">{employee.name}</h3>
+                      <p className="text-sm text-gray-600 truncate">{employee.email}</p>
                     </div>
                   </div>
-                  <Badge variant={getRoleBadgeVariant(employee.role)} className="capitalize">
+                  <Badge variant={getRoleBadgeVariant(employee.role)} className={`capitalize flex-shrink-0 whitespace-nowrap ${getRoleBadgeClassName(employee.role)}`}>
                     {employee.role}
                   </Badge>
                 </div>
@@ -365,7 +375,7 @@ export default function Employees() {
                 )}
                 
                 {employee.designation && (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-gray-700">
                     {employee.designation}
                   </p>
                 )}
@@ -374,7 +384,7 @@ export default function Employees() {
                 {role === 'admin' && employee.rulesAgreement && (
                   <div className="space-y-2 pt-2 border-t">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-muted-foreground">Rules Compliance</span>
+                      <span className="text-xs font-medium text-gray-700">Rules Compliance</span>
                       <Badge 
                         variant={
                           RulesAgreementService.isFullyCompliant(employee.rulesAgreement) 
@@ -395,21 +405,21 @@ export default function Employees() {
                       </Badge>
                     </div>
                     
-                    <div className="text-xs text-muted-foreground space-y-1">
+                    <div className="text-xs text-gray-700 space-y-1">
                       <div className="flex justify-between">
-                        <span>Contract:</span>
-                        <span className={employee.rulesAgreement.hasSignedContract ? 'text-green-600' : 'text-red-600'}>
+                        <span className="text-gray-700">Contract:</span>
+                        <span className={employee.rulesAgreement.hasSignedContract ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
                           {employee.rulesAgreement.hasSignedContract ? '✓ Signed' : '✗ Not signed'}
                         </span>
                       </div>
                       <div className="flex justify-between">
-                        <span>Rules:</span>
-                        <span>
+                        <span className="text-gray-700">Rules:</span>
+                        <span className="text-gray-900 font-medium">
                           {employee.rulesAgreement.acknowledgedRulesCount}/{employee.rulesAgreement.totalActiveRulesCount}
                         </span>
                       </div>
                       {employee.rulesAgreement.contractSignedAt && (
-                        <div className="text-xs text-muted-foreground">
+                        <div className="text-xs text-gray-600">
                           Signed: {new Date(employee.rulesAgreement.contractSignedAt).toLocaleString('en-US', {
                             year: 'numeric',
                             month: '2-digit',
@@ -429,8 +439,8 @@ export default function Employees() {
                     variant={employee.is_active ? 'default' : 'secondary'}
                     className={
                       employee.is_active
-                        ? 'bg-success/10 text-success hover:bg-success/20'
-                        : ''
+                        ? 'bg-green-100 text-green-800 border-0 hover:bg-green-200'
+                        : 'bg-gray-100 text-gray-800 border-0 hover:bg-gray-200'
                     }
                   >
                     {employee.is_active ? 'Active' : 'Inactive'}
@@ -521,9 +531,9 @@ export default function Employees() {
         {employees.length === 0 && (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <Users className="h-12 w-12 text-muted-foreground mb-4" />
+              <Users className="h-12 w-12 text-gray-600 mb-4" />
               <h3 className="text-lg font-semibold mb-2">No employees found</h3>
-              <p className="text-muted-foreground text-center mb-4">
+              <p className="text-gray-600 text-center mb-4">
                 {role === 'admin' 
                   ? 'Start by adding your first employee to the system.'
                   : 'No team members are currently registered.'
@@ -562,9 +572,9 @@ export default function Employees() {
                         onChange={(e) => setEditForm(prev => ({ ...prev, name: e.target.value }))}
                       />
                     ) : (
-                      <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
-                        <User className="h-4 w-4" />
-                        <span>{selectedEmployee.name}</span>
+                      <div className="flex items-center gap-2 p-2 bg-gray-100 rounded-md">
+                        <User className="h-4 w-4 text-gray-600" />
+                        <span className="text-gray-900">{selectedEmployee.name}</span>
                       </div>
                     )}
                   </div>
@@ -579,9 +589,9 @@ export default function Employees() {
                         onChange={(e) => setEditForm(prev => ({ ...prev, email: e.target.value }))}
                       />
                     ) : (
-                      <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
-                        <Mail className="h-4 w-4" />
-                        <span>{selectedEmployee.email}</span>
+                      <div className="flex items-center gap-2 p-2 bg-gray-100 rounded-md">
+                        <Mail className="h-4 w-4 text-gray-600" />
+                        <span className="text-gray-900">{selectedEmployee.email}</span>
                       </div>
                     )}
                   </div>
@@ -599,9 +609,9 @@ export default function Employees() {
                         placeholder="Enter phone number"
                       />
                     ) : (
-                      <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
-                        <Phone className="h-4 w-4" />
-                        <span>{selectedEmployee.phone || 'Not provided'}</span>
+                      <div className="flex items-center gap-2 p-2 bg-gray-100 rounded-md">
+                        <Phone className="h-4 w-4 text-gray-600" />
+                        <span className="text-gray-900">{selectedEmployee.phone || 'Not provided'}</span>
                       </div>
                     )}
                   </div>
@@ -617,9 +627,9 @@ export default function Employees() {
                         rows={2}
                       />
                     ) : (
-                      <div className="flex items-start gap-2 p-2 bg-muted rounded-md">
-                        <MapPin className="h-4 w-4 mt-0.5" />
-                        <span>{selectedEmployee.address || 'Not provided'}</span>
+                      <div className="flex items-start gap-2 p-2 bg-gray-100 rounded-md">
+                        <MapPin className="h-4 w-4 mt-0.5 text-gray-600" />
+                        <span className="text-gray-900">{selectedEmployee.address || 'Not provided'}</span>
                       </div>
                     )}
                   </div>
@@ -637,8 +647,8 @@ export default function Employees() {
                         placeholder="Enter team"
                       />
                     ) : (
-                      <div className="p-2 bg-muted rounded-md">
-                        <span>{selectedEmployee.team || 'Not assigned'}</span>
+                      <div className="p-2 bg-gray-100 rounded-md">
+                        <span className="text-gray-900">{selectedEmployee.team || 'Not assigned'}</span>
                       </div>
                     )}
                   </div>
@@ -653,8 +663,8 @@ export default function Employees() {
                         placeholder="Enter designation"
                       />
                     ) : (
-                      <div className="p-2 bg-muted rounded-md">
-                        <span>{selectedEmployee.designation || 'Not specified'}</span>
+                      <div className="p-2 bg-gray-100 rounded-md">
+                        <span className="text-gray-900">{selectedEmployee.designation || 'Not specified'}</span>
                       </div>
                     )}
                   </div>
@@ -664,8 +674,8 @@ export default function Employees() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Role</Label>
-                    <div className="p-2 bg-muted rounded-md">
-                      <Badge variant={getRoleBadgeVariant(selectedEmployee.role)} className="capitalize">
+                    <div className="p-2 bg-gray-100 rounded-md">
+                      <Badge variant={getRoleBadgeVariant(selectedEmployee.role)} className={`capitalize ${getRoleBadgeClassName(selectedEmployee.role)}`}>
                         {selectedEmployee.role}
                       </Badge>
                     </div>
@@ -673,13 +683,13 @@ export default function Employees() {
                   
                   <div className="space-y-2">
                     <Label>Status</Label>
-                    <div className="p-2 bg-muted rounded-md">
+                    <div className="p-2 bg-gray-100 rounded-md">
                       <Badge
                         variant={selectedEmployee.is_active ? 'default' : 'secondary'}
                         className={
                           selectedEmployee.is_active
-                            ? 'bg-success/10 text-success hover:bg-success/20'
-                            : ''
+                            ? 'bg-green-100 text-green-800 border-0 hover:bg-green-200'
+                            : 'bg-gray-100 text-gray-800 border-0 hover:bg-gray-200'
                         }
                       >
                         {selectedEmployee.is_active ? 'Active' : 'Inactive'}
@@ -693,9 +703,9 @@ export default function Employees() {
                   <div className="space-y-4 pt-4 border-t">
                     <div className="space-y-2">
                       <Label className="text-base font-semibold">Rules Agreement Status</Label>
-                      <div className="p-4 bg-muted rounded-lg space-y-3">
+                      <div className="p-4 bg-gray-100 rounded-lg space-y-3">
                         <div className="flex items-center justify-between">
-                          <span className="font-medium">Overall Compliance:</span>
+                          <span className="font-medium text-gray-900">Overall Compliance:</span>
                           <Badge 
                             variant={
                               RulesAgreementService.isFullyCompliant(selectedEmployeeRules) 
@@ -719,13 +729,13 @@ export default function Employees() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                           <div className="space-y-2">
                             <div className="flex justify-between">
-                              <span>Contract Signed:</span>
+                              <span className="text-gray-700">Contract Signed:</span>
                               <span className={selectedEmployeeRules.hasSignedContract ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
                                 {selectedEmployeeRules.hasSignedContract ? '✓ Yes' : '✗ No'}
                               </span>
                             </div>
                             {selectedEmployeeRules.contractSignedAt && (
-                              <div className="text-xs text-muted-foreground">
+                              <div className="text-xs text-gray-600">
                                 Signed on: {new Date(selectedEmployeeRules.contractSignedAt).toLocaleString('en-US', {
                                   year: 'numeric',
                                   month: '2-digit',
@@ -737,21 +747,21 @@ export default function Employees() {
                               </div>
                             )}
                             {selectedEmployeeRules.contractInitials && (
-                              <div className="text-xs text-muted-foreground">
-                                Initials: {selectedEmployeeRules.contractInitials}
+                              <div className="text-xs text-gray-600">
+                                Initials: <span className="font-medium text-gray-900">{selectedEmployeeRules.contractInitials}</span>
                               </div>
                             )}
                           </div>
                           
                           <div className="space-y-2">
                             <div className="flex justify-between">
-                              <span>Rules Acknowledged:</span>
-                              <span className="font-medium">
+                              <span className="text-gray-700">Rules Acknowledged:</span>
+                              <span className="font-medium text-gray-900">
                                 {selectedEmployeeRules.acknowledgedRulesCount}/{selectedEmployeeRules.totalActiveRulesCount}
                               </span>
                             </div>
                             {selectedEmployeeRules.lastAcknowledgmentAt && (
-                              <div className="text-xs text-muted-foreground">
+                              <div className="text-xs text-gray-600">
                                 Last acknowledgment: {new Date(selectedEmployeeRules.lastAcknowledgmentAt).toLocaleString('en-US', {
                                   year: 'numeric',
                                   month: '2-digit',
@@ -770,9 +780,9 @@ export default function Employees() {
                             <span className="text-sm font-medium text-red-600">Unacknowledged Rules:</span>
                             <div className="space-y-1">
                               {selectedEmployeeRules.unacknowledgedRules.map((rule) => (
-                                <div key={rule.id} className="text-xs text-muted-foreground p-2 bg-red-50 rounded border-l-2 border-red-200">
-                                  <div className="font-medium">{rule.title}</div>
-                                  <div className="text-xs mt-1">{rule.description}</div>
+                                <div key={rule.id} className="text-xs text-gray-700 p-2 bg-red-50 rounded border-l-2 border-red-200">
+                                  <div className="font-medium text-gray-900">{rule.title}</div>
+                                  <div className="text-xs mt-1 text-gray-600">{rule.description}</div>
                                 </div>
                               ))}
                             </div>
