@@ -745,9 +745,13 @@ export default function History() {
       }
     }
 
-    if (editTimes.lunch_start && editTimes.lunch_end) {
-      const lunchStart = new Date(`${editingEntry.entry_date}T${editTimes.lunch_start}:00`);
-      const lunchEnd = new Date(`${editingEntry.entry_date}T${editTimes.lunch_end}:00`);
+    // Validate lunch break times - check against both form values and existing database values
+    const lunchStartTime = editTimes.lunch_start || formatTimeForInput(editingEntry.lunch_break_start);
+    const lunchEndTime = editTimes.lunch_end || formatTimeForInput(editingEntry.lunch_break_end);
+    
+    if (lunchStartTime && lunchEndTime) {
+      const lunchStart = new Date(`${editingEntry.entry_date}T${lunchStartTime}:00`);
+      const lunchEnd = new Date(`${editingEntry.entry_date}T${lunchEndTime}:00`);
       
       if (lunchEnd <= lunchStart) {
         toast({
@@ -759,9 +763,12 @@ export default function History() {
       }
 
       // Check if lunch break is within work hours
-      if (editTimes.check_in && editTimes.check_out) {
-        const checkIn = new Date(`${editingEntry.entry_date}T${editTimes.check_in}:00`);
-        const checkOut = new Date(`${editingEntry.entry_date}T${editTimes.check_out}:00`);
+      const checkInTime = editTimes.check_in || formatTimeForInput(editingEntry.check_in_at);
+      const checkOutTime = editTimes.check_out || formatTimeForInput(editingEntry.check_out_at);
+      
+      if (checkInTime && checkOutTime) {
+        const checkIn = new Date(`${editingEntry.entry_date}T${checkInTime}:00`);
+        const checkOut = new Date(`${editingEntry.entry_date}T${checkOutTime}:00`);
         
         if (lunchStart < checkIn || lunchEnd > checkOut) {
           toast({
@@ -771,6 +778,32 @@ export default function History() {
           });
           return;
         }
+      }
+    } else if (lunchStartTime && !lunchEndTime && editingEntry.lunch_break_end) {
+      // Only start time is being updated, but end time exists in DB
+      const lunchStart = new Date(`${editingEntry.entry_date}T${lunchStartTime}:00`);
+      const lunchEnd = new Date(editingEntry.lunch_break_end);
+      
+      if (lunchStart >= lunchEnd) {
+        toast({
+          title: 'Invalid Lunch Times',
+          description: 'Lunch start time must be before the existing end time.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    } else if (lunchEndTime && !lunchStartTime && editingEntry.lunch_break_start) {
+      // Only end time is being updated, but start time exists in DB
+      const lunchStart = new Date(editingEntry.lunch_break_start);
+      const lunchEnd = new Date(`${editingEntry.entry_date}T${lunchEndTime}:00`);
+      
+      if (lunchEnd <= lunchStart) {
+        toast({
+          title: 'Invalid Lunch Times',
+          description: 'Lunch end time must be after the existing start time.',
+          variant: 'destructive',
+        });
+        return;
       }
     }
 

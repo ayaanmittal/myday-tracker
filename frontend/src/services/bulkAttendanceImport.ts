@@ -28,10 +28,24 @@ export async function bulkImportAttendance(
     console.log(`Starting bulk import of ${records.length} attendance records...`);
 
     // Validate records
-    for (const record of records) {
+    const validRecords: BulkAttendanceRecord[] = [];
+    for (let i = 0; i < records.length; i++) {
+      const record = records[i];
+      
       if (!record.user_id || !record.entry_date || !record.device_info || !record.source) {
-        errors.push(`Invalid record: missing required fields`);
+        errors.push(`Record ${i + 1}: missing required fields`);
         continue;
+      }
+
+      // Validate lunch break times
+      if (record.lunch_break_start && record.lunch_break_end) {
+        const lunchStart = new Date(record.lunch_break_start);
+        const lunchEnd = new Date(record.lunch_break_end);
+        
+        if (lunchEnd <= lunchStart) {
+          errors.push(`Record ${i + 1}: lunch break end time must be after start time`);
+          continue;
+        }
       }
 
       // Calculate work time if not provided
@@ -51,12 +65,14 @@ export async function bulkImportAttendance(
           record.status = 'absent';
         }
       }
+
+      validRecords.push(record);
     }
 
     // Insert records in batches
     const batchSize = 100;
-    for (let i = 0; i < records.length; i += batchSize) {
-      const batch = records.slice(i, i + batchSize);
+    for (let i = 0; i < validRecords.length; i += batchSize) {
+      const batch = validRecords.slice(i, i + batchSize);
       
       const { data, error } = await supabase
         .from('unified_attendance')
@@ -95,22 +111,57 @@ export function createAttendanceRecordsFromCSV(
   csvData: any[],
   userMapping: Record<string, string> // employee_code -> user_id
 ): BulkAttendanceRecord[] {
-  return csvData.map(row => ({
-    user_id: userMapping[row.employee_code] || '',
-    employee_code: row.employee_code,
-    employee_name: row.employee_name,
-    entry_date: row.entry_date,
-    check_in_at: row.check_in_at ? new Date(row.check_in_at).toISOString() : undefined,
-    check_out_at: row.check_out_at ? new Date(row.check_out_at).toISOString() : undefined,
-    total_work_time_minutes: row.total_work_time_minutes,
-    status: row.status || 'in_progress',
-    is_late: row.is_late === 'true' || row.is_late === true,
-    device_info: row.device_info || 'Import',
-    device_id: row.device_id,
-    source: 'import' as const,
-    modification_reason: 'Bulk CSV import',
-    lunch_break_start: row.lunch_break_start ? new Date(row.lunch_break_start).toISOString() : undefined,
-    lunch_break_end: row.lunch_break_end ? new Date(row.lunch_break_end).toISOString() : undefined,
-  }));
+  return csvData
+    .map(row => {
+      const lunchBreakStart = row.lunch_break_start ? new Date(row.lunch_break_start).toISOString() : undefined;
+      const lunchBreakEnd = row.lunch_break_end ? new Date(row.lunch_break_end).toISOString() : undefined;
+      
+      // Validate lunch break times
+      if (lunchBreakStart && lunchBreakEnd) {
+        const lunchStart = new Date(lunchBreakStart);
+        const lunchEnd = new Date(lunchBreakEnd);
+        
+        if (lunchEnd <= lunchStart) {
+          console.warn(`Invalid lunch break times for ${row.employee_code} on ${row.entry_date}: end time must be after start time`);
+          // Clear invalid lunch break times to prevent constraint violation
+          return {
+            user_id: userMapping[row.employee_code] || '',
+            employee_code: row.employee_code,
+            employee_name: row.employee_name,
+            entry_date: row.entry_date,
+            check_in_at: row.check_in_at ? new Date(row.check_in_at).toISOString() : undefined,
+            check_out_at: row.check_out_at ? new Date(row.check_out_at).toISOString() : undefined,
+            total_work_time_minutes: row.total_work_time_minutes,
+            status: row.status || 'in_progress',
+            is_late: row.is_late === 'true' || row.is_late === true,
+            device_info: row.device_info || 'Import',
+            device_id: row.device_id,
+            source: 'import' as const,
+            modification_reason: 'Bulk CSV import (lunch break times cleared due to invalid data)',
+            lunch_break_start: undefined,
+            lunch_break_end: undefined,
+          };
+        }
+      }
+      
+      return {
+        user_id: userMapping[row.employee_code] || '',
+        employee_code: row.employee_code,
+        employee_name: row.employee_name,
+        entry_date: row.entry_date,
+        check_in_at: row.check_in_at ? new Date(row.check_in_at).toISOString() : undefined,
+        check_out_at: row.check_out_at ? new Date(row.check_out_at).toISOString() : undefined,
+        total_work_time_minutes: row.total_work_time_minutes,
+        status: row.status || 'in_progress',
+        is_late: row.is_late === 'true' || row.is_late === true,
+        device_info: row.device_info || 'Import',
+        device_id: row.device_id,
+        source: 'import' as const,
+        modification_reason: 'Bulk CSV import',
+        lunch_break_start: lunchBreakStart,
+        lunch_break_end: lunchBreakEnd,
+      };
+    })
+    .filter(record => record.user_id); // Filter out records without valid user_id
 }
 

@@ -340,6 +340,22 @@ export default function Today() {
     try {
       const now = new Date().toISOString();
       
+      // Validate: if lunch_break_end is already set, ensure start is before end
+      if (entry.lunch_break_end) {
+        const lunchEnd = new Date(entry.lunch_break_end);
+        const lunchStart = new Date(now);
+        
+        if (lunchStart >= lunchEnd) {
+          toast({
+            title: 'Invalid Time',
+            description: 'Lunch break start time must be before the end time. Please clear the end time first.',
+            variant: 'destructive',
+          });
+          setLoading(false);
+          return;
+        }
+      }
+      
       const { error } = await supabase
         .from('unified_attendance')
         .update({ lunch_break_start: now })
@@ -371,6 +387,31 @@ export default function Today() {
     try {
       const now = new Date().toISOString();
 
+      // Validate: lunch_break_start must exist and be before end time
+      if (!entry.lunch_break_start) {
+        toast({
+          title: 'Invalid Operation',
+          description: 'Please start your lunch break before ending it.',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
+
+      const lunchStart = new Date(entry.lunch_break_start);
+      const lunchEnd = new Date(now);
+      
+      // Validate: end time must be after start time
+      if (lunchEnd <= lunchStart) {
+        toast({
+          title: 'Invalid Time',
+          description: 'Lunch break end time must be after the start time.',
+          variant: 'destructive',
+        });
+        setLoading(false);
+        return;
+      }
+
       const { error } = await supabase
         .from('unified_attendance')
         .update({ lunch_break_end: now })
@@ -379,8 +420,6 @@ export default function Today() {
       if (error) throw error;
 
       // Calculate lunch break duration
-      const lunchStart = new Date(entry.lunch_break_start!);
-      const lunchEnd = new Date(now);
       const lunchDurationMinutes = Math.floor(
         (lunchEnd.getTime() - lunchStart.getTime()) / 60000
       );
