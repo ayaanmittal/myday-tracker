@@ -25,6 +25,7 @@ type ProfileRecord = {
   phone?: string | null;
   address?: string | null;
   is_active?: boolean;
+  joined_on_date?: string | null;
 };
 
 type UserRole = {
@@ -98,6 +99,7 @@ export function EmployeeDetailsDialog({ employeeId, employeeName, trigger, onSav
         designation: profile.designation ?? '',
         phone: profile.phone ?? '',
         address: profile.address ?? '',
+        joined_on_date: profile.joined_on_date || '',
       });
     }
   }, [profile]);
@@ -119,6 +121,7 @@ export function EmployeeDetailsDialog({ employeeId, employeeName, trigger, onSav
       if (typeof (profile as any).designation !== 'undefined' && typeof form.designation !== 'undefined') payload.designation = form.designation || null;
       if (typeof (profile as any).phone !== 'undefined' && typeof form.phone !== 'undefined') payload.phone = form.phone || null;
       if (typeof (profile as any).address !== 'undefined' && typeof form.address !== 'undefined') payload.address = form.address || null;
+      if (typeof (profile as any).joined_on_date !== 'undefined' && typeof form.joined_on_date !== 'undefined') payload.joined_on_date = form.joined_on_date || null;
 
       // Email typically managed by auth; only allow if present on table and changed
       if (typeof form.email !== 'undefined' && form.email !== profile.email) {
@@ -162,7 +165,7 @@ export function EmployeeDetailsDialog({ employeeId, employeeName, trigger, onSav
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button variant="outline" size="sm" className="text-xs">
+          <Button variant="outline" size="sm" className="text-xs text-gray-700 hover:text-gray-900 border-gray-300 [&_svg]:text-gray-700">
             <User2 className="h-3 w-3 mr-1" />
             Employee Details
           </Button>
@@ -170,21 +173,21 @@ export function EmployeeDetailsDialog({ employeeId, employeeName, trigger, onSav
       </DialogTrigger>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <User2 className="h-5 w-5" />
+          <DialogTitle className="flex items-center gap-2 text-gray-900">
+            <User2 className="h-5 w-5 text-gray-600" />
             Employee Details{employeeName ? ` - ${employeeName}` : ''}
           </DialogTitle>
         </DialogHeader>
 
         {!profile ? (
-          <div className="py-6 text-muted-foreground">{loading ? 'Loading...' : 'No data found'}</div>
+          <div className="py-6 text-gray-600">{loading ? 'Loading...' : 'No data found'}</div>
         ) : (
           <div className="space-y-6 py-2">
             {/* Role Section */}
-            <div className="border rounded-lg p-4 bg-muted/50">
+            <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
               <div className="flex items-center gap-2 mb-3">
-                <Shield className="h-4 w-4" />
-                <h3 className="font-medium">Role & Permissions</h3>
+                <Shield className="h-4 w-4 text-gray-600" />
+                <h3 className="font-medium text-gray-900">Role & Permissions</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -203,7 +206,7 @@ export function EmployeeDetailsDialog({ employeeId, employeeName, trigger, onSav
                       <SelectItem value="admin">Admin</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-xs text-gray-600 mt-1">
                     {selectedRole === 'admin' && 'Full system access and management capabilities'}
                     {selectedRole === 'manager' && 'Team management and oversight permissions'}
                     {selectedRole === 'employee' && 'Basic user access and time tracking'}
@@ -215,7 +218,7 @@ export function EmployeeDetailsDialog({ employeeId, employeeName, trigger, onSav
                     <div className={`h-2 w-2 rounded-full ${
                       profile.is_active ? 'bg-green-500' : 'bg-red-500'
                     }`} />
-                    <span className="text-sm">
+                    <span className="text-sm text-gray-900 font-medium">
                       {profile.is_active ? 'Active' : 'Inactive'}
                     </span>
                   </div>
@@ -225,7 +228,7 @@ export function EmployeeDetailsDialog({ employeeId, employeeName, trigger, onSav
 
             {/* Profile Details Section */}
             <div>
-              <h3 className="font-medium mb-3">Profile Information</h3>
+              <h3 className="font-medium mb-3 text-gray-900">Profile Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="name">Name</Label>
@@ -257,13 +260,23 @@ export function EmployeeDetailsDialog({ employeeId, employeeName, trigger, onSav
                     <Input id="address" value={(form.address as string) || ''} onChange={(e) => setForm({ ...form, address: e.target.value })} disabled={isReadOnly || loading} />
                   </div>
                 )}
+                <div>
+                  <Label htmlFor="joined_on_date">Joining Date</Label>
+                  <Input 
+                    id="joined_on_date" 
+                    type="date" 
+                    value={(form.joined_on_date as string) || ''} 
+                    onChange={(e) => setForm({ ...form, joined_on_date: e.target.value })} 
+                    disabled={isReadOnly || loading} 
+                  />
+                </div>
               </div>
             </div>
 
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => setOpen(false)} disabled={loading}>Close</Button>
+              <Button variant="outline" onClick={() => setOpen(false)} disabled={loading} className="text-gray-700 hover:text-gray-900 border-gray-300 [&_svg]:text-gray-700">Close</Button>
               {isAdmin && (
-                <Button onClick={handleSave} disabled={loading}>{loading ? 'Saving...' : 'Save'}</Button>
+                <Button onClick={handleSave} disabled={loading} className="bg-red-600 hover:bg-red-700 text-white [&_svg]:text-white">{loading ? 'Saving...' : 'Save'}</Button>
               )}
             </div>
           </div>

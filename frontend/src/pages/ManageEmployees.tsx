@@ -47,6 +47,7 @@ interface Employee {
   address: string | null;
   is_active: boolean;
   role: string;
+  joined_on_date?: string | null;
 }
 
 export default function ManageEmployees() {
@@ -92,6 +93,7 @@ export default function ManageEmployees() {
     phone: '',
     address: '',
     role: 'employee' as 'admin' | 'manager' | 'employee',
+    joined_on_date: '',
   });
 
   useEffect(() => {
@@ -160,6 +162,7 @@ export default function ManageEmployees() {
             designation: formData.designation || null,
             phone: formData.phone || null,
             address: formData.address || null,
+            joined_on_date: formData.joined_on_date || null,
           })
           .eq('id', editingEmployee.id);
 
@@ -227,6 +230,7 @@ export default function ManageEmployees() {
       phone: employee.phone || '',
       address: employee.address || '',
       role: employee.role as 'admin' | 'manager' | 'employee',
+      joined_on_date: (employee as any).joined_on_date || '',
     });
     setDialogOpen(true);
   };
@@ -478,6 +482,7 @@ export default function ManageEmployees() {
       phone: '',
       address: '',
       role: 'employee',
+      joined_on_date: '',
     });
     setEditingEmployee(null);
   };
@@ -616,6 +621,16 @@ export default function ManageEmployees() {
                     onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                     placeholder="Enter full address"
                     rows={3}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="joined_on_date">Joining Date (optional)</Label>
+                  <Input
+                    id="joined_on_date"
+                    type="date"
+                    value={formData.joined_on_date}
+                    onChange={(e) => setFormData({ ...formData, joined_on_date: e.target.value })}
                   />
                 </div>
 

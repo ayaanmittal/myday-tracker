@@ -122,7 +122,7 @@ export default function Dashboard() {
     return (
       <Layout>
         <div className="flex items-center justify-center h-full">
-          <div className="text-muted-foreground">Loading...</div>
+          <div className="text-gray-600">Loading...</div>
         </div>
       </Layout>
     );
@@ -134,7 +134,7 @@ export default function Dashboard() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="font-heading text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight gradient-text">Dashboard</h1>
-            <p className="text-muted-foreground text-base sm:text-lg font-medium">Employee activity and attendance</p>
+            <p className="text-gray-300 text-base sm:text-lg font-medium">Employee activity and attendance</p>
           </div>
           <div className="flex flex-col sm:flex-row gap-4">
             <DatePicker
@@ -148,7 +148,7 @@ export default function Dashboard() {
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <Card className="elegant-card elegant-shadow">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="text-sm font-semibold text-muted-foreground">Total Employees</CardTitle>
+              <CardTitle className="text-sm font-semibold text-gray-900">Total Employees</CardTitle>
               <Users className="h-5 w-5 text-primary" />
             </CardHeader>
             <CardContent>
@@ -158,7 +158,7 @@ export default function Dashboard() {
 
           <Card className="elegant-card elegant-shadow">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="text-sm font-semibold text-muted-foreground">Checked In</CardTitle>
+              <CardTitle className="text-sm font-semibold text-gray-900">Checked In</CardTitle>
               <Clock className="h-5 w-5 text-info" />
             </CardHeader>
             <CardContent>
@@ -168,7 +168,7 @@ export default function Dashboard() {
 
           <Card className="elegant-card elegant-shadow">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="text-sm font-semibold text-muted-foreground">Not Checked In</CardTitle>
+              <CardTitle className="text-sm font-semibold text-gray-900">Not Checked In</CardTitle>
               <AlertCircle className="h-5 w-5 text-warning" />
             </CardHeader>
             <CardContent>
@@ -178,7 +178,7 @@ export default function Dashboard() {
 
           <Card className="elegant-card elegant-shadow">
             <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <CardTitle className="text-sm font-semibold text-muted-foreground">Completed</CardTitle>
+              <CardTitle className="text-sm font-semibold text-gray-900">Completed</CardTitle>
               <CheckCircle className="h-5 w-5 text-success" />
             </CardHeader>
             <CardContent>
@@ -212,11 +212,11 @@ export default function Dashboard() {
                       </div>
                       <div>
                         <p className="font-medium">{employee.name}</p>
-                        <p className="text-sm text-muted-foreground">{employee.team || 'No team'}</p>
+                        <p className="text-sm text-gray-600">{employee.team || 'No team'}</p>
                       </div>
                     </div>
                     {employee.today_focus && (
-                      <p className="text-sm text-muted-foreground mt-2 ml-13">
+                      <p className="text-sm text-gray-600 mt-2 ml-13">
                         {employee.today_focus.substring(0, 100)}
                         {employee.today_focus.length > 100 && '...'}
                       </p>
@@ -236,12 +236,12 @@ export default function Dashboard() {
                       }
                       className={
                         employee.status === 'completed'
-                          ? 'bg-success/10 text-success hover:bg-success/20'
+                          ? 'bg-green-100 text-green-800 border-0 hover:bg-green-200'
                           : employee.status === 'in_progress'
-                          ? 'bg-info/10 text-info hover:bg-info/20'
+                          ? 'bg-blue-100 text-blue-800 border-0 hover:bg-blue-200'
                           : employee.status === 'unlogged'
-                          ? 'bg-destructive/10 text-destructive hover:bg-destructive/20'
-                          : ''
+                          ? 'bg-red-100 text-red-800 border-0 hover:bg-red-200'
+                          : 'bg-gray-100 text-gray-800 border-0 hover:bg-gray-200'
                       }
                     >
                       {employee.status === 'completed'
@@ -254,7 +254,7 @@ export default function Dashboard() {
                     </Badge>
 
                     {employee.check_in_at && (
-                      <span className="text-sm text-muted-foreground">
+                      <span className="text-sm text-gray-600">
                         {new Date(employee.check_in_at).toLocaleTimeString('en-US', {
                           hour: '2-digit',
                           minute: '2-digit',
@@ -266,15 +266,16 @@ export default function Dashboard() {
                       size="sm"
                       variant="ghost"
                       onClick={() => navigate(`/messages?to=${employee.id}`)}
+                      className="text-gray-700 hover:text-gray-900 hover:bg-gray-100"
                     >
-                      <MessageSquare className="h-4 w-4" />
+                      <MessageSquare className="h-4 w-4 text-gray-700" />
                     </Button>
                   </div>
                 </div>
               ))}
 
               {employees.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
+                <div className="text-center py-8 text-gray-600">
                   No employees found
                 </div>
               )}

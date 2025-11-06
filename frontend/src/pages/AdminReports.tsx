@@ -444,7 +444,7 @@ export default function AdminReports() {
     return (
       <Layout>
         <div className="flex items-center justify-center h-full">
-          <div className="text-muted-foreground">Loading reports...</div>
+          <div className="text-gray-600">Loading reports...</div>
         </div>
       </Layout>
     );
@@ -454,7 +454,7 @@ export default function AdminReports() {
     return (
       <Layout>
         <div className="flex items-center justify-center h-full">
-          <div className="text-muted-foreground">No data available</div>
+          <div className="text-gray-600">No data available</div>
         </div>
       </Layout>
     );
@@ -474,7 +474,7 @@ export default function AdminReports() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Analytics & Reports</h1>
-              <p className="text-muted-foreground text-sm sm:text-base">Comprehensive workforce insights and performance metrics</p>
+              <p className="text-gray-300 text-sm sm:text-base">Comprehensive workforce insights and performance metrics</p>
             </div>
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex gap-2">
@@ -482,10 +482,10 @@ export default function AdminReports() {
                   <button
                     key={period}
                     onClick={() => setSelectedPeriod(period)}
-                    className={`px-4 py-2 rounded-md transition-colors ${
+                    className={`px-4 py-2 rounded-md transition-colors font-medium ${
                       selectedPeriod === period
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted hover:bg-muted/80'
+                        ? 'bg-red-600 text-white'
+                        : 'bg-white text-gray-900 border border-gray-300 hover:bg-gray-50'
                     }`}
                   >
                     {period.charAt(0).toUpperCase() + period.slice(1)}
@@ -539,7 +539,7 @@ export default function AdminReports() {
               <CardTitle className="text-sm font-medium">
                 {selectedEmployee === 'all' ? 'Total Employees' : 'Selected Employee'}
               </CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <Users className="h-4 w-4 text-gray-600" />
             </CardHeader>
             <CardContent>
               {selectedEmployee === 'all' ? (
@@ -572,7 +572,7 @@ export default function AdminReports() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Avg Work Hours</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
+              <Clock className="h-4 w-4 text-gray-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
@@ -599,11 +599,11 @@ export default function AdminReports() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Leave Requests</CardTitle>
-              <Plane className="h-4 w-4 text-muted-foreground" />
+              <Plane className="h-4 w-4 text-gray-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{analytics.leaveStats.totalRequests}</div>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-gray-600 mt-1">
                 {analytics.leaveStats.avgDaysPerRequest.toFixed(1)} avg days/request
               </p>
             </CardContent>
@@ -636,7 +636,7 @@ export default function AdminReports() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Most Requested Type</CardTitle>
-              <CalendarDays className="h-4 w-4 text-muted-foreground" />
+              <CalendarDays className="h-4 w-4 text-gray-600" />
             </CardHeader>
             <CardContent>
               <div className="text-lg font-bold">{analytics.leaveStats.mostRequestedType}</div>
@@ -763,7 +763,7 @@ export default function AdminReports() {
                         </div>
                         <div>
                           <p className="font-medium">{performer.name}</p>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-sm text-gray-600">
                             Avg: {performer.avgHours.toFixed(1)}h/day
                           </p>
                         </div>
@@ -872,7 +872,7 @@ export default function AdminReports() {
                         <TableCell>{request.leaveType}</TableCell>
                         <TableCell>
                           {request.days} days
-                          <div className="text-xs text-muted-foreground">
+                          <div className="text-xs text-gray-600">
                             {request.startDate} - {request.endDate}
                           </div>
                         </TableCell>
@@ -895,10 +895,10 @@ export default function AdminReports() {
                               Yes
                             </Badge>
                           ) : (
-                            <span className="text-muted-foreground">No</span>
+                            <span className="text-gray-600">No</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
+                        <TableCell className="text-sm text-gray-600">
                           {request.createdAt}
                         </TableCell>
                       </TableRow>
@@ -954,7 +954,7 @@ export default function AdminReports() {
                           </TableCell>
                           <TableCell>
                             <div className="flex items-center space-x-2">
-                              <div className="w-16 bg-muted rounded-full h-2">
+                              <div className="w-16 bg-gray-200 rounded-full h-2">
                                 <div 
                                   className={`h-2 rounded-full ${
                                     usagePercent > 80 
@@ -966,7 +966,7 @@ export default function AdminReports() {
                                   style={{ width: `${Math.min(usagePercent, 100)}%` }}
                                 />
                               </div>
-                              <span className="text-sm text-muted-foreground">
+                              <span className="text-sm text-gray-600">
                                 {usagePercent.toFixed(0)}%
                               </span>
                             </div>
@@ -1010,7 +1010,7 @@ export default function AdminReports() {
                           <TableCell>
                             <div>
                               <p className="font-medium">{employee.name}</p>
-                              <p className="text-sm text-muted-foreground">{employee.email}</p>
+                              <p className="text-sm text-gray-600">{employee.email}</p>
                             </div>
                           </TableCell>
                           <TableCell>{employee.team}</TableCell>
@@ -1037,7 +1037,7 @@ export default function AdminReports() {
                               variant="outline" 
                               className={employee.unloggedDays > 0 
                                 ? 'bg-destructive/10 text-destructive border-destructive' 
-                                : 'bg-muted/10 text-muted-foreground border-muted'}
+                                : 'bg-gray-100 text-gray-700 border-gray-300'}
                             >
                               {employee.unloggedDays}
                             </Badge>
@@ -1045,7 +1045,7 @@ export default function AdminReports() {
                           <TableCell className="text-center">
                             {employee.avgHours > 0 ? `${employee.avgHours.toFixed(1)}h` : '-'}
                           </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
+                          <TableCell className="text-sm text-gray-600">
                             {employee.lastActivity}
                           </TableCell>
                         </TableRow>
@@ -1079,9 +1079,9 @@ export default function AdminReports() {
                       <div className="flex-1">
                         <div className="flex items-center justify-between mb-1">
                           <p className="font-medium">{activity.employeeName}</p>
-                          <span className="text-sm text-muted-foreground">{activity.date}</span>
+                          <span className="text-sm text-gray-600">{activity.date}</span>
                         </div>
-                        <p className="text-sm text-muted-foreground mb-2">{activity.focus}</p>
+                        <p className="text-sm text-gray-600 mb-2">{activity.focus}</p>
                         <div className="flex items-center gap-2">
                           <Badge
                             className={
@@ -1091,13 +1091,13 @@ export default function AdminReports() {
                                 ? 'bg-warning/10 text-warning'
                                 : activity.status === 'unlogged'
                                 ? 'bg-destructive/10 text-destructive'
-                                : 'bg-muted/10 text-muted-foreground'
+                                : 'bg-gray-100 text-gray-700'
                             }
                           >
                             {activity.status.replace('_', ' ')}
                           </Badge>
                           {activity.hours > 0 && (
-                            <span className="text-xs text-muted-foreground">
+                            <span className="text-xs text-gray-600">
                               {activity.hours.toFixed(1)}h worked
                             </span>
                           )}
