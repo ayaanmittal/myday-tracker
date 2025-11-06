@@ -492,14 +492,14 @@ export default function AttendanceHolidayManager() {
               <Button
                 onClick={markBulkLeave}
                 disabled={processing || !startDate || !endDate || selectedEmployees.length === 0}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white [&_svg]:text-white"
               >
                 Mark Selected Employees Leave (Not Absent)
               </Button>
               <Button
                 onClick={markAsOfficeHoliday}
                 disabled={processing || !startDate || !endDate}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className="bg-green-600 hover:bg-green-700 text-white [&_svg]:text-white"
               >
                 <Calendar className="h-4 w-4" />
                 Mark as Office Holiday
@@ -562,7 +562,7 @@ export default function AttendanceHolidayManager() {
               <Button
                 onClick={applySelectedApprovedLeaves}
                 disabled={processing || selectedApproved.length === 0}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white [&_svg]:text-white"
               >
                 Process Leave
               </Button>

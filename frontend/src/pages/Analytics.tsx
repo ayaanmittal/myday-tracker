@@ -129,7 +129,7 @@ export default function Analytics() {
     return (
       <Layout>
         <div className="flex items-center justify-center h-full">
-          <div className="text-muted-foreground">Loading analytics...</div>
+          <div className="text-gray-600">Loading analytics...</div>
         </div>
       </Layout>
     );
@@ -139,7 +139,7 @@ export default function Analytics() {
     return (
       <Layout>
         <div className="flex items-center justify-center h-full">
-          <div className="text-muted-foreground">No data available</div>
+          <div className="text-gray-600">No data available</div>
         </div>
       </Layout>
     );
@@ -153,17 +153,17 @@ export default function Analytics() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Work Analytics</h1>
-            <p className="text-muted-foreground">Track your progress and patterns</p>
+            <p className="text-gray-300">Track your progress and patterns</p>
           </div>
           <div className="flex gap-2">
             {(['week', 'month', 'all'] as const).map((period) => (
               <button
                 key={period}
                 onClick={() => setSelectedPeriod(period)}
-                className={`px-4 py-2 rounded-md transition-colors ${
+                className={`px-4 py-2 rounded-md transition-colors font-medium ${
                   selectedPeriod === period
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted hover:bg-muted/80'
+                    ? 'bg-red-600 text-white'
+                    : 'bg-white text-gray-900 border border-gray-300 hover:bg-gray-50'
                 }`}
               >
                 {period === 'all' ? 'All Time' : period.charAt(0).toUpperCase() + period.slice(1)}
@@ -177,7 +177,7 @@ export default function Analytics() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Days</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
+              <Calendar className="h-4 w-4 text-gray-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{analytics.totalDays}</div>
@@ -191,7 +191,7 @@ export default function Analytics() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-success">{analytics.completedDays}</div>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-gray-600 mt-1">
                 {analytics.totalDays > 0 
                   ? `${Math.round((analytics.completedDays / analytics.totalDays) * 100)}% completion rate`
                   : 'No data yet'}
@@ -202,7 +202,7 @@ export default function Analytics() {
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Avg Work Hours</CardTitle>
-              <Clock className="h-4 w-4 text-muted-foreground" />
+              <Clock className="h-4 w-4 text-gray-600" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
@@ -311,23 +311,23 @@ export default function Analytics() {
                 <div key={index} className="border-b last:border-0 pb-4 last:pb-0">
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="font-semibold">{update.date}</h4>
-                    <span className="text-sm text-muted-foreground">
+                    <span className="text-sm text-gray-600">
                       {update.hours > 0 ? `${update.hours.toFixed(1)}h` : 'No time logged'}
                     </span>
                   </div>
                   <div className="space-y-2 text-sm">
                     <div>
                       <span className="font-medium">Focus: </span>
-                      <span className="text-muted-foreground">{update.focus}</span>
+                      <span className="text-gray-600">{update.focus}</span>
                     </div>
                     <div>
                       <span className="font-medium">Completed: </span>
-                      <span className="text-muted-foreground">{update.progress}</span>
+                      <span className="text-gray-600">{update.progress}</span>
                     </div>
                     {update.blockers && (
                       <div>
                         <span className="font-medium text-destructive">Blockers: </span>
-                        <span className="text-muted-foreground">{update.blockers}</span>
+                        <span className="text-gray-600">{update.blockers}</span>
                       </div>
                     )}
                   </div>

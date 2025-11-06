@@ -40,6 +40,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 
 interface Employee {
   id: string;
+  user_id: string;
   name: string;
   email: string;
   designation: string;
@@ -48,6 +49,7 @@ interface Employee {
   address: string;
   joined_on_date: string;
   base_salary: number;
+  salary_effective_from?: string; // Date when salary became effective
   is_active: boolean;
   employee_category: string;
   probation_period_months: number;
@@ -93,12 +95,16 @@ export default function SalaryManagement() {
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
   const [selectedEmployeeForSalary, setSelectedEmployeeForSalary] = useState<string | null>(null);
   const [newSalary, setNewSalary] = useState({
-    user_id: '',
+    profile_id: '', // Store profile_id for the Select component
     base_salary: '',
     effective_from: new Date().toISOString().slice(0, 10),
     currency: 'INR',
     salary_frequency: 'monthly'
   });
+  const [originalSalaryData, setOriginalSalaryData] = useState<{
+    effective_from?: string;
+    salary_id?: string;
+  } | null>(null);
   const [generateData, setGenerateData] = useState({
     selectedEmployees: [] as string[],
     manualAdvances: {} as Record<string, number>,
@@ -139,22 +145,83 @@ export default function SalaryManagement() {
     loadSalaryData();
   }, [selectedMonth]);
 
-  // Pre-populate selected employee in salary dialog
+  // Pre-populate selected employee in salary dialog and fetch existing salary
   useEffect(() => {
-    if (selectedEmployeeForSalary && showAddSalary) {
-      setNewSalary(prev => ({
-        ...prev,
-        user_id: selectedEmployeeForSalary
-      }));
-    }
-  }, [selectedEmployeeForSalary, showAddSalary]);
+    const loadExistingSalary = async () => {
+      if (!showAddSalary || !selectedEmployeeForSalary) return;
+
+      // Find the employee to get user_id
+      const employee = employees.find(emp => emp.id === selectedEmployeeForSalary);
+      if (!employee || !employee.user_id) return;
+
+      try {
+        // Fetch existing active salary for this employee
+        const { data: existingSalary, error } = await supabase
+          .from('employee_salaries')
+          .select('base_salary, effective_from, currency, salary_frequency')
+          .eq('user_id', employee.user_id)
+          .eq('is_active', true)
+          .order('effective_from', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error && error.code !== 'PGRST116') {
+          console.warn('Error fetching existing salary:', error);
+          return;
+        }
+
+        if (existingSalary) {
+          // Store original salary data for comparison
+          const { data: salaryRecord } = await supabase
+            .from('employee_salaries')
+            .select('id, effective_from')
+            .eq('user_id', employee.user_id)
+            .eq('is_active', true)
+            .order('effective_from', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          
+          setOriginalSalaryData({
+            effective_from: existingSalary.effective_from,
+            salary_id: salaryRecord?.id
+          });
+          
+          // Auto-fill with existing salary data
+          setNewSalary(prev => ({
+            ...prev,
+            profile_id: selectedEmployeeForSalary,
+            base_salary: existingSalary.base_salary.toString(),
+            effective_from: existingSalary.effective_from,
+            currency: existingSalary.currency || 'INR',
+            salary_frequency: existingSalary.salary_frequency || 'monthly'
+          }));
+        } else {
+          // No existing salary, clear original data
+          setOriginalSalaryData(null);
+          // No existing salary, just set the profile_id
+          setNewSalary(prev => ({
+            ...prev,
+            profile_id: selectedEmployeeForSalary,
+            base_salary: '',
+            effective_from: new Date().toISOString().slice(0, 10),
+            currency: 'INR',
+            salary_frequency: 'monthly'
+          }));
+        }
+      } catch (err) {
+        console.error('Error loading existing salary:', err);
+      }
+    };
+
+    loadExistingSalary();
+  }, [selectedEmployeeForSalary, showAddSalary, employees]);
 
   // Fetch leave deduction data when selected employees change
   useEffect(() => {
-    if (generateData.selectedEmployees.length > 0) {
+    if (generateData.selectedEmployees.length > 0 && employees.length > 0) {
       fetchLeaveDeductionData(generateData.selectedEmployees);
     }
-  }, [generateData.selectedEmployees, selectedMonth, generateData.unpaidLeavePercentage]);
+  }, [generateData.selectedEmployees, selectedMonth, generateData.unpaidLeavePercentage, employees]);
 
   // Auto-fetch employee notes when dialog opens
   useEffect(() => {
@@ -242,6 +309,7 @@ export default function SalaryManagement() {
         
         return {
           id: emp.id,
+          user_id: emp.user_id,
           name: emp.name,
           email: emp.email,
           designation: emp.designation,
@@ -250,6 +318,7 @@ export default function SalaryManagement() {
           address: emp.address,
           joined_on_date: emp.joined_on_date,
           base_salary: employeeSalary?.base_salary || 0,
+          salary_effective_from: employeeSalary?.effective_from || undefined,
           is_active: emp.is_active,
           employee_category: emp.employee_categories?.name || 'Unknown',
           probation_period_months: emp.probation_period_months
@@ -279,65 +348,52 @@ export default function SalaryManagement() {
         .from('salary_payments')
         .select(`
           *,
-          profiles!inner(name)
+          profiles!inner(name, id, user_id)
         `)
         .eq('payment_month', monthStart.toISOString().slice(0, 10));
 
       if (paymentsError) throw paymentsError;
 
-      setSalaryPayments(payments?.map(payment => ({
-        ...payment,
-        employee_name: payment.profiles.name
-      })) || []);
+      // Get all user roles to filter out admin salaries
+      const { data: userRoles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role');
 
-      // Load analytics with multiple fallback strategies
-      try {
-        // Try simple analytics function first
-        const { data: simpleAnalytics, error: simpleError } = await supabase
-          .rpc('get_simple_payroll_analytics', {
-            p_start_month: monthStart.toISOString().slice(0, 10),
-            p_end_month: new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).toISOString().slice(0, 10)
-          });
-
-        if (!simpleError && simpleAnalytics?.[0]) {
-          setAnalytics(simpleAnalytics[0]);
-        } else {
-          // Try original analytics function
-          const { data: analyticsData, error: analyticsError } = await supabase
-            .rpc('get_payroll_analytics', {
-              p_start_month: monthStart.toISOString().slice(0, 10),
-              p_end_month: new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).toISOString().slice(0, 10)
-            });
-
-          if (!analyticsError && analyticsData?.[0]) {
-            setAnalytics(analyticsData[0]);
-          } else {
-            // Fallback to frontend calculation
-            console.warn('Analytics functions failed, using frontend calculation');
-            setAnalytics({
-              total_employees: payments?.length || 0,
-              total_payroll_outflow: payments?.reduce((sum, p) => sum + (p.net_salary || 0), 0) || 0,
-              average_salary: payments?.length > 0 ? (payments.reduce((sum, p) => sum + (p.net_salary || 0), 0) / payments.length) : 0,
-              highest_paid_employee: payments?.length > 0 ? payments.reduce((max, p) => (p.net_salary || 0) > (max.net_salary || 0) ? p : max).employee_name : 'N/A',
-              highest_salary: payments?.length > 0 ? Math.max(...payments.map(p => p.net_salary || 0)) : 0,
-              total_leave_deductions: payments?.reduce((sum, p) => sum + (p.leave_deductions || 0), 0) || 0,
-              average_deduction_percentage: payments?.length > 0 ? (payments.reduce((sum, p) => sum + (p.deduction_percentage || 0), 0) / payments.length) : 0
-            });
-          }
-        }
-      } catch (error) {
-        console.warn('All analytics methods failed:', error);
-        // Final fallback - always show some data
-        setAnalytics({
-          total_employees: payments?.length || 0,
-          total_payroll_outflow: payments?.reduce((sum, p) => sum + (p.net_salary || 0), 0) || 0,
-          average_salary: payments?.length > 0 ? (payments.reduce((sum, p) => sum + (p.net_salary || 0), 0) / payments.length) : 0,
-          highest_paid_employee: payments?.length > 0 ? payments.reduce((max, p) => (p.net_salary || 0) > (max.net_salary || 0) ? p : max).employee_name : 'N/A',
-          highest_salary: payments?.length > 0 ? Math.max(...payments.map(p => p.net_salary || 0)) : 0,
-          total_leave_deductions: payments?.reduce((sum, p) => sum + (p.leave_deductions || 0), 0) || 0,
-          average_deduction_percentage: payments?.length > 0 ? (payments.reduce((sum, p) => sum + (p.deduction_percentage || 0), 0) / payments.length) : 0
-        });
+      if (rolesError) {
+        console.warn('Error fetching user roles:', rolesError);
       }
+
+      // Create a map of user_id to role
+      const roleMap = new Map<string, string>();
+      userRoles?.forEach(ur => {
+        roleMap.set(ur.user_id, ur.role);
+      });
+
+      // Filter out admin salaries
+      const allPayments = payments?.map(payment => ({
+        ...payment,
+        employee_name: payment.profiles.name,
+        user_id: payment.profiles.user_id || payment.user_id
+      })) || [];
+
+      const nonAdminPayments = allPayments.filter(payment => {
+        const userRole = roleMap.get(payment.user_id);
+        return userRole !== 'admin';
+      });
+
+      setSalaryPayments(nonAdminPayments);
+
+      // Calculate analytics using frontend calculation to ensure admin exclusion
+      // (Database RPC functions may include admin salaries, so we always use frontend calculation)
+      setAnalytics({
+        total_employees: nonAdminPayments.length || 0,
+        total_payroll_outflow: nonAdminPayments.reduce((sum, p) => sum + (p.net_salary || 0), 0) || 0,
+        average_salary: nonAdminPayments.length > 0 ? (nonAdminPayments.reduce((sum, p) => sum + (p.net_salary || 0), 0) / nonAdminPayments.length) : 0,
+        highest_paid_employee: nonAdminPayments.length > 0 ? nonAdminPayments.reduce((max, p) => (p.net_salary || 0) > (max.net_salary || 0) ? p : max).employee_name : 'N/A',
+        highest_salary: nonAdminPayments.length > 0 ? Math.max(...nonAdminPayments.map(p => p.net_salary || 0)) : 0,
+        total_leave_deductions: nonAdminPayments.reduce((sum, p) => sum + (p.leave_deductions || 0), 0) || 0,
+        average_deduction_percentage: nonAdminPayments.length > 0 ? (nonAdminPayments.reduce((sum, p) => sum + (p.deduction_percentage || 0), 0) / nonAdminPayments.length) : 0
+      });
     } catch (error) {
       console.error('Error loading salary data:', error);
       toast({
@@ -423,29 +479,43 @@ export default function SalaryManagement() {
       setLoading(true);
       const monthStart = new Date(selectedMonth + '-01');
       
+      // Convert profile IDs to user_ids for RPC function
+      const selectedUserIds = generateData.selectedEmployees
+        .map(profileId => {
+          const employee = employees.find(e => e.id === profileId);
+          return employee?.user_id;
+        })
+        .filter((userId): userId is string => !!userId); // Filter out undefined values
+      
       // Generate payments for selected employees only
       const { data, error } = await supabase
         .rpc('generate_monthly_salary_payments', {
           p_payment_month: monthStart.toISOString().slice(0, 10),
           p_processed_by: null,
-          p_selected_employees: generateData.selectedEmployees
+          p_selected_employees: selectedUserIds.length > 0 ? selectedUserIds : null
         });
 
       if (error) throw error;
 
       // Update payments with manual adjustments (advances and unpaid days) if any
-      for (const employeeId of generateData.selectedEmployees) {
-        const advanceAmount = generateData.manualAdvances[employeeId] || 0;
-        const advanceReason = generateData.advanceReasons[employeeId] || '';
-        const manualUnpaidDays = generateData.manualUnpaidDays[employeeId];
-        const originalUnpaidDays = leaveDeductionData[employeeId]?.unpaid_leave_days || 0;
+      for (const profileId of generateData.selectedEmployees) {
+        const employee = employees.find(e => e.id === profileId);
+        if (!employee || !employee.user_id) {
+          console.warn(`Employee not found or missing user_id for profile ${profileId}`);
+          continue;
+        }
         
-        // Find the payment for this employee
+        const advanceAmount = generateData.manualAdvances[profileId] || 0;
+        const advanceReason = generateData.advanceReasons[profileId] || '';
+        const manualUnpaidDays = generateData.manualUnpaidDays[profileId];
+        const originalUnpaidDays = leaveDeductionData[profileId]?.unpaid_leave_days || 0;
+        
+        // Find the payment for this employee (payment has user_id, not profile id)
         const monthDate = new Date(selectedMonth + '-01');
         const totalDaysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
-        const dailyRate = leaveDeductionData[employeeId]?.daily_rate || (employees.find(e => e.id === employeeId)?.base_salary || 0) / totalDaysInMonth;
+        const dailyRate = leaveDeductionData[profileId]?.daily_rate || (employee.base_salary || 0) / totalDaysInMonth;
         
-        const payment = data?.find((p: any) => p.user_id === employeeId);
+        const payment = data?.find((p: any) => p.user_id === employee.user_id);
         if (payment) {
           let updateData: any = {};
           
@@ -616,18 +686,153 @@ export default function SalaryManagement() {
 
   const addEmployeeSalary = async () => {
     try {
-      const { error } = await supabase
-        .from('employee_salaries')
-        .insert({
-          user_id: newSalary.user_id,
-          profile_id: newSalary.user_id, // Assuming profile_id = user_id
-          base_salary: parseFloat(newSalary.base_salary),
-          currency: newSalary.currency,
-          salary_frequency: newSalary.salary_frequency,
-          effective_from: newSalary.effective_from
+      // Validate that profile_id is selected
+      if (!newSalary.profile_id || newSalary.profile_id === '') {
+        toast({
+          title: "Error",
+          description: "Please select an employee",
+          variant: "destructive",
         });
+        return;
+      }
 
-      if (error) throw error;
+      // Find the employee to get both profile id and user_id
+      const employee = employees.find(emp => emp.id === newSalary.profile_id);
+      if (!employee || !employee.user_id) {
+        toast({
+          title: "Error",
+          description: "Employee not found or missing user_id",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Use profile id for the Select value, but need user_id for the insert
+      const profileId = employee.id;
+      const userId = employee.user_id;
+
+      // Check if effective_from date has changed from original
+      const effectiveFromChanged = originalSalaryData && 
+        originalSalaryData.effective_from !== newSalary.effective_from;
+
+      // Get the current active salary for this user
+      const { data: currentActiveSalary, error: checkActiveError } = await supabase
+        .from('employee_salaries')
+        .select('id, effective_from, is_active')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .order('effective_from', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (checkActiveError && checkActiveError.code !== 'PGRST116') {
+        throw checkActiveError;
+      }
+
+      // Check if there's already a salary with the new effective_from date
+      const { data: existingWithNewDate, error: checkNewDateError } = await supabase
+        .from('employee_salaries')
+        .select('id, effective_from, is_active')
+        .eq('user_id', userId)
+        .eq('effective_from', newSalary.effective_from)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (checkNewDateError && checkNewDateError.code !== 'PGRST116') {
+        throw checkNewDateError;
+      }
+
+      if (existingWithNewDate) {
+        // There's already a salary with this effective_from date, update it
+        const { error: updateError } = await supabase
+          .from('employee_salaries')
+          .update({
+            base_salary: parseFloat(newSalary.base_salary),
+            currency: newSalary.currency,
+            salary_frequency: newSalary.salary_frequency,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingWithNewDate.id);
+
+        if (updateError) throw updateError;
+      } else if (currentActiveSalary && effectiveFromChanged) {
+        // There's an active salary and the effective_from date has changed
+        // Deactivate the old salary and create a new one with the new effective_from
+        const dayBeforeEffective = new Date(newSalary.effective_from);
+        dayBeforeEffective.setDate(dayBeforeEffective.getDate() - 1);
+        
+        const { error: deactivateError } = await supabase
+          .from('employee_salaries')
+          .update({
+            is_active: false,
+            effective_to: dayBeforeEffective.toISOString().slice(0, 10),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', currentActiveSalary.id);
+
+        if (deactivateError) throw deactivateError;
+
+        // Insert new salary record with new effective_from date
+        const { error: insertError } = await supabase
+          .from('employee_salaries')
+          .insert({
+            user_id: userId,
+            profile_id: profileId,
+            base_salary: parseFloat(newSalary.base_salary),
+            currency: newSalary.currency,
+            salary_frequency: newSalary.salary_frequency,
+            effective_from: newSalary.effective_from
+          });
+
+        if (insertError) throw insertError;
+      } else if (currentActiveSalary && !effectiveFromChanged) {
+        // There's an active salary and effective_from hasn't changed, just update it
+        const { error: updateError } = await supabase
+          .from('employee_salaries')
+          .update({
+            base_salary: parseFloat(newSalary.base_salary),
+            currency: newSalary.currency,
+            salary_frequency: newSalary.salary_frequency,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', currentActiveSalary.id);
+
+        if (updateError) throw updateError;
+      } else {
+        // No existing active salary, create new one
+        // But first, deactivate any active salaries that might exist
+        const dayBeforeEffective = new Date(newSalary.effective_from);
+        dayBeforeEffective.setDate(dayBeforeEffective.getDate() - 1);
+        
+        const { error: deactivateError } = await supabase
+          .from('employee_salaries')
+          .update({
+            is_active: false,
+            effective_to: dayBeforeEffective.toISOString().slice(0, 10),
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', userId)
+          .eq('is_active', true);
+
+        if (deactivateError && deactivateError.code !== 'PGRST116') {
+          console.warn('Error deactivating old salary:', deactivateError);
+          // Continue anyway - might not have an old salary
+        }
+
+        // Insert new salary record
+        const { error: insertError } = await supabase
+          .from('employee_salaries')
+          .insert({
+            user_id: userId,
+            profile_id: profileId,
+            base_salary: parseFloat(newSalary.base_salary),
+            currency: newSalary.currency,
+            salary_frequency: newSalary.salary_frequency,
+            effective_from: newSalary.effective_from
+          });
+
+        if (insertError) throw insertError;
+      }
 
       toast({
         title: "Success",
@@ -636,8 +841,9 @@ export default function SalaryManagement() {
 
       setShowAddSalary(false);
       setSelectedEmployeeForSalary(null);
+      setOriginalSalaryData(null);
       setNewSalary({
-        user_id: '',
+        profile_id: '',
         base_salary: '',
         effective_from: new Date().toISOString().slice(0, 10),
         currency: 'INR',
@@ -658,21 +864,29 @@ export default function SalaryManagement() {
     try {
       const deductionData: Record<string, any> = {};
       
-      for (const employeeId of employeeIds) {
+      for (const profileId of employeeIds) {
         try {
+          // Find the employee to get their user_id
+          const employee = employees.find(emp => emp.id === profileId);
+          if (!employee || !employee.user_id) {
+            console.warn(`Employee not found or missing user_id for profile ${profileId}`);
+            continue;
+          }
+          
+          // Call RPC with user_id (auth.users.id), not profile id
           const data = await SalaryService.calculateEmployeeLeaveDeductions(
-            employeeId,
+            employee.user_id,
             selectedMonth,
             generateData.unpaidLeavePercentage
           );
-          deductionData[employeeId] = data;
+          deductionData[profileId] = data;
         } catch (error) {
-          console.warn(`Failed to fetch leave deduction data for employee ${employeeId}:`, error);
+          console.warn(`Failed to fetch leave deduction data for employee ${profileId}:`, error);
           // Set default values if calculation fails
           // Calculate total days in the month
           const monthDate = new Date(selectedMonth + '-01');
           const totalDaysInMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0).getDate();
-          deductionData[employeeId] = {
+          deductionData[profileId] = {
             employee_name: 'Unknown',
             base_salary: 0,
             work_days_in_month: 0,
@@ -706,7 +920,7 @@ export default function SalaryManagement() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold">Salary Management</h1>
-            <p className="text-muted-foreground">Manage employee salaries and payroll</p>
+            <p className="text-gray-600">Manage employee salaries and payroll</p>
           </div>
           <div className="flex gap-2">
             <Button onClick={() => setShowAddSalary(true)}>
@@ -726,11 +940,11 @@ export default function SalaryManagement() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Payroll</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <DollarSign className="h-4 w-4 text-gray-600" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{formatCurrency(analytics.total_payroll_outflow)}</div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-gray-600">
                   {analytics.total_employees} employees
                 </p>
               </CardContent>
@@ -739,11 +953,11 @@ export default function SalaryManagement() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Average Salary</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                <TrendingUp className="h-4 w-4 text-gray-600" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{formatCurrency(analytics.average_salary)}</div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-gray-600">
                   Per employee
                 </p>
               </CardContent>
@@ -752,11 +966,11 @@ export default function SalaryManagement() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Highest Paid</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
+                <Users className="h-4 w-4 text-gray-600" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{formatCurrency(analytics.highest_salary)}</div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-gray-600">
                   {analytics.highest_paid_employee}
                 </p>
               </CardContent>
@@ -765,11 +979,11 @@ export default function SalaryManagement() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Leave Deductions</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                <TrendingUp className="h-4 w-4 text-gray-600" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">{formatCurrency(analytics.total_leave_deductions)}</div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-gray-600">
                   {analytics.average_deduction_percentage.toFixed(1)}% average
                 </p>
               </CardContent>
@@ -845,7 +1059,7 @@ export default function SalaryManagement() {
                             <TableCell>{formatCurrency(payment.base_salary)}</TableCell>
                             <TableCell>
                               <div className="text-red-600">{formatCurrency(payment.leave_deductions)}</div>
-                              <div className="text-xs text-muted-foreground">
+                              <div className="text-xs text-gray-600">
                                 {payment.deduction_percentage.toFixed(1)}%
                               </div>
                             </TableCell>
@@ -924,7 +1138,7 @@ export default function SalaryManagement() {
             <Card>
               <CardHeader>
                 <CardTitle>Employee Directory</CardTitle>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm text-gray-600">
                   Manage employee information and salary details
                 </p>
               </CardHeader>
@@ -939,8 +1153,8 @@ export default function SalaryManagement() {
                               <User className="w-5 h-5 text-primary" />
                             </div>
                             <div>
-                              <h3 className="font-semibold">{employee.name}</h3>
-                              <p className="text-sm text-muted-foreground">{employee.designation}</p>
+                              <h3 className="font-semibold text-gray-900">{employee.name}</h3>
+                              <p className="text-sm text-gray-700">{employee.designation}</p>
                             </div>
                           </div>
                           <div className="flex gap-1">
@@ -948,6 +1162,7 @@ export default function SalaryManagement() {
                               variant="ghost"
                               size="sm"
                               onClick={() => setShowEmployeeDetails(employee.id)}
+                              className="text-gray-700 hover:text-gray-900 [&_svg]:text-gray-700"
                             >
                               <Eye className="w-4 h-4" />
                             </Button>
@@ -955,6 +1170,7 @@ export default function SalaryManagement() {
                               variant="ghost"
                               size="sm"
                               onClick={() => setEmployeeSalary(employee.id)}
+                              className="text-gray-700 hover:text-gray-900 [&_svg]:text-gray-700"
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
@@ -962,38 +1178,38 @@ export default function SalaryManagement() {
                         </div>
                         
                         <div className="mt-4 space-y-2">
-                          <div className="flex items-center text-sm text-muted-foreground">
-                            <Mail className="w-4 h-4 mr-2" />
+                          <div className="flex items-center text-sm text-gray-900">
+                            <Mail className="w-4 h-4 mr-2 text-gray-600" />
                             {employee.email}
                           </div>
-                          <div className="flex items-center text-sm text-muted-foreground">
-                            <Briefcase className="w-4 h-4 mr-2" />
+                          <div className="flex items-center text-sm text-gray-900">
+                            <Briefcase className="w-4 h-4 mr-2 text-gray-600" />
                             {employee.team}
                           </div>
-                          <div className="flex items-center text-sm text-muted-foreground">
-                            <DollarSign className="w-4 h-4 mr-2" />
+                          <div className="flex items-center text-sm text-gray-900">
+                            <DollarSign className="w-4 h-4 mr-2 text-gray-600" />
                             {employee.base_salary > 0 ? formatCurrency(employee.base_salary) : 'No salary set'}
                           </div>
-                          <div className="flex items-center text-sm text-muted-foreground">
-                            <Clock className="w-4 h-4 mr-2" />
+                          <div className="flex items-center text-sm text-gray-900">
+                            <Clock className="w-4 h-4 mr-2 text-gray-600" />
                             Joined {new Date(employee.joined_on_date).toLocaleDateString()}
                           </div>
                         </div>
 
                         <div className="mt-3 flex items-center justify-between">
-                          <Badge variant={employee.is_active ? "default" : "secondary"}>
+                          <Badge variant={employee.is_active ? "default" : "secondary"} className={employee.is_active ? "bg-red-600 text-white border-0" : "bg-gray-100 text-gray-800 border-0"}>
                             {employee.is_active ? "Active" : "Inactive"}
                           </Badge>
                           <div className="flex gap-1">
-                            <Badge variant="outline">
+                            <Badge variant="outline" className="bg-white text-gray-900 border-gray-300">
                               {employee.employee_category}
                             </Badge>
                             {employee.base_salary > 0 ? (
-                              <Badge variant="default" className="bg-green-100 text-green-800">
+                              <Badge variant="default" className="bg-green-100 text-green-800 border-0">
                                 Salary Set
                               </Badge>
                             ) : (
-                              <Badge variant="destructive">
+                              <Badge variant="destructive" className="bg-red-600 text-white border-0">
                                 No Salary
                               </Badge>
                             )}
@@ -1035,7 +1251,7 @@ export default function SalaryManagement() {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-muted-foreground">No analytics data available</p>
+                    <p className="text-gray-600">No analytics data available</p>
                   )}
                 </CardContent>
               </Card>
@@ -1061,7 +1277,7 @@ export default function SalaryManagement() {
                       </div>
                     </div>
                   ) : (
-                    <p className="text-muted-foreground">No analytics data available</p>
+                    <p className="text-gray-600">No analytics data available</p>
                   )}
                 </CardContent>
               </Card>
@@ -1074,8 +1290,9 @@ export default function SalaryManagement() {
           setShowAddSalary(open);
           if (!open) {
             setSelectedEmployeeForSalary(null);
+            setOriginalSalaryData(null);
             setNewSalary({
-              user_id: '',
+              profile_id: '',
               base_salary: '',
               effective_from: new Date().toISOString().slice(0, 10),
               currency: 'INR',
@@ -1090,9 +1307,69 @@ export default function SalaryManagement() {
             <div className="space-y-4">
               <div>
                 <Label htmlFor="user_id">Employee</Label>
-                <Select 
-                  value={selectedEmployeeForSalary || newSalary.user_id} 
-                  onValueChange={(value) => setNewSalary({...newSalary, user_id: value})}
+                <Select
+                  value={selectedEmployeeForSalary || newSalary.profile_id} 
+                  onValueChange={async (value) => {
+                    setNewSalary(prev => ({ ...prev, profile_id: value }));
+                    
+                    // Fetch existing salary when employee is selected
+                    const employee = employees.find(emp => emp.id === value);
+                    if (employee && employee.user_id) {
+                      try {
+                        const { data: existingSalary, error } = await supabase
+                          .from('employee_salaries')
+                          .select('base_salary, effective_from, currency, salary_frequency')
+                          .eq('user_id', employee.user_id)
+                          .eq('is_active', true)
+                          .order('effective_from', { ascending: false })
+                          .limit(1)
+                          .maybeSingle();
+
+                        if (error && error.code !== 'PGRST116') {
+                          console.warn('Error fetching existing salary:', error);
+                          return;
+                        }
+
+                        if (existingSalary) {
+                          // Store original salary data
+                          const { data: salaryRecord } = await supabase
+                            .from('employee_salaries')
+                            .select('id, effective_from')
+                            .eq('user_id', employee.user_id)
+                            .eq('is_active', true)
+                            .order('effective_from', { ascending: false })
+                            .limit(1)
+                            .maybeSingle();
+                          
+                          setOriginalSalaryData({
+                            effective_from: existingSalary.effective_from,
+                            salary_id: salaryRecord?.id
+                          });
+                          
+                          setNewSalary(prev => ({
+                            ...prev,
+                            profile_id: value,
+                            base_salary: existingSalary.base_salary.toString(),
+                            effective_from: existingSalary.effective_from,
+                            currency: existingSalary.currency || 'INR',
+                            salary_frequency: existingSalary.salary_frequency || 'monthly'
+                          }));
+                        } else {
+                          setOriginalSalaryData(null);
+                          setNewSalary(prev => ({
+                            ...prev,
+                            profile_id: value,
+                            base_salary: '',
+                            effective_from: new Date().toISOString().slice(0, 10),
+                            currency: 'INR',
+                            salary_frequency: 'monthly'
+                          }));
+                        }
+                      } catch (err) {
+                        console.error('Error loading existing salary:', err);
+                      }
+                    }
+                  }}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select employee" />
@@ -1129,8 +1406,8 @@ export default function SalaryManagement() {
               </div>
               
               <div className="flex gap-2">
-                <Button onClick={addEmployeeSalary} className="flex-1">
-                  Add Salary
+                <Button onClick={addEmployeeSalary} className="flex-1 bg-red-600 hover:bg-red-700 text-white">
+                  {newSalary.base_salary ? 'Update Salary' : 'Add Salary'}
                 </Button>
                 <Button variant="outline" onClick={() => setShowAddSalary(false)} className="flex-1">
                   Cancel
@@ -1144,15 +1421,15 @@ export default function SalaryManagement() {
         <Dialog open={showGenerateDialog} onOpenChange={setShowGenerateDialog}>
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Generate Salary Payments - {selectedMonth}</DialogTitle>
-              <p className="text-sm text-muted-foreground">
+              <DialogTitle className="text-gray-900">Generate Salary Payments - {selectedMonth}</DialogTitle>
+              <p className="text-sm text-gray-600">
                 Select employees and configure manual advances and leave deductions
               </p>
             </DialogHeader>
             <div className="space-y-6">
               {/* Employee Selection */}
               <div>
-                <Label className="text-base font-medium">Select Employees</Label>
+                <Label className="text-base font-medium text-gray-900">Select Employees</Label>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
                   {employees.map((employee) => (
                     <Card key={employee.id} className={`cursor-pointer transition-colors ${
@@ -1178,13 +1455,13 @@ export default function SalaryManagement() {
                               <User className="w-4 h-4 text-primary" />
                             </div>
                             <div>
-                              <h4 className="font-medium">{employee.name}</h4>
-                              <p className="text-sm text-muted-foreground">{employee.designation}</p>
+                              <h4 className="font-medium text-gray-900">{employee.name}</h4>
+                              <p className="text-sm text-gray-600">{employee.designation}</p>
                             </div>
                           </div>
                           <div className="text-right">
                             <p className="font-medium">{formatCurrency(employee.base_salary)}</p>
-                            <p className="text-xs text-muted-foreground">Base Salary</p>
+                            <p className="text-xs text-gray-600">Base Salary</p>
                           </div>
                         </div>
                       </CardContent>
@@ -1196,8 +1473,8 @@ export default function SalaryManagement() {
               {/* Unpaid Leave Deduction Percentage */}
               {generateData.selectedEmployees.length > 0 && (
                 <div>
-                  <Label className="text-base font-medium">Unpaid Leave Deduction Settings</Label>
-                  <p className="text-sm text-muted-foreground mb-4">
+                  <Label className="text-base font-medium text-gray-900">Unpaid Leave Deduction Settings</Label>
+                  <p className="text-sm text-gray-600 mb-4">
                     Set the percentage of salary to deduct for unpaid leave days
                   </p>
                   <div className="max-w-md">
@@ -1215,8 +1492,8 @@ export default function SalaryManagement() {
                         }))}
                         className="w-24"
                       />
-                      <span className="text-sm text-muted-foreground">%</span>
-                      <span className="text-sm text-muted-foreground">
+                      <span className="text-sm text-gray-600">%</span>
+                      <span className="text-sm text-gray-600">
                         (e.g., 100% = full day's salary deducted for unpaid leave)
                       </span>
                     </div>
@@ -1229,8 +1506,8 @@ export default function SalaryManagement() {
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <Label className="text-base font-medium">Manual Advances</Label>
-                      <p className="text-sm text-muted-foreground">
+                      <Label className="text-base font-medium text-gray-900">Manual Advances</Label>
+                      <p className="text-sm text-gray-600">
                         Enter any manual advances given to employees this month
                       </p>
                     </div>
@@ -1257,8 +1534,8 @@ export default function SalaryManagement() {
                                   <User className="w-4 h-4 text-primary" />
                                 </div>
                                 <div>
-                                  <h4 className="font-medium">{employee.name}</h4>
-                                  <p className="text-sm text-muted-foreground">{employee.designation}</p>
+                                  <h4 className="font-medium text-gray-900">{employee.name}</h4>
+                                  <p className="text-sm text-gray-600">{employee.designation}</p>
                                 </div>
                               </div>
                               <Button
@@ -1317,8 +1594,8 @@ export default function SalaryManagement() {
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <Label className="text-base font-medium">Leave Deductions Preview</Label>
-                      <p className="text-sm text-muted-foreground">
+                      <Label className="text-base font-medium text-gray-900">Leave Deductions Preview</Label>
+                      <p className="text-sm text-gray-600">
                         Calculated deductions based on employee work days and unpaid leave days
                       </p>
                     </div>
@@ -1355,14 +1632,14 @@ export default function SalaryManagement() {
                             <div className="space-y-3">
                               <div className="flex items-center justify-between">
                                 <div>
-                                  <h4 className="font-medium">{employee.name}</h4>
-                                  <p className="text-sm text-muted-foreground">{employee.designation}</p>
+                                  <h4 className="font-medium text-gray-900">{employee.name}</h4>
+                                  <p className="text-sm text-gray-600">{employee.designation}</p>
                                 </div>
                                 <div className="text-right">
                                   <p className="font-medium text-red-600 text-lg">
                                     Net: {formatCurrency(netSalary)}
                                   </p>
-                                  <p className="text-xs text-muted-foreground">
+                                  <p className="text-xs text-gray-600">
                                     {((totalDeductions / employee.base_salary) * 100).toFixed(1)}% total deduction
                                   </p>
                                 </div>
@@ -1370,19 +1647,19 @@ export default function SalaryManagement() {
                               
                               <div className="grid grid-cols-2 gap-2 text-sm">
                                 <div>
-                                  <p className="text-muted-foreground">Base Salary:</p>
+                                  <p className="text-gray-600">Base Salary:</p>
                                   <p className="font-medium">{formatCurrency(employee.base_salary)}</p>
                                 </div>
                                 <div>
-                                  <p className="text-muted-foreground">Daily Rate:</p>
+                                  <p className="text-gray-600">Daily Rate:</p>
                                   <p className="font-medium">{formatCurrency(dailyRate)}</p>
                                 </div>
                                 <div>
-                                  <p className="text-muted-foreground">Advance:</p>
+                                  <p className="text-gray-600">Advance:</p>
                                   <p className="font-medium text-orange-600">{formatCurrency(advanceAmount)}</p>
                                 </div>
                                 <div>
-                                  <p className="text-muted-foreground">Leave Deduction:</p>
+                                  <p className="text-gray-600">Leave Deduction:</p>
                                   <p className="font-medium text-red-600">{formatCurrency(leaveDeduction)}</p>
                                 </div>
                               </div>
@@ -1398,7 +1675,7 @@ export default function SalaryManagement() {
                                         <Button
                                           size="sm"
                                           variant="ghost"
-                                          className="h-6 text-xs text-muted-foreground"
+                                          className="h-6 text-xs text-gray-600"
                                           onClick={() => setGenerateData(prev => {
                                             const newManualUnpaidDays = { ...prev.manualUnpaidDays };
                                             delete newManualUnpaidDays[employeeId];
@@ -1428,7 +1705,7 @@ export default function SalaryManagement() {
                                         }))}
                                         className="max-w-[120px]"
                                       />
-                                      <span className="text-xs text-muted-foreground">
+                                      <span className="text-xs text-gray-600">
                                         (Original: {originalUnpaidDays})
                                       </span>
                                     </div>
@@ -1492,9 +1769,9 @@ export default function SalaryManagement() {
                       <User className="w-8 h-8 text-primary" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-semibold">{employee.name}</h3>
-                      <p className="text-muted-foreground">{employee.designation}</p>
-                      <Badge variant={employee.is_active ? "default" : "secondary"}>
+                      <h3 className="text-xl font-semibold text-gray-900">{employee.name}</h3>
+                      <p className="text-gray-700">{employee.designation}</p>
+                      <Badge variant={employee.is_active ? "default" : "secondary"} className={employee.is_active ? "bg-red-600 text-white border-0 mt-2" : "bg-gray-100 text-gray-800 border-0 mt-2"}>
                         {employee.is_active ? "Active" : "Inactive"}
                       </Badge>
                     </div>
@@ -1502,28 +1779,36 @@ export default function SalaryManagement() {
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label className="text-sm font-medium">Email</Label>
-                      <p className="text-sm text-muted-foreground">{employee.email}</p>
+                      <Label className="text-sm font-medium text-gray-900">Email</Label>
+                      <p className="text-sm text-gray-900">{employee.email}</p>
                     </div>
                     <div>
-                      <Label className="text-sm font-medium">Phone</Label>
-                      <p className="text-sm text-muted-foreground">{employee.phone || 'N/A'}</p>
+                      <Label className="text-sm font-medium text-gray-900">Phone</Label>
+                      <p className="text-sm text-gray-900">{employee.phone || 'N/A'}</p>
                     </div>
                     <div>
-                      <Label className="text-sm font-medium">Team</Label>
-                      <p className="text-sm text-muted-foreground">{employee.team || 'N/A'}</p>
+                      <Label className="text-sm font-medium text-gray-900">Team</Label>
+                      <p className="text-sm text-gray-900">{employee.team || 'N/A'}</p>
                     </div>
                     <div>
-                      <Label className="text-sm font-medium">Category</Label>
-                      <p className="text-sm text-muted-foreground">{employee.employee_category}</p>
+                      <Label className="text-sm font-medium text-gray-900">Category</Label>
+                      <p className="text-sm text-gray-900">{employee.employee_category}</p>
                     </div>
                     <div>
-                      <Label className="text-sm font-medium">Base Salary</Label>
-                      <p className="text-sm font-medium">{formatCurrency(employee.base_salary)}</p>
+                      <Label className="text-sm font-medium text-gray-900">Base Salary</Label>
+                      <p className="text-sm font-semibold text-gray-900">{formatCurrency(employee.base_salary)}</p>
                     </div>
                     <div>
-                      <Label className="text-sm font-medium">Joined Date</Label>
-                      <p className="text-sm text-muted-foreground">
+                      <Label className="text-sm font-medium text-gray-900">Effective From</Label>
+                      <p className="text-sm text-gray-900">
+                        {employee.salary_effective_from 
+                          ? new Date(employee.salary_effective_from).toLocaleDateString()
+                          : 'N/A'}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium text-gray-900">Joined Date</Label>
+                      <p className="text-sm text-gray-900">
                         {new Date(employee.joined_on_date).toLocaleDateString()}
                       </p>
                     </div>
@@ -1531,8 +1816,8 @@ export default function SalaryManagement() {
                   
                   {employee.address && (
                     <div>
-                      <Label className="text-sm font-medium">Address</Label>
-                      <p className="text-sm text-muted-foreground">{employee.address}</p>
+                      <Label className="text-sm font-medium text-gray-900">Address</Label>
+                      <p className="text-sm text-gray-900">{employee.address}</p>
                     </div>
                   )}
                 </div>
@@ -1551,7 +1836,7 @@ export default function SalaryManagement() {
                   : 'Employee Notes - ' + (employees.find(emp => emp.id === showEmployeeNotes)?.name || 'Employee')
                 }
               </DialogTitle>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-gray-600">
                 View and manage employee notes related to salary advances
               </p>
             </DialogHeader>
@@ -1572,8 +1857,8 @@ export default function SalaryManagement() {
                                 <User className="w-4 h-4 text-primary" />
                               </div>
                               <div>
-                                <h4 className="font-medium">{employee.name}</h4>
-                                <p className="text-sm text-muted-foreground">{employee.designation}</p>
+                                <h4 className="font-medium text-gray-900">{employee.name}</h4>
+                                <p className="text-sm text-gray-600">{employee.designation}</p>
                               </div>
                             </div>
                             <div className="space-y-2">
@@ -1612,7 +1897,7 @@ export default function SalaryManagement() {
                       <h3 className="font-semibold">
                         {employees.find(emp => emp.id === showEmployeeNotes)?.name}
                       </h3>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-gray-600">
                         {employees.find(emp => emp.id === showEmployeeNotes)?.designation}
                       </p>
                     </div>
@@ -1622,8 +1907,8 @@ export default function SalaryManagement() {
                     <div>
                       <div className="flex items-center justify-between mb-4">
                         <div>
-                          <Label className="text-base font-medium">Salary Advance Notes</Label>
-                          <p className="text-sm text-muted-foreground">
+                          <Label className="text-base font-medium text-gray-900">Salary Advance Notes</Label>
+                          <p className="text-sm text-gray-600">
                             Notes related to salary advances for this employee
                           </p>
                         </div>
@@ -1664,7 +1949,7 @@ export default function SalaryManagement() {
                                     <div className="flex items-center justify-between">
                                       <div>
                                         <p className="font-medium">{note.title}</p>
-                                        <p className="text-sm text-muted-foreground">
+                                        <p className="text-sm text-gray-600">
                                           {new Date(note.note_date).toLocaleDateString()}
                                           {note.note_time && ` at ${note.note_time}`}
                                         </p>
@@ -1681,7 +1966,7 @@ export default function SalaryManagement() {
                                 </Card>
                               ))
                           ) : (
-                            <div className="text-center p-4 text-muted-foreground">
+                            <div className="text-center p-4 text-gray-600">
                               No salary advance notes found for this employee
                             </div>
                           )}
@@ -1923,15 +2208,15 @@ export default function SalaryManagement() {
             <div className="space-y-4">
               {deleteConfirmDialog && (
                 <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-gray-600">
                     Are you sure you want to delete the salary payment for:
                   </p>
                   <div className="p-4 bg-gray-50 rounded-lg space-y-1">
                     <p className="font-medium">{deleteConfirmDialog.employee_name}</p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-gray-600">
                       Payment Month: {deleteConfirmDialog.payment_month}
                     </p>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm text-gray-600">
                       Net Salary: {formatCurrency(deleteConfirmDialog.net_salary)}
                     </p>
                   </div>

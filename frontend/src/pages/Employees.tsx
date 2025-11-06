@@ -350,9 +350,9 @@ export default function Employees() {
           {employees.map((employee) => (
             <Card key={employee.id} className="hover:shadow-md transition-shadow">
               <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center space-x-3">
-                    <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center space-x-3 min-w-0 flex-1">
+                    <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                       <User className="h-6 w-6 text-primary" />
                     </div>
                     <div className="min-w-0 flex-1">

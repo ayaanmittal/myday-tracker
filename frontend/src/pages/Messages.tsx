@@ -408,7 +408,7 @@ export default function Messages() {
                 <Button
                   variant="default"
                   size="sm"
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                  className="bg-blue-600 hover:bg-blue-700 text-white [&_svg]:text-white"
                   onClick={() => {
                     setShowUsers(!showUsers);
                     if (showUsers) {

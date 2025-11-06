@@ -184,29 +184,39 @@ DECLARE
   v_unpaid_days INTEGER := 0;
   v_leave_deduction NUMERIC(12,2);
   v_net_salary NUMERIC(12,2);
+  v_salary_effective_from DATE;
+  v_employee_name TEXT;
 BEGIN
   -- Get month boundaries
   v_month_start := p_payment_month;
   v_month_end := p_payment_month + INTERVAL '1 month' - INTERVAL '1 day';
   
-  -- Get employee details and base salary
+  -- Get employee details and base salary with effective_from date
   SELECT 
     p.name,
-    es.base_salary
+    es.base_salary,
+    es.effective_from
   INTO 
-    employee_name,
-    v_base_salary
+    v_employee_name,
+    v_base_salary,
+    v_salary_effective_from
   FROM public.profiles p
   JOIN public.employee_salaries es ON es.user_id = p.user_id
   WHERE p.user_id = p_user_id
     AND es.is_active = true
-    AND es.effective_from <= p_payment_month
-    AND (es.effective_to IS NULL OR es.effective_to >= p_payment_month)
+    AND es.effective_from <= v_month_end
+    AND (es.effective_to IS NULL OR es.effective_to >= v_month_start)
   ORDER BY es.effective_from DESC
   LIMIT 1;
   
-  IF employee_name IS NULL OR v_base_salary IS NULL THEN
+  IF v_employee_name IS NULL OR v_base_salary IS NULL THEN
     RETURN;
+  END IF;
+  
+  -- Adjust month_start to salary effective_from date if it's later
+  -- This ensures we only count unpaid days from when the salary became effective
+  IF v_salary_effective_from > v_month_start THEN
+    v_month_start := v_salary_effective_from;
   END IF;
   
   -- Get employee work days configuration with proper fallback
@@ -257,6 +267,7 @@ BEGIN
   v_daily_rate := v_base_salary / v_work_days_in_month;
   
   -- Count unpaid leave days from attendance
+  -- Only count days from salary effective_from date onwards
   SELECT COUNT(*) INTO v_unpaid_days
   FROM public.unified_attendance
   WHERE user_id = p_user_id

@@ -888,7 +888,7 @@ export default function Today() {
                       </Button>
                     )}
                     {entry.check_in_at && !entry.check_out_at && (
-                      <Button onClick={entry.lunch_break_start && !entry.lunch_break_end ? handleLunchBreakEnd : handleLunchBreakStart} className="bg-blue-600 hover:bg-blue-700 text-white">
+                      <Button onClick={entry.lunch_break_start && !entry.lunch_break_end ? handleLunchBreakEnd : handleLunchBreakStart} className="bg-blue-600 hover:bg-blue-700 text-white [&_svg]:text-white">
                         <Clock className="mr-2 h-4 w-4" />
                         {entry.lunch_break_start && !entry.lunch_break_end ? 'End Lunch' : 'Start Lunch'}
                       </Button>
@@ -1101,7 +1101,7 @@ export default function Today() {
                     </Button>
                   )}
                   {entry.check_in_at && !entry.check_out_at && (
-                    <Button onClick={entry.lunch_break_start && !entry.lunch_break_end ? handleLunchBreakEnd : handleLunchBreakStart} className="bg-blue-600 hover:bg-blue-700 text-white">
+                    <Button onClick={entry.lunch_break_start && !entry.lunch_break_end ? handleLunchBreakEnd : handleLunchBreakStart} className="bg-blue-600 hover:bg-blue-700 text-white [&_svg]:text-white">
                       <Clock className="mr-2 h-4 w-4" />
                       {entry.lunch_break_start && !entry.lunch_break_end ? 'End Lunch' : 'Start Lunch'}
                     </Button>

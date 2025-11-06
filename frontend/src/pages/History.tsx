@@ -1068,7 +1068,7 @@ export default function History() {
                   variant="outline"
                   onClick={() => fetchHistory(true)}
                   disabled={loading}
-                  className="w-full sm:w-auto"
+                  className="w-full sm:w-auto text-white hover:text-white border-gray-300 hover:border-gray-400 bg-gray-800 hover:bg-gray-700 [&_svg]:text-white"
                 >
                   {loading ? 'Loading...' : 'Fetch All Records'}
                 </Button>
@@ -1078,7 +1078,7 @@ export default function History() {
                       variant="default"
                       onClick={handlePrintPDF}
                       disabled={loading}
-                      className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+                      className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white [&_svg]:text-white"
                     >
                       <Printer className="h-4 w-4 mr-2" />
                       Print PDF
@@ -1087,7 +1087,7 @@ export default function History() {
                       variant="default"
                       onClick={handlePrintProgressReport}
                       disabled={loading}
-                      className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700"
+                      className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white [&_svg]:text-white"
                     >
                       <Printer className="h-4 w-4 mr-2" />
                       Print Progress Report

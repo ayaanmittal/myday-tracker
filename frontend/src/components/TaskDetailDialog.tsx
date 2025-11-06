@@ -1108,16 +1108,16 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
           {/* Left: main content */}
           <div className="p-6 overflow-y-auto">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">{task.title}</h2>
-              <Badge className="text-xs capitalize">{(task.status || '').replace('_',' ') || 'in progress'}</Badge>
+              <h2 className="text-lg font-semibold text-gray-900">{task.title}</h2>
+              <Badge className="text-xs capitalize">{task.status || 'in progress'}</Badge>
             </div>
             <div className="mt-3 flex items-center gap-3 text-sm">
-              <div className="text-muted-foreground">Created • {new Date(task.created_at).toLocaleString()}</div>
+              <div className="text-gray-600">Created • {new Date(task.created_at).toLocaleString()}</div>
               {task.status === 'completed' && task.completed_at && (
-                <div className="text-muted-foreground">Completed • {new Date(task.completed_at).toLocaleString()}</div>
+                <div className="text-gray-600">Completed • {new Date(task.completed_at).toLocaleString()}</div>
               )}
               {task.assigned_user && (
-                <div className="flex items-center gap-1 text-muted-foreground">
+                <div className="flex items-center gap-1 text-gray-600">
                   <User className="h-3 w-3" />
                   <span>Assigned to {task.assigned_user.name || task.assigned_user.email}</span>
                 </div>
@@ -1128,11 +1128,12 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                   variant={runningTimer ? "destructive" : "default"}
                   onClick={() => void toggleTimer()} 
                   disabled={!user}
+                  className="bg-red-600 hover:bg-red-700 text-white [&_svg]:text-white"
                 >
                   {runningTimer ? '⏹️ Stop Timer' : '⏵️ Start Timer'}
                 </Button>
                 {runningTimer && (
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-xs text-gray-600">
                     Running since {new Date(runningTimer.start_time).toLocaleTimeString()}
                   </div>
                 )}
@@ -1140,17 +1141,17 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
             </div>
             <hr className="my-4" />
             <div className="mb-6">
-              <h3 className="text-sm font-semibold mb-2">Description</h3>
-              <div className="text-sm text-muted-foreground whitespace-pre-wrap">{task.description || 'No description for this task'}</div>
+              <h3 className="text-sm font-semibold mb-2 text-gray-900">Description</h3>
+              <div className="text-sm text-gray-700 whitespace-pre-wrap">{task.description || 'No description for this task'}</div>
             </div>
             <div className="mb-6">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold">Checklist Items</h3>
-                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => void addChecklistItem()}>+</Button>
+                <h3 className="text-sm font-semibold text-gray-900">Checklist Items</h3>
+                <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-700 hover:text-gray-900 [&_svg]:text-gray-700" onClick={() => void addChecklistItem()}>+</Button>
               </div>
               <div className="mt-2 max-h-48 overflow-y-auto space-y-2 pr-2">
                 {checklist.length === 0 && (
-                  <div className="text-sm text-muted-foreground">Checklist items not found for this task</div>
+                  <div className="text-sm text-gray-600">Checklist items not found for this task</div>
                 )}
                 {checklist.map((item, i) => (
                   <div key={item.id} className="flex items-center gap-2 text-sm">
@@ -1172,7 +1173,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                         />
                       ) : (
                         <span 
-                          className={`cursor-pointer hover:bg-gray-50 px-1 py-0.5 rounded ${item.is_done ? 'line-through text-muted-foreground' : ''}`}
+                          className={`cursor-pointer hover:bg-gray-50 px-1 py-0.5 rounded ${item.is_done ? 'line-through text-gray-600' : 'text-gray-900'}`}
                           onClick={() => startEditingChecklistItem(item)}
                         >
                           {item.content}
@@ -1183,7 +1184,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                       <Button 
                         size="icon" 
                         variant="ghost" 
-                        className="h-6 w-6 p-0" 
+                        className="h-6 w-6 p-0 text-gray-700 hover:text-gray-900 [&_svg]:text-gray-700" 
                         onClick={() => void moveChecklist(item, 'up')} 
                         disabled={i === 0}
                       >
@@ -1192,7 +1193,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                       <Button 
                         size="icon" 
                         variant="ghost" 
-                        className="h-6 w-6 p-0" 
+                        className="h-6 w-6 p-0 text-gray-700 hover:text-gray-900 [&_svg]:text-gray-700" 
                         onClick={() => void moveChecklist(item, 'down')} 
                         disabled={i === checklist.length - 1}
                       >
@@ -1212,7 +1213,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
               </div>
             </div>
             <div className="mb-6">
-              <h3 className="text-sm font-semibold mb-2">Attachments</h3>
+              <h3 className="text-sm font-semibold mb-2 text-gray-900">Attachments</h3>
               <div className="space-y-3">
                 {attachments.length > 0 && (
                   <div className="max-h-64 overflow-y-auto space-y-3 pr-2">
@@ -1223,7 +1224,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                       }, {})
                     ).map(([uploaderId, items]) => (
                       <div key={uploaderId} className="space-y-2">
-                        <div className="text-xs font-medium text-muted-foreground">
+                        <div className="text-xs font-medium text-gray-600">
                           Uploaded by: {getUserLabelById(uploaderId)}
                         </div>
                         {items.map(a => (
@@ -1233,8 +1234,8 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                                 <Paperclip className="h-4 w-4 text-blue-600" />
                               </div>
                               <div>
-                                <div className="text-sm font-medium break-all">{a.file_name}</div>
-                                <div className="text-xs text-muted-foreground">
+                                <div className="text-sm font-medium break-all text-gray-900">{a.file_name}</div>
+                                <div className="text-xs text-gray-600">
                                   {(a.size_bytes / 1024).toFixed(1)} KB · {new Date(a.created_at).toLocaleString()}
                                 </div>
                               </div>
@@ -1269,7 +1270,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                   />
                   <label
                     htmlFor="file-upload" 
-                    className="flex-1 cursor-pointer border border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50"
+                    className="flex-1 cursor-pointer border border-dashed border-gray-300 rounded-lg p-4 text-center hover:bg-gray-50 text-gray-700"
                   >
                     {uploading ? 'Uploading…' : 'Click to upload files or drag and drop'}
                   </label>
@@ -1278,6 +1279,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                       type="button" 
                       variant="outline" 
                       onClick={() => void downloadAllAsZip()} 
+                      className="text-gray-700 hover:text-gray-900 border-gray-300 [&_svg]:text-gray-700"
                     >
                       Download all as ZIP
                     </Button>
@@ -1288,24 +1290,24 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
             <hr className="my-4" />
             <div>
               <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-semibold">Comments & Discussion</h3>
+                <h3 className="text-sm font-semibold text-gray-900">Comments & Discussion</h3>
                 <Button 
                   size="sm" 
                   variant="outline" 
                   onClick={() => void loadComments()}
                   disabled={loadingComments}
-                  className="text-xs"
+                  className="text-xs text-gray-700 hover:text-gray-900 border-gray-300 [&_svg]:text-gray-700"
                 >
                   {loadingComments ? 'Loading...' : 'Refresh'}
                 </Button>
               </div>
               <div className="space-y-3 max-h-80 overflow-y-auto border rounded-lg p-4 bg-gray-50 pr-2">
                 {loadingComments ? (
-                  <div className="text-sm text-muted-foreground text-center py-4">
+                  <div className="text-sm text-gray-600 text-center py-4">
                     Loading comments...
                   </div>
                 ) : comments.length === 0 ? (
-                  <div className="text-sm text-muted-foreground text-center py-4">
+                  <div className="text-sm text-gray-600 text-center py-4">
                     No comments yet. Start the discussion!
                   </div>
                 ) : (
@@ -1368,7 +1370,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                   <div className="flex items-center justify-between mt-3">
                     <div className="flex items-center gap-2">
                       <select 
-                        className="border rounded px-3 py-1 text-sm" 
+                        className="border border-gray-300 rounded px-3 py-1 text-sm text-gray-900 bg-white" 
                         value={commentAssignee} 
                         onChange={(e) => setCommentAssignee(e.target.value)}
                       >
@@ -1399,12 +1401,13 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                       onClick={() => void addComment()} 
                       disabled={!newComment.trim() || uploading}
                       size="sm"
+                      className="bg-red-600 hover:bg-red-700 text-white [&_svg]:text-white"
                     >
                       {uploading ? 'Posting...' : 'Post Comment'}
                     </Button>
                   </div>
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs text-gray-600">
                   Press Enter to post, Shift+Enter for new line
                 </div>
               </div>
@@ -1412,11 +1415,11 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
           </div>
 
           {/* Right: sidebar */}
-          <div className="border-l p-6 bg-background/50 overflow-y-auto">
-            <h4 className="text-sm font-semibold mb-1">Task Info</h4>
+          <div className="border-l border-gray-200 p-6 bg-white overflow-y-auto">
+            <h4 className="text-sm font-semibold mb-1 text-gray-900">Task Info</h4>
             <div className="space-y-2 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Status:</span>
+                <span className="text-gray-600">Status:</span>
                 {canManageTask ? (
                   <Select value={task.status} onValueChange={(v) => void updateTaskStatus(v as any)}>
                     <SelectTrigger className="w-40">
@@ -1430,12 +1433,12 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                     </SelectContent>
                   </Select>
                 ) : (
-                  <span className="capitalize">{(task.status || '').replace('_',' ')}</span>
+                  <span className="capitalize text-gray-900">{(task.status || '').replace('_',' ')}</span>
                 )}
               </div>
-              <div className="flex items-center justify-between"><span className="text-muted-foreground">Start Date:</span> <span>{task.created_at ? new Date(task.created_at).toLocaleDateString() : '-'}</span></div>
+              <div className="flex items-center justify-between"><span className="text-gray-700">Start Date:</span> <span className="text-gray-900">{task.created_at ? new Date(task.created_at).toLocaleDateString() : '-'}</span></div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Priority:</span>
+                <span className="text-gray-600">Priority:</span>
                 {canManageTask ? (
                   <Select value={task.priority || 'medium'} onValueChange={(v) => void updateTaskPriority(v as any)}>
                     <SelectTrigger className="w-32">
@@ -1449,18 +1452,18 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                     </SelectContent>
                   </Select>
                 ) : (
-                  <span className="capitalize">{task.priority || 'medium'}</span>
+                  <span className="capitalize text-gray-900">{task.priority || 'medium'}</span>
                 )}
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Due Date:</span>
+                <span className="text-gray-600">Due Date:</span>
                 {canManageTask ? (
                   <div className="flex items-center gap-2">
                     <Input
                       type="date"
                       value={task.due_date ? task.due_date.split('T')[0] : ''}
                       onChange={(e) => void updateTaskDueDate(e.target.value || null)}
-                      className="w-32 h-8 text-xs"
+                      className="w-32 h-8 text-xs text-gray-900"
                     />
                     {task.due_date && (
                       <Button
@@ -1474,24 +1477,24 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                     )}
                   </div>
                 ) : (
-                  <span>{task.due_date ? new Date(task.due_date).toLocaleDateString() : '-'}</span>
+                  <span className="text-gray-900">{task.due_date ? new Date(task.due_date).toLocaleDateString() : '-'}</span>
                 )}
               </div>
-              <div className="flex items-center justify-between"><span className="text-muted-foreground">Your logged time:</span> <span>{formatSeconds(userSeconds)}</span></div>
+              <div className="flex items-center justify-between"><span className="text-gray-700">Your logged time:</span> <span className="text-gray-900 font-medium">{formatSeconds(userSeconds)}</span></div>
             </div>
 
             {/* Reminders */}
             <div className="mt-5">
-              <h4 className="text-sm font-semibold mb-2">Reminders</h4>
+              <h4 className="text-sm font-semibold mb-2 text-gray-900">Reminders</h4>
               <div className="space-y-2">
                 {reminders.length === 0 ? (
-                  <div className="text-xs text-muted-foreground">No reminders for this task</div>
+                  <div className="text-xs text-gray-600">No reminders for this task</div>
                 ) : (
                   reminders.map((reminder) => (
                     <div key={reminder.id} className="flex items-center justify-between text-xs bg-yellow-50 border border-yellow-200 rounded p-2">
                       <div className="flex-1">
-                        <div className="font-medium">{reminder.note}</div>
-                        <div className="text-muted-foreground">
+                        <div className="font-medium text-gray-900">{reminder.note}</div>
+                        <div className="text-gray-600">
                           {new Date(reminder.remind_at).toLocaleString()}
                         </div>
                       </div>
@@ -1526,7 +1529,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                       size="sm"
                       onClick={() => void addReminder()}
                       disabled={!newReminder.trim()}
-                      className="h-8 px-3"
+                      className="h-8 px-3 bg-red-600 hover:bg-red-700 text-white [&_svg]:text-white"
                     >
                       <Plus className="h-3 w-3" />
                     </Button>
@@ -1539,8 +1542,8 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
             {task.assigned_by_user && (
               <div className="mt-5">
                 <div className="flex items-center gap-2 mb-2">
-                  <h4 className="text-sm font-semibold">Assigned By</h4>
-                  <span className="text-xs text-muted-foreground">(Who created this task)</span>
+                  <h4 className="text-sm font-semibold text-gray-900">Assigned By</h4>
+                  <span className="text-xs text-gray-600">(Who created this task)</span>
                 </div>
                 <div className="space-y-2">
                   <div className="text-xs bg-purple-50 border border-purple-200 rounded px-2 py-1 flex items-center gap-2">
@@ -1556,12 +1559,12 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
             {/* Assignees */}
             <div className="mt-5">
               <div className="flex items-center gap-2 mb-2">
-                <h4 className="text-sm font-semibold">Assignees</h4>
-                <span className="text-xs text-muted-foreground">(Who is working on this task)</span>
+                <h4 className="text-sm font-semibold text-gray-900">Assignees</h4>
+                <span className="text-xs text-gray-600">(Who is working on this task)</span>
               </div>
               <div className="space-y-2">
                 {assignees.length === 0 ? (
-                  <div className="text-xs text-muted-foreground">No one assigned to this task</div>
+                  <div className="text-xs text-gray-600">No one assigned to this task</div>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {assignees.map(a => {
@@ -1595,7 +1598,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                 {canManageTask && (
                   <div className="space-y-1">
                     <select 
-                      className="border rounded px-2 py-1 text-xs w-full h-8" 
+                      className="border border-gray-300 rounded px-2 py-1 text-xs w-full h-8 text-gray-900 bg-white" 
                       onChange={(e) => { 
                         const v = e.target.value; 
                         if (v) void addAssignee(v); 
@@ -1611,7 +1614,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                         <option key={u.id} value={u.id}>{u.name || u.email}</option>
                       ))}
                     </select>
-                    <div className="text-xs text-muted-foreground">Assignees can work on and update this task</div>
+                    <div className="text-xs text-gray-600">Assignees can work on and update this task</div>
                   </div>
                 )}
               </div>
@@ -1620,12 +1623,12 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
             {/* Followers */}
             <div className="mt-5">
               <div className="flex items-center gap-2 mb-2">
-                <h4 className="text-sm font-semibold">Followers</h4>
-                <span className="text-xs text-muted-foreground">(Who can track progress)</span>
+                <h4 className="text-sm font-semibold text-gray-900">Followers</h4>
+                <span className="text-xs text-gray-600">(Who can track progress)</span>
               </div>
               <div className="space-y-2">
                 {followers.length === 0 ? (
-                  <div className="text-xs text-muted-foreground">No one following this task</div>
+                  <div className="text-xs text-gray-600">No one following this task</div>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {followers.map(f => (
@@ -1649,7 +1652,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                 {canManageTask && (
                   <div className="space-y-1">
                     <select 
-                      className="border rounded px-2 py-1 text-xs w-full h-8" 
+                      className="border border-gray-300 rounded px-2 py-1 text-xs w-full h-8 text-gray-900 bg-white" 
                       onChange={(e) => { 
                         const v = e.target.value; 
                         if (v) void addFollower(v); 
@@ -1661,7 +1664,7 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
                         <option key={u.id} value={u.id}>{u.name || u.email}</option>
                       ))}
                     </select>
-                    <div className="text-xs text-muted-foreground">Followers can view this task and track its progress</div>
+                    <div className="text-xs text-gray-600">Followers can view this task and track its progress</div>
                   </div>
                 )}
               </div>
@@ -1669,8 +1672,8 @@ export function TaskDetailDialog({ taskId, open, onOpenChange }: TaskDetailDialo
 
             {/* File Upload Dropzone */}
             <div className="mt-6">
-              <div className="border-2 border-dashed rounded p-6 text-center text-sm text-muted-foreground">
-                Drop files here to upload
+              <div className="border-2 border-dashed border-gray-300 rounded p-6 text-center text-sm text-gray-700 bg-gray-50">
+                Click to upload files or drag and drop
               </div>
             </div>
           </div>
@@ -1692,11 +1695,11 @@ function AttachmentLink({ fileName, filePath }: { fileName: string; filePath: st
     void getUrl();
   }, [filePath]);
 
-  if (!url) return <Button size="sm" variant="outline" disabled>Loading...</Button>;
+  if (!url) return <Button size="sm" variant="outline" disabled className="text-gray-600">Loading...</Button>;
   
   return (
-    <Button size="sm" variant="outline" asChild>
-      <a href={url} download={fileName} className="text-blue-600 hover:text-blue-800">
+    <Button size="sm" variant="outline" asChild className="text-gray-700 hover:text-gray-900 border-gray-300 [&_svg]:text-gray-700">
+      <a href={url} download={fileName} className="text-gray-700 hover:text-gray-900">
         Download
       </a>
     </Button>
